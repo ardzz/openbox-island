@@ -29,16 +29,23 @@
   :monitor 0
   :geometry (geometry :x "0px" :y "8px" :width "480px" :height "36px" :anchor "top center")
   :wm-ignore true
-  (eventbox :onhover {media.state == "none" ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
+  (eventbox :onhover {media.state == "none" && !weather.ok ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
     (box :halign "center" :valign "center" :visible {!island_reveal}
       (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/scroll {} &"
       (stack :selected {alert.kind != "" ? 2 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
         (box :class "pill pill-idle" :orientation "h" :halign "center" :space-evenly false :spacing 0
-          (revealer :transition "none" :reveal {weather.ok}
-            (box :orientation "h" :space-evenly false :spacing 6 :tooltip {weather.desc}
-              (label :class "weather-icon" :text {weather.icon})
-              (label :class "weather-temp" :text {weather.temp})))
-          (indicators))
+          (box :orientation "h" :halign "center" :hexpand true :space-evenly false :spacing 0
+            (revealer :transition "none" :reveal {weather.ok}
+              (box :orientation "h" :space-evenly false :spacing 6
+                   :tooltip "${weather.desc}${weather.region != "" ? " · " + weather.region : ""}"
+                (label :class "weather-icon" :text {weather.icon})
+                (label :class "weather-temp" :text {weather.temp})
+                (revealer :transition "none" :reveal {weather.city != ""}
+                  (box :orientation "h" :space-evenly false :spacing 6
+                    (label :class "weather-separator" :text "·")
+                    (label :class "weather-city-small" :text {weather.city}
+                           :limit-width 18 :show-truncated true)))))
+            (indicators)))
         (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
           (cover :size "small")
           (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
@@ -66,6 +73,8 @@
             :onhoverlost "${EWW_CONFIG_DIR}/scripts/island hover &"
     (box :halign "center" :valign "start"
       (revealer :transition "slidedown" :reveal island_reveal :duration "300ms"
+        (box :orientation "v" :space-evenly false
+          (revealer :transition "none" :reveal {media.state != "none"}
         (box :class "pill pill-expanded" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 14
             (cover :size "large")
@@ -84,4 +93,29 @@
             (button :class "ctl" :onclick "playerctl --player=${media.player} previous &" "󰒮")
             (button :class "ctl ctl-main" :onclick "playerctl --player=${media.player} play-pause &"
               {media.state == "playing" ? "󰏤" : "󰐊"})
-            (button :class "ctl" :onclick "playerctl --player=${media.player} next &" "󰒭")))))))
+            (button :class "ctl" :onclick "playerctl --player=${media.player} next &" "󰒭"))))
+          (revealer :transition "none" :reveal {media.state == "none"}
+        (box :class "pill pill-expanded weather-card" :orientation "v" :space-evenly false :spacing 8
+          (box :orientation "h" :space-evenly false :spacing 12
+            (label :class "weather-big-icon" :text {weather.icon})
+            (box :orientation "v" :space-evenly false :valign "center" :spacing 2
+              (label :class "weather-big-temp" :text {weather.temp} :xalign 0)
+              (label :class "weather-desc" :text {weather.desc} :xalign 0))
+            (box :hexpand true)
+            (box :orientation "v" :space-evenly false :halign "end" :valign "center" :spacing 2
+              (label :class "weather-city" :text {weather.city} :xalign 1
+                     :limit-width 24 :show-truncated true :tooltip "Lokasi: © kontributor OpenStreetMap")
+              (label :class "weather-region" :text {weather.region} :xalign 1
+                     :limit-width 28 :show-truncated true)
+              (label :class "weather-sun" :xalign 1
+                     :text "󰖜 ${weather.sunrise}   󰖛 ${weather.sunset}")))
+          (label :class "weather-details" :xalign 0
+                 :text "Terasa ${weather.feels} · Lembap ${weather.humidity} · Angin ${weather.wind} · UV ${weather.uv}")
+          (box :orientation "h" :space-evenly true :spacing 8
+            (for day in {weather.days}
+              (box :orientation "v" :space-evenly false :halign "center" :spacing 2
+                (label :class "forecast-day" :text {day.day})
+                (box :orientation "h" :space-evenly false :halign "center" :spacing 6
+                  (label :class "forecast-icon" :text {day.icon})
+                  (label :class "forecast-temp" :text "${day.max} / ${day.min}"))
+                (label :class "forecast-rain" :text "󰖌 ${day.rain}")))))))))))

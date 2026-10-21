@@ -18,6 +18,16 @@ $muted: mix($fg, $bg, 60%);
 .dot-camera { background-color: $green; }
 .dnd { color: $muted; font-size: 12px; }
 .weather-icon { font-size: 15px; }
+.weather-temp, .forecast-temp { font-size: 13px; }
+.weather-city-small { font-weight: normal; }
+.weather-separator, .weather-desc, .weather-region, .weather-sun, .weather-details, .forecast-day { color: $muted; }
+.weather-big-icon { font-size: 32px; }
+.weather-big-temp { font-size: 22px; font-weight: bold; }
+.weather-city { font-weight: bold; }
+.weather-region, .weather-sun, .weather-details { font-size: 12px; }
+.forecast-day, .forecast-rain { font-size: 11px; }
+.forecast-icon { font-size: 15px; }
+.forecast-rain { color: $blue; }
 
 .cover { background-color: $alt-bg; background-size: cover; background-position: center; }
 .cover-small { min-width: 24px; min-height: 24px; border-radius: 8px; }

@@ -3,7 +3,7 @@
 (deflisten lyrics :initial '{"text":"","synced":false}' "scripts/lyrics.py")
 (deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1}' "scripts/alert")
 (deflisten status :initial '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false}' "scripts/status")
-(deflisten weather :initial '{"ok":false,"icon":"","temp":"","desc":""}' "scripts/weather")
+(deflisten weather :initial '{"ok":false,"icon":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")
 (defvar island_reveal false)
 (defpoll pos :interval "1s" :initial '{"pos":0,"text":"0:00"}' :run-while island_reveal "scripts/position")
 ; Scroll title and artist only while the expanded island is revealed.
