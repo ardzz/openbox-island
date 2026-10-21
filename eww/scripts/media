@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# media: now-playing JSON for the island from the highest-priority MPRIS player (playerctl).
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+ART_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art"
+AUTO_SECONDS=4
+SEP=$'\x1f'
+REC=$'\x1e'
+FORMAT="{{status}}$SEP{{playerInstance}}$SEP{{title}}$SEP{{artist}}$SEP{{mpris:artUrl}}$SEP{{mpris:length}}$REC"
+NONE_JSON='{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}'
+
+# players_list: comma-separated priority list from eww/players.
+players_list() {
+  local list
+  list=$(tr -d '[:space:]' 2>/dev/null < "${DIR%/scripts}/players")
+  printf '%s\n' "${list:-ytermusic,edge,%any}"
+}
+
+# resolve_art URL: local image path for an MPRIS artUrl ("" when unavailable), always safe inside a single-quoted CSS url().
+resolve_art() {
+  local url=$1 path file
+  case $url in
+    file://*)
+      path=${url#file://}
+      printf -v path '%b' "${path//\%/\\x}"
+      if [[ ! -f $path || ! -r $path ]]; then printf '\n'; return 0; fi
+      if [[ $path == *"'"* || $path == *\\* || $path == *$'\n'* ]]; then
+        file="$ART_CACHE/$(printf '%s' "$path" | sha1sum | cut -c1-40)"
+        mkdir -p "$ART_CACHE"
+        ln -sfn "$path" "$file"
+        printf '%s\n' "$file"
+      else
+        printf '%s\n' "$path"
+      fi ;;
+    http://*|https://*)
+      file="$ART_CACHE/$(printf '%s' "$url" | sha1sum | cut -c1-40)"
+      if [[ ! -s $file ]]; then
+        mkdir -p "$ART_CACHE"
+        if ! curl -sfL --max-time 3 -o "$file.part" "$url"; then
+          rm -f "$file.part"
+          printf '\n'
+          return 0
+        fi
+        mv "$file.part" "$file"
+      fi
+      printf '%s\n' "$file" ;;
+    *) printf '\n' ;;
+  esac
+}
+
+# media_json RECORD: one playerctl --format "$FORMAT" record -> island JSON. Empty record = no player.
+media_json() {
+  local status player title artist art_url length state
+  IFS=$SEP read -r -d '' status player title artist art_url length < <(printf '%s' "$1")
+  case $status in
+    Playing) state=playing ;;
+    Paused) state=paused ;;
+    *) printf '%s\n' "$NONE_JSON"; return 0 ;;
+  esac
+  [[ $length =~ ^[0-9]+$ ]] || length=0
+  length=$(( 10#$length / 1000000 ))
+  jq -nc --arg state "$state" --arg player "$player" --arg title "$title" --arg artist "$artist" \
+     --arg art "$(resolve_art "$art_url")" --argjson length "$length" \
+     --arg length_text "$(fmt_time "$length")" \
+     '{state: $state, player: $player, title: $title, artist: $artist, art: $art, length: $length, length_text: $length_text}'
+}
+
+# track_key RECORD: identity of the shown track; "" when nothing is playing or paused.
+track_key() {
+  local status player title artist
+  IFS=$SEP read -r -d '' status player title artist _ < <(printf '%s' "$1")
+  case $status in
+    Playing|Paused) printf '%s\n' "$player$SEP$title$SEP$artist" ;;
+    *) printf '\n' ;;
+  esac
+}
+
+# media_action FIRST PREV_KEY KEY STATUS: auto = a new track started playing (never on the
+# first update), close = the shown player went away, none = nothing to do.
+media_action() {
+  local first=$1 prev=$2 key=$3 status=$4
+  if [[ -z $key ]]; then
+    if [[ -n $prev ]]; then echo close; else echo none; fi
+  elif (( first )); then
+    echo none
+  elif [[ $key != "$prev" && $status == Playing ]]; then
+    echo auto
+  else
+    echo none
+  fi
+}
+
+stream() {
+  require playerctl jq || return 127
+  local line key prev="" first=1 status player json
+  mkdir -p "$STATE"
+  printf '\n' > "$STATE/player"
+  printf '%s\n' "$NONE_JSON"
+  local buf="" record
+  while IFS= read -r line; do
+    if [[ -z $buf && -z $line ]]; then
+      record=""                      # playerctl prints an empty line when no player is left
+    else
+      buf+=${buf:+$'\n'}$line
+      [[ $buf == *"$REC" ]] || continue
+      record=${buf%"$REC"}
+      buf=""
+    fi
+    IFS=$SEP read -r status player _ <<<"$record"
+    key=$(track_key "$record")
+    [[ -n $key ]] || player=""
+    json=$(media_json "$record")
+    printf '%s\n' "$player" > "$STATE/player"
+    printf '%s\n' "$json"
+    case $(media_action "$first" "$prev" "$key" "$status") in
+      auto) "$DIR/island" auto "$AUTO_SECONDS" >/dev/null ;;
+      close) "$DIR/island" close >/dev/null ;;
+    esac
+    prev=$key
+    first=0
+  done < <(playerctl --player="$(players_list)" --follow metadata --format "$FORMAT" 2>/dev/null)
+}
+
+main() { run_forever stream | emit_dedup; }
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

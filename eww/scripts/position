@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# position: playback position of the island's current player as {"pos":N,"text":"m:ss"}.
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+
+# position_json SECONDS: SECONDS may be decimal or empty.
+position_json() {
+  local s=${1%.*}
+  [[ $s =~ ^[0-9]+$ ]] || s=0
+  s=$(( 10#$s ))
+  jq -nc --argjson pos "$s" --arg text "$(fmt_time "$s")" '{pos: $pos, text: $text}'
+}
+
+main() {
+  local player pos=""
+  player=$(cat "$STATE/player" 2>/dev/null)
+  if [[ -n $player ]]; then pos=$(playerctl --player="$player" position 2>/dev/null); fi
+  position_json "$pos"
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

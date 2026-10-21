@@ -1,0 +1,42 @@
+(defwidget cover [size]
+  (box :class "cover cover-${size}" :valign "center"
+       :style {media.art == "" ? "" : "background-image: url('${media.art}');"}
+    (label :class "cover-fallback" :visible {media.art == ""} :text "󰎈")))
+
+(defwindow island
+  :monitor 0
+  :geometry (geometry :x "0px" :y "8px" :width "480px" :height "36px" :anchor "top center")
+  :wm-ignore true
+  (eventbox :onhover {media.state == "none" ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
+    (box :halign "center" :valign "center" :visible {!island_reveal}
+      (stack :selected {media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
+        (box :class "pill pill-idle")
+        (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
+          (cover :size "small")
+          (label :text {media.title} :tooltip {media.title} :xalign 0.5 :justify "center"
+                 :width 386 :hexpand false :limit-width 49 :show-truncated true :wrap false))))))
+
+(defwindow island-expanded
+  :monitor 0
+  :geometry (geometry :x "0px" :y "8px" :width "480px" :height "180px" :anchor "top center")
+  :wm-ignore true
+  (eventbox :onhover "${EWW_CONFIG_DIR}/scripts/island hover &"
+            :onhoverlost "${EWW_CONFIG_DIR}/scripts/island hover &"
+    (box :halign "center" :valign "start"
+      (revealer :transition "slidedown" :reveal island_reveal :duration "300ms"
+        (box :class "pill pill-expanded" :orientation "v" :space-evenly false :spacing 8
+          (box :orientation "h" :space-evenly false :spacing 14
+            (cover :size "large")
+            (box :orientation "v" :space-evenly false :valign "center" :spacing 4
+              (label :class "title" :xalign 0 :limit-width 30 :show-truncated true :text {media.title})
+              (label :class "artist" :xalign 0 :limit-width 36 :show-truncated true :text {media.artist})))
+          (box :orientation "h" :space-evenly false :spacing 8
+            (label :class "time" :text {pos.text})
+            (progress :class "progress" :hexpand true :valign "center"
+                      :value {media.length > 0 ? pos.pos * 100 / media.length : 0})
+            (label :class "time" :text {media.length_text}))
+          (box :class "controls" :orientation "h" :halign "center" :space-evenly false :spacing 28
+            (button :class "ctl" :onclick "playerctl --player=${media.player} previous &" "󰒮")
+            (button :class "ctl ctl-main" :onclick "playerctl --player=${media.player} play-pause &"
+              {media.state == "playing" ? "󰏤" : "󰐊"})
+            (button :class "ctl" :onclick "playerctl --player=${media.player} next &" "󰒭")))))))
