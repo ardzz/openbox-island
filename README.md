@@ -59,9 +59,11 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 
 Indikator tampil pada pill idle dan media: titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, dan ikon lonceng dicoret berarti Jangan Ganggu dunst aktif. Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya. Deteksi kamera hanya melihat proses milik pengguna yang sama.
 
+Scroll ke atas/bawah di atas island ringkas mengubah volume keluaran default sebesar ±5%. Perubahan ini sekaligus membuka bisu (unmute), dengan batas 0–100%.
+
 Cuaca berasal dari wttr.in. Tanpa pengaturan, lokasi diperkirakan dari alamat IP; isi berkas `eww/weather-location` dengan lokasi pilihan untuk menggantinya. **Privasi:** wttr.in menerima alamat IP dan lokasi yang diminta. Cuaca diperbarui setiap 30 menit, dicoba ulang setelah 5 menit jika gagal, dan cache dapat dipakai selama 3 jam.
 
-Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon; `inotify-tools` untuk pengamatan kamera; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON.
+Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON.
 
 ## Fallback lirik NetEase
 
@@ -74,7 +76,7 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/weather openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/weather eww/scripts/scroll openbox/island.sh
 python -m unittest discover -s tests -p 'test_lyrics.py'
 ```
 
@@ -90,7 +92,7 @@ python -m unittest discover -s tests -p 'test_lyrics.py'
 
 - MPRIS Edge/Chromium tidak memberi URL tab: YouTube biasa atau media web lain dari Edge juga tampil.
 - Tab Edge dapat berbagi stream audio dalam proses yang sama; visualizer tidak dapat menjamin isolasi audio per tab. Aplikasi yang stream-nya tidak cocok dengan PID player aktif atau turunannya menampilkan bar rata.
-- Progress hanya tampilan (tanpa seek); tidak ada like/dislike atau slider volume.
+- Progress hanya tampilan (tanpa seek); tidak ada like/dislike atau slider volume. Volume diubah lewat scroll pada island ringkas.
 - Cakupan lirik bergantung pada LRCLIB/NetEase dan kecocokan versi rekaman; aturan pencocokan NetEase dijelaskan di atas. LRCLIB mensyaratkan judul/artis cocok dengan durasi dalam toleransi ±2 detik; pencocokan artis menerima alias dalam tanda kurung dan nama kolaborator. Sinkronisasi per baris, bukan per kata; intro tambahan pada video YouTube dapat menggeser waktu lirik meskipun metadata cocok.
 - Hanya monitor 0.
 - Island hanya jalan saat panel aktif adalah eww (dipanggil dari `eww.sh` openbox-omp).

@@ -31,6 +31,7 @@
   :wm-ignore true
   (eventbox :onhover {media.state == "none" ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
     (box :halign "center" :valign "center" :visible {!island_reveal}
+      (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/scroll {} &"
       (stack :selected {alert.kind != "" ? 2 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
         (box :class "pill pill-idle" :orientation "h" :halign "center" :space-evenly false :spacing 0
           (revealer :transition "none" :reveal {weather.ok}
@@ -55,7 +56,7 @@
             (progress :class "hud" :width 140 :valign "center" :value {alert.level}))
           (revealer :transition "none" :reveal {alert.value != ""}
             (label :class "alert-value" :text {alert.value} :xalign 1 :limit-width 24
-                   :show-truncated true)))))))
+                   :show-truncated true))))))))
 
 (defwindow island-expanded
   :monitor 0
