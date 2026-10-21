@@ -15,6 +15,18 @@ $muted: mix($fg, $bg, 60%);
 .cover-small .cover-fallback { font-size: 12px; }
 .cover-large .cover-fallback { font-size: 28px; }
 
+.eqbar { background-color: $blue; min-width: 3px; min-height: 4px; border-radius: 2px; }
+.eqbar.lvl0 { min-height: 4px; }
+.eqbar.lvl1 { min-height: 5px; }
+.eqbar.lvl2 { min-height: 7px; }
+.eqbar.lvl3 { min-height: 8px; }
+.eqbar.lvl4 { min-height: 10px; }
+.eqbar.lvl5 { min-height: 11px; }
+.eqbar.lvl6 { min-height: 13px; }
+.eqbar.lvl7 { min-height: 14px; }
+.eqbar.lvl8 { min-height: 16px; }
+.paused .eqbar { min-height: 4px; }
+
 .pill-expanded { min-width: 438px; padding: 14px 20px; border-radius: 16px; }
 .title { font-weight: bold; font-size: 14px; }
 .artist, .time { color: $muted; }

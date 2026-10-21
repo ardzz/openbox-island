@@ -3,6 +3,16 @@
        :style {media.art == "" ? "" : "background-image: url('${media.art}');"}
     (label :class "cover-fallback" :visible {media.art == ""} :text "󰎈")))
 
+(defwidget equalizer []
+  (box :class "eq" :orientation "h" :space-evenly false :spacing 3 :valign "center"
+       :width 33 :height 16 :hexpand false
+    (box :class "eqbar lvl${viz[0]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[1]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[2]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[3]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[4]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[5]}" :width 3 :hexpand false :valign "center")))
+
 (defwindow island
   :monitor 0
   :geometry (geometry :x "0px" :y "8px" :width "480px" :height "36px" :anchor "top center")
@@ -14,7 +24,8 @@
         (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
           (cover :size "small")
           (label :text {media.title} :tooltip {media.title} :xalign 0.5 :justify "center"
-                 :width 386 :hexpand false :limit-width 49 :show-truncated true :wrap false))))))
+                 :width 386 :hexpand false :limit-width 49 :show-truncated true :wrap false)
+          (equalizer))))))
 
 (defwindow island-expanded
   :monitor 0

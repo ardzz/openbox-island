@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# viz: six audio-reactive levels from the active MPRIS owner's playback stream.
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+
+viz_frame() {
+  [[ $1 =~ ^([0-8]\;){6}$ ]] || return 1
+  VIZ_FRAME=${1%;}
+  VIZ_FRAME="[${VIZ_FRAME//;/,}]"
+}
+
+viz_frames() {
+  local line VIZ_FRAME
+  while IFS= read -r line; do
+    if viz_frame "$line"; then printf '%s\n' "$VIZ_FRAME"; fi
+  done
+  return 0
+}
+
+viz_descendant() {
+  local child=$1 owner=$2 key value parent
+  local -A seen=()
+  [[ $child =~ ^[1-9][0-9]*$ && $owner =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ -r /proc/$owner/status ]] || return 1
+  while [[ -r /proc/$child/status && ! ${seen[$child]+present} ]]; do
+    [[ $child == "$owner" ]] && return 0
+    seen[$child]=1
+    parent=''
+    while read -r key value _; do
+      if [[ $key == PPid: ]]; then parent=$value; break; fi
+    done < "/proc/$child/status"
+    [[ $parent =~ ^[1-9][0-9]*$ ]] || return 1
+    child=$parent
+  done
+  return 1
+}
+
+viz_select() {
+  local owner=$1 rows pid serial rank best='' best_rank=-1
+  rows=$(jq -r '.[] | select(.corked == true or .corked == false) |
+    [(.properties["application.process.id"] // ""),
+     (.properties["object.serial"] // ""), (if .corked then 0 else 1 end)] |
+    map(tostring) | join("|")') || return 0
+  while IFS='|' read -r pid serial rank; do
+    [[ $pid =~ ^[1-9][0-9]*$ && $serial =~ ^[1-9][0-9]*$ && $rank =~ ^[01]$ ]] || continue
+    viz_descendant "$pid" "$owner" || continue
+    if (( rank > best_rank )) || { (( rank == best_rank )) && [[ $serial -gt ${best:-0} ]]; }; then
+      best=$serial
+      best_rank=$rank
+    fi
+  done <<< "$rows"
+  [[ -z $best ]] || printf '%s\n' "$best"
+  return 0
+}
+
+viz_target() {
+  local instance=$1 reply owner streams
+  [[ -n $instance ]] || return 0
+  reply=$(busctl --user call org.freedesktop.DBus /org/freedesktop/DBus \
+    org.freedesktop.DBus GetConnectionUnixProcessID s "org.mpris.MediaPlayer2.$instance" 2>/dev/null) || return 0
+  [[ $reply =~ ^u\ ([1-9][0-9]*)$ ]] || return 0
+  owner=${BASH_REMATCH[1]}
+  streams=$(pactl -f json list sink-inputs 2>/dev/null) || return 0
+  viz_select "$owner" <<< "$streams"
+}
+
+# These lifecycle helpers run only in the owning supervisor shell.
+viz_emit() {
+  [[ $1 == "$last" ]] && return 0
+  printf '%s\n' "$1"
+  last=$1
+}
+
+viz_terminate() {
+  local pid alive=0
+  for pid in "$@"; do
+    [[ -z $pid ]] || kill -TERM "$pid" 2>/dev/null || :
+  done
+  for pid in "$@"; do
+    if [[ -n $pid ]] && kill -0 "$pid" 2>/dev/null; then alive=1; fi
+  done
+  # One shared grace period per batch, not one delay per child.
+  (( ! alive )) || sleep 0.5
+  for pid in "$@"; do
+    if [[ -n $pid ]] && kill -0 "$pid" 2>/dev/null; then
+      kill -KILL "$pid" 2>/dev/null || :
+    fi
+  done
+  for pid in "$@"; do
+    [[ -z $pid ]] || wait "$pid" 2>/dev/null || :
+  done
+}
+
+viz_stop_capture() {
+  viz_terminate "$recorder" "$analyzer"
+  recorder='' analyzer='' current=''
+  # No writers remain: discard old-target frames before allowing another capture.
+  while IFS= read -r -t 0.01 -u "$frames" line; do :; done
+  viz_emit '[0,0,0,0,0,0]'
+}
+
+viz_cleanup() {
+  trap - EXIT TERM INT
+  viz_stop_capture
+  viz_terminate "$pulse_watch" "$state_watch"
+  exec {frames}>&- {events}>&-
+  rm -rf -- "$work"
+}
+
+main() {
+  local last='' VIZ_FRAME line instance target current=''
+  local recorder='' analyzer='' pulse_watch='' state_watch=''
+  local work frames events deadline=0 retry_at=0 last_frame=$SECONDS dirty=1 count
+  viz_emit '[0,0,0,0,0,0]'
+  if ! require busctl pactl pw-record cava inotifywait jq mktemp mkfifo; then
+    printf 'viz: missing dependency %s\n' "$MISSING_DEP" >&2
+    return 0
+  fi
+  mkdir -p "$STATE" || return 0
+  work=$(mktemp -d "$STATE/viz.XXXXXXXX") || return 0
+  if ! mkfifo "$work/events" "$work/frames" "$work/pcm"; then
+    rm -rf -- "$work"
+    return 0
+  fi
+  exec {events}<>"$work/events" {frames}<>"$work/frames"
+  trap 'exit 0' TERM INT
+  trap viz_cleanup EXIT
+  while true; do
+    if (( SECONDS >= deadline )); then
+      dirty=1
+      deadline=$((SECONDS + 2))
+      if [[ -z $pulse_watch ]] || ! kill -0 "$pulse_watch" 2>/dev/null; then
+        [[ -z $pulse_watch ]] || wait "$pulse_watch" 2>/dev/null || :
+        pactl subscribe > "$work/events" 2>/dev/null &
+        pulse_watch=$!
+      fi
+      if [[ -z $state_watch ]] || ! kill -0 "$state_watch" 2>/dev/null; then
+        [[ -z $state_watch ]] || wait "$state_watch" 2>/dev/null || :
+        inotifywait -m -q -e close_write --format 'state:%f' "$STATE" > "$work/events" 2>/dev/null &
+        state_watch=$!
+      fi
+    fi
+    if [[ -n $current ]] && { ! kill -0 "$recorder" 2>/dev/null || ! kill -0 "$analyzer" 2>/dev/null; }; then
+      printf 'viz: audio worker exited; clearing levels\n' >&2
+      viz_stop_capture
+      retry_at=$((SECONDS + 2))
+      dirty=1
+    fi
+    if (( dirty )); then
+      dirty=0
+      instance=''
+      [[ ! -r $STATE/player ]] || IFS= read -r instance < "$STATE/player" || :
+      target=$(viz_target "$instance")
+      if [[ $target != "$current" ]]; then
+        viz_stop_capture
+        if [[ -n $target ]] && (( SECONDS >= retry_at )); then
+          cava -p "$DIR/../cava.conf" < "$work/pcm" > "$work/frames" &
+          analyzer=$!
+          pw-record --raw --target "$target" --format s16 --rate 48000 --channels 2 \
+            --properties='{"node.dont-fallback":true}' - > "$work/pcm" &
+          recorder=$!
+          current=$target
+          last_frame=$SECONDS
+        fi
+      fi
+    fi
+    if [[ -n $current ]]; then
+      if IFS= read -r -t 0.1 -u "$frames" line && viz_frame "$line"; then
+        viz_emit "$VIZ_FRAME"
+        last_frame=$SECONDS
+      elif (( SECONDS - last_frame >= 2 )); then
+        viz_emit '[0,0,0,0,0,0]'
+      fi
+    else
+      if IFS= read -r -t 1 -u "$events" line; then
+        case $line in
+          state:player|*"'new' on sink-input"*|*"'remove' on sink-input"*) dirty=1 ;;
+        esac
+      fi
+    fi
+    # Bound event draining so a busy Pulse server cannot starve frame/deadline work.
+    for ((count=0; count<64; count++)); do
+      IFS= read -r -t 0.001 -u "$events" line || break
+      case $line in
+        state:player|*"'new' on sink-input"*|*"'remove' on sink-input"*) dirty=1 ;;
+      esac
+    done
+  done
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
