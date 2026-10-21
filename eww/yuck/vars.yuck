@@ -1,6 +1,7 @@
 (deflisten media :initial '{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}' "scripts/media")
 (deflisten viz :initial "[0,0,0,0,0,0]" "scripts/viz")
 (deflisten lyrics :initial '{"text":"","synced":false}' "scripts/lyrics.py")
+(deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1}' "scripts/alert")
 (defvar island_reveal false)
 (defpoll pos :interval "1s" :initial '{"pos":0,"text":"0:00"}' :run-while island_reveal "scripts/position")
 ; Scroll title and artist only while the expanded island is revealed.

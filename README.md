@@ -1,12 +1,12 @@
 # openbox-island
 
-Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol).
+Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), serta alert volume/kecerahan/baterai/Wi-Fi.
 
 ## Pasang
 
 ```bash
 git clone https://github.com/ardzz/openbox-island.git && cd openbox-island
-sudo pacman -S --needed playerctl jq curl xdotool cava pipewire-audio libpulse inotify-tools python
+sudo pacman -S --needed playerctl jq curl xdotool cava pipewire-audio libpulse inotify-tools python light upower networkmanager
 ln -s "$PWD/eww" ~/.config/eww-island
 ln -s "$PWD/openbox/island.sh" ~/.config/openbox/island.sh
 ```
@@ -44,6 +44,21 @@ Urutan prioritas ada di `eww/players` (default `ytermusic,edge,%any`): nama play
 - Lirik tersinkron dari LRCLIB, dengan NetEase Cloud Music sebagai fallback, tampil miring dan rata tengah pada kedua ukuran island. Baris panjang dipotong dengan elipsis, tanpa bergulir atau mengecilkan font; tooltip menampilkan teks lengkap. Posisi MPRIS dibaca setiap 250 ms saat player aktif; listener hanya mengirim perubahan teks/status sinkron, bukan frame berulang. Saat belum ada baris lirik, intro, instrumental, hasil tidak tersedia, atau lookup gagal/timeout tanpa cache positif, judul dan artis asli tampil dengan warna redup.
 - LRCLIB tidak memerlukan API key. Pencarian mengirim metadata judul, artis, dan durasi, bukan audio. Cache hasil positif berlaku 30 hari; hasil positif kedaluwarsa masih dipakai jika layanan gagal diakses. Cache negatif berlaku 24 jam hanya jika kedua sumber memastikan tidak ada lirik tersinkron. Error jaringan/timeout tidak disimpan sebagai hasil negatif.
 
+## Aktivitas
+
+Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yang sedang membesar tidak berubah. Alert volume, mikrofon, dan kecerahan bertahan 1,5 detik; baterai dan Wi-Fi bertahan 3 detik.
+
+| Jenis | Teks |
+| --- | --- |
+| `volume` | `Volume` atau `Bisu`, dengan persentase volume |
+| `mic` | `Mikrofon nyala` atau `Mikrofon mati` |
+| `brightness` | `Kecerahan`, dengan persentase |
+| `battery` | `Mengisi daya`, `Charger dicabut`, atau `Baterai penuh`, dengan persentase |
+| `battery-low` | `Baterai lemah` saat melewati 20% atau `Baterai kritis` saat melewati 10% ketika daya sedang dipakai |
+| `wifi` | `Wi-Fi tersambung` dengan nama koneksi, atau `Wi-Fi terputus` |
+
+Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `jq` untuk data JSON.
+
 ## Fallback lirik NetEase
 
 Listener mencoba NetEase Cloud Music jika LRCLIB tidak menghasilkan lirik tersinkron yang cocok, termasuk saat LRCLIB gagal sementara. Endpoint NetEase ini tidak resmi dan dapat berubah atau berhenti tersedia. Listener mengirim judul dan artis ke server NetEase untuk pencarian, lalu membandingkan durasi dari hasilnya dengan durasi lagu aktif secara lokal. Audio tidak dikirim; akses tidak memakai login atau cookie.
@@ -55,7 +70,7 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert openbox/island.sh
 python -m unittest discover -s tests -p 'test_lyrics.py'
 ```
 
