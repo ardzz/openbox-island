@@ -1,9 +1,4 @@
-$bg: #000000;
-$fg: #ffffff;
-$alt-bg: #333333;
-$accent: #3ee6c4;
-$blue: #3ee6c4;
-$font: "FiraCode Nerd Font";
+@import "colors";
 
 * { all: unset; font-family: $font, "Symbols Nerd Font", "Noto Sans"; font-size: 13px; }
 
