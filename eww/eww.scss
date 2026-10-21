@@ -30,6 +30,8 @@ $muted: mix($fg, $bg, 60%);
 .pill-expanded { min-width: 438px; padding: 14px 20px; border-radius: 16px; }
 .title { font-weight: bold; font-size: 14px; }
 .artist, .time { color: $muted; }
+.lyrics { color: $fg; font-style: italic; }
+.lyrics.fallback { color: $muted; }
 .time { font-size: 11px; }
 .progress trough { background-color: $alt-bg; border-radius: 2px; min-height: 4px; min-width: 200px; }
 .progress progress { background-color: $blue; border-radius: 2px; min-height: 4px; }

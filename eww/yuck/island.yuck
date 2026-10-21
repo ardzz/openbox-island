@@ -23,7 +23,8 @@
         (box :class "pill pill-idle")
         (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
           (cover :size "small")
-          (label :text {media.title} :tooltip {media.title} :xalign 0.5 :justify "center"
+          (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
+                 :text {lyrics.text} :tooltip {lyrics.text} :xalign 0.5 :justify "center"
                  :width 386 :hexpand false :limit-width 49 :show-truncated true :wrap false)
           (equalizer))))))
 
@@ -41,6 +42,9 @@
             (box :orientation "v" :space-evenly false :valign "center" :spacing 4
               (label :class "title" :xalign 0 :limit-width 30 :show-truncated true :text {marquee.title})
               (label :class "artist" :xalign 0 :limit-width 36 :show-truncated true :text {marquee.artist})))
+          (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
+                 :text {lyrics.text} :tooltip {lyrics.text} :xalign 0.5 :justify "center"
+                 :width 438 :hexpand false :limit-width 56 :show-truncated true :wrap false)
           (box :orientation "h" :space-evenly false :spacing 8
             (label :class "time" :text {pos.text})
             (progress :class "progress" :hexpand true :valign "center"
