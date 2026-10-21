@@ -28,8 +28,8 @@
           (box :orientation "h" :space-evenly false :spacing 14
             (cover :size "large")
             (box :orientation "v" :space-evenly false :valign "center" :spacing 4
-              (label :class "title" :xalign 0 :limit-width 30 :show-truncated true :text {media.title})
-              (label :class "artist" :xalign 0 :limit-width 36 :show-truncated true :text {media.artist})))
+              (label :class "title" :xalign 0 :limit-width 30 :show-truncated true :text {marquee.title})
+              (label :class "artist" :xalign 0 :limit-width 36 :show-truncated true :text {marquee.artist})))
           (box :orientation "h" :space-evenly false :spacing 8
             (label :class "time" :text {pos.text})
             (progress :class "progress" :hexpand true :valign "center"

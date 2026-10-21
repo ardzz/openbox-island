@@ -39,6 +39,7 @@ hovered() {
 
 expand() {
   if ! is_open; then
+    put marquee_at "$(date +%s%1N)"
     eww update island_reveal=false
     eww open island-expanded
   fi

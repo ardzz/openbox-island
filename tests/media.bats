@@ -135,6 +135,7 @@ EOF
   [ "$(jq -r .title <<<"${lines[2]}")" = B ]
   [ "$(jq -r .title <<<"${lines[3]}")" = $'C1\nC2' ]
   [ "$(jq -r .state <<<"${lines[4]}")" = none ]
+  [ "$(cat "$STATE/media.json")" = "${lines[4]}" ]
   [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = $'auto 4\nauto 4\nclose' ]
   [[ "$(cat "$BATS_TEST_TMPDIR/playerctl.args")" == "--player=ytermusic,edge,%any --follow metadata --format "* ]]
 }
@@ -153,6 +154,39 @@ EOF
   [ "$status" -eq 124 ]
   [ "$output" = '{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}' ]
   [ "$(cat "$XDG_RUNTIME_DIR/eww-island/player")" = "" ]
+  [ "$(cat "$STATE/media.json")" = "$output" ]
+}
+
+@test "a paused track change restarts the marquee but resuming the same track does not" {
+  export FAKE_DATE_COUNTER="$BATS_TEST_TMPDIR/date-counter" FAKE_ACK="$BATS_TEST_TMPDIR/ack"
+  echo 10000 > "$FAKE_DATE_COUNTER"
+  mkfifo "$FAKE_ACK"
+  cat > "$BIN/date" <<'EOF'
+#!/usr/bin/env bash
+read -r now < "$FAKE_DATE_COUNTER"
+echo $(( now + 1 )) | tee "$FAKE_DATE_COUNTER"
+EOF
+  cat > "$BIN/playerctl" <<'EOF'
+#!/usr/bin/env bash
+printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+read -r _ < "$FAKE_ACK"
+printf 'Paused\x1fedge.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
+read -r _ < "$FAKE_ACK"
+printf 'Playing\x1fedge.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
+read -r _ < "$FAKE_ACK"
+EOF
+  chmod +x "$BIN/date" "$BIN/playerctl"
+  mkdir -p "$STATE"; echo 123 > "$STATE/marquee_at"
+  snapshots() {
+    stream | while IFS= read -r json; do
+      [[ $(jq -r .state <<<"$json") != none ]] || continue
+      printf '%s:%s\n' "$(jq -r '[.title,.state]|join(":")' <<<"$json")" "$(cat "$STATE/marquee_at")"
+      echo next > "$FAKE_ACK"
+    done
+  }
+  run snapshots
+  [ "$status" -eq 0 ]
+  [ "$output" = $'A:playing:10001\nB:paused:10002\nB:playing:10002' ]
 }
 
 @test "missing local artwork returns no cover and creates no alias" {

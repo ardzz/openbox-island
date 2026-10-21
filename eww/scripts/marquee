@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# marquee: character windows for the expanded island's title and artist.
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+
+main() {
+  local now start tick=0
+  now=$(date +%s%1N)
+  start=$(cat "$STATE/marquee_at" 2>/dev/null)
+  if [[ $now =~ ^[0-9]+$ && $start =~ ^[0-9]+$ ]] && (( 10#$now >= 10#$start )); then
+    tick=$(( (10#$now - 10#$start) / 2 ))
+  fi
+  jq -ce --argjson t "$tick" '
+    select(type == "object" and (.title | type) == "string" and (.artist | type) == "string")
+    | def run($s; $w): ($s | gsub("\n"; " ")) as $s
+        | if ($s | length) <= $w then $s
+          else ($s + "   ·   " + $s) as $loop
+          | ([($t % (($s | length) + 7 + 6)) - 6, 0] | max) as $o
+          | $loop[$o:$o+$w] end;
+      {title: run(.title; 30), artist: run(.artist; 36)}
+  ' "$STATE/media.json" 2>/dev/null || printf '%s\n' '{"title":"","artist":""}'
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

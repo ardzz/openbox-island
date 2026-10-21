@@ -35,19 +35,20 @@ Urutan prioritas ada di `eww/players` (default `ytermusic,edge,%any`): nama play
 
 - Idle: island berupa pill kecil kosong. Jam ada di bar. Ada musik: cover + judul dalam island 480×36 px.
 - Hover: membesar menjadi 480×180 px setelah pointer diam di atas island selama 0,3 detik (cover, judul, artis, progress, ⏮ ⏯ ⏭). Ganti lagu: membesar 4 detik lalu menciut; selama pointer di atas island, ganti lagu tidak menciutkannya.
+- Saat membesar, judul lebih dari 30 karakter dan artis lebih dari 36 karakter bergulir sekitar 5 karakter/detik, dengan jeda 1,2 detik di awal tiap putaran dan pemisah `   ·   `. Teks pendek tetap diam; guliran dimulai ulang saat window dibuka atau lagu berganti, tanpa polling saat menciut.
 - Hover dibaca dari posisi pointer (`xdotool`), bukan dari urutan event enter/leave eww: event itu juga muncul saat aplikasi lain meng-grab pointer dan bisa diproses tidak berurutan.
 
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee openbox/island.sh
 ```
 
 ## Debug
 
 - `~/.cache/eww-island.log`: log daemon island
 - `eww --config ~/.config/eww-island state`
-- `$XDG_RUNTIME_DIR/eww-island/`: state controller (`auto_until`, `player`). Jika `XDG_RUNTIME_DIR` tidak tersedia, state berada di `/tmp/eww-island/`.
+- `$XDG_RUNTIME_DIR/eww-island/`: state controller (`auto_until`, `player`, `marquee_at` dalam desidetik, `media.json` berisi metadata terakhir). Jika `XDG_RUNTIME_DIR` tidak tersedia, state berada di `/tmp/eww-island/`.
 
 ## Batasan
 

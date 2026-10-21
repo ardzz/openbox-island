@@ -76,6 +76,7 @@ wait_for_calls() {
   run "$SCRIPTS/island" hover
   [ "$status" -eq 0 ]
   [ "$(calls)" = "$OPEN" ]
+  [[ $(cat "$ST/marquee_at") =~ ^[0-9]+$ ]]
   [ "$(cat "$FAKE_SLEEP_LOG")" = 0.3 ]
 }
 
@@ -86,13 +87,16 @@ wait_for_calls() {
   [ "$status" -eq 0 ]
   [ "$(calls)" = "" ]
   [ "$(cat "$FAKE_SLEEP_LOG")" = 0.3 ]
+  [ ! -e "$ST/marquee_at" ]
 }
 
 @test "hover over an open island only reveals it without waiting" {
   stub_hover_sleep; expanded; on_expanded_only
+  mkdir -p "$ST"; echo 123 > "$ST/marquee_at"
   run "$SCRIPTS/island" hover
   [ "$status" -eq 0 ]
   [ "$(calls)" = 'update island_reveal=true' ]
+  [ "$(cat "$ST/marquee_at")" = 123 ]
   [ ! -s "$FAKE_SLEEP_LOG" ]
 }
 
@@ -149,6 +153,15 @@ wait_for_calls() {
   on_compact
   run "$SCRIPTS/island" auto 0
   [ "$(calls)" = "$OPEN" ]
+}
+
+@test "auto preserves the marquee start when already expanded" {
+  expanded; on_compact
+  mkdir -p "$ST"; echo 123 > "$ST/marquee_at"
+  run "$SCRIPTS/island" auto 0
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ST/marquee_at")" = 123 ]
+  [ "$(calls)" = 'update island_reveal=true' ]
 }
 
 @test "close collapses an open island the pointer is not on" {

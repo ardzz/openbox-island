@@ -99,6 +99,8 @@ stream() {
   local line key prev="" first=1 status player json
   mkdir -p "$STATE"
   printf '\n' > "$STATE/player"
+  printf '%s\n' "$NONE_JSON" > "$STATE/media.json.tmp"
+  mv "$STATE/media.json.tmp" "$STATE/media.json"
   printf '%s\n' "$NONE_JSON"
   local buf="" record
   while IFS= read -r line; do
@@ -115,6 +117,9 @@ stream() {
     [[ -n $key ]] || player=""
     json=$(media_json "$record")
     printf '%s\n' "$player" > "$STATE/player"
+    printf '%s\n' "$json" > "$STATE/media.json.tmp"
+    mv "$STATE/media.json.tmp" "$STATE/media.json"
+    if [[ -n $key && $key != "$prev" ]]; then date +%s%1N > "$STATE/marquee_at"; fi
     printf '%s\n' "$json"
     case $(media_action "$first" "$prev" "$key" "$status") in
       auto) "$DIR/island" auto "$AUTO_SECONDS" >/dev/null ;;
