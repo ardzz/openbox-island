@@ -100,7 +100,7 @@ EOF
   run "$REPO/openbox/island.sh"
   [ "$status" -eq 0 ]
   local key
-  for key in bg fg alt-bg accent blue font; do
+  for key in bg fg alt-bg accent blue yellow green font; do
     grep -Eq "^\\\$$key: [^;]+;" "$HOME/.config/eww-island/_colors.scss"
     grep -Eq "^\\\$$key: [^;]+;" "$FAKE_LAUNCH_PALETTE"
   done

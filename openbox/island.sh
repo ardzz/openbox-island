@@ -45,6 +45,8 @@ $fg: #ffffff;
 $alt-bg: #333333;
 $accent: #3ee6c4;
 $blue: #3ee6c4;
+$yellow: #ff9f0a;
+$green: #30d158;
 $font: "FiraCode Nerd Font";
 EOF
   fi && mv "$palette_tmp" "$CFG/_colors.scss" && exit 0

@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
+declare -g DIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+mic_snapshot() {
+  local outputs sources report
+  outputs=$(pactl -f json list source-outputs) || outputs=''
+  sources=$(pactl -f json list short sources) || sources=''
+  if ! report=$(jq -cn --argjson outputs "$outputs" --argjson sources "$sources" '
+    if ($outputs | type) != "array" or ($sources | type) != "array" then
+      error("Expected pactl arrays")
+    else
+    [$outputs[] | . as $output |
+      ($sources | map(select((.index | tostring) == ($output.source | tostring))) | .[0].name // "") as $source |
+      select(($source | endswith(".monitor") | not) and
+        (.properties["application.name"] != "eww-island-viz") and
+        (.properties["stream.capture.sink"] != "true")) |
+      [.properties["application.name"], .properties["application.process.binary"], "Aplikasi"] |
+      map(select(. != null and . != "")) | .[0]] | unique |
+    {source:"mic",active:(length > 0),apps:join(", ")}
+    end' 2>/dev/null); then
+    report='{"source":"mic","active":false,"apps":""}'
+  fi
+  printf '%s\n' "$report"
+}
+
+camera_snapshot() {
+  local pid name device pattern names=''
+  local active=false
+  local -a matches=()
+  for device in "${devices[@]}"; do
+    pattern=${device//\\/\\\\}
+    pattern=${pattern//\*/\\*}
+    pattern=${pattern//\?/\\?}
+    pattern=${pattern//\[/\\[}
+    (( ${#matches[@]} )) && matches+=(-o)
+    matches+=(-lname "$pattern")
+  done
+  while IFS= read -r -d '' pid; do
+    pid=${pid%/fd}
+    [[ ${pid##*/} != "$$" ]] || continue
+    active=true
+    name=''
+    if [[ -r $pid/comm ]]; then IFS= read -r name < "$pid/comm" || :; fi
+    names+="$name"$'\n'
+  done < <(find "${ISLAND_PROC:-/proc}"/[0-9]*/fd -maxdepth 1 -type l -readable \
+    \( "${matches[@]}" \) -printf '%h\0' 2>/dev/null)
+  jq -cn --argjson active "$active" --arg names "$names" '
+    {source:"camera",active:$active,apps:($names | split("\n") |
+      map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)) | unique | join(", "))}'
+}
+
+dnd_snapshot() {
+  local paused
+  paused=$(dunstctl is-paused 2>/dev/null) || paused=false
+  if [[ $paused == true ]]; then
+    printf '{"source":"dnd","active":true,"apps":""}\n'
+  else
+    printf '{"source":"dnd","active":false,"apps":""}\n'
+  fi
+}
+
+status_event() {
+  local source=$1 line=$2
+  case $source in
+    mic)
+      case $line in
+        *' on source-output #'*|*' on source #'*|*' on server'*) mic_snapshot ;;
+      esac ;;
+    camera) camera_snapshot ;;
+    dnd)
+      case $line in
+        *member=PropertiesChanged*|*member=NameOwnerChanged*) dnd_snapshot ;;
+      esac ;;
+  esac
+}
+
+monitor_stream() {
+  local source=$1 line fd
+  shift
+  coproc STATUS_MONITOR { exec "$@"; }
+  monitor_pid=$STATUS_MONITOR_PID
+  fd=${STATUS_MONITOR[0]}
+  "${source}_snapshot"
+  while IFS= read -r -u "$fd" line; do status_event "$source" "$line"; done
+  wait "$monitor_pid" 2>/dev/null || :
+  monitor_pid=''
+}
+
+worker_cleanup() {
+  if [[ -n $monitor_pid ]]; then
+    kill "$monitor_pid" 2>/dev/null || :
+    wait "$monitor_pid" 2>/dev/null || :
+  fi
+}
+
+source_worker() {
+  local source=$1 tool device monitor_pid=''
+  local -a tools=() devices=()
+  trap 'exit 0' TERM INT HUP
+  trap worker_cleanup EXIT
+  case $source in
+    mic) tools=(pactl) ;;
+    camera)
+      for device in "${ISLAND_DEV:-/dev}"/video*; do
+        [[ -e $device ]] && devices+=("$device")
+      done
+      if (( ${#devices[@]} == 0 )); then
+        printf '{"source":"camera","active":false,"apps":""}\n'
+        return 0
+      fi
+      tools=(inotifywait find) ;;
+    dnd) tools=(dunstctl dbus-monitor) ;;
+  esac
+  for tool in "${tools[@]}"; do
+    if ! require "$tool"; then
+      printf 'status: sumber %s dilewati, %s tidak tersedia\n' "$source" "$tool" >&2
+      printf '{"source":"%s","active":false,"apps":""}\n' "$source"
+      return 0
+    fi
+  done
+  case $source in
+    mic) run_forever monitor_stream mic pactl subscribe ;;
+    camera) run_forever monitor_stream camera inotifywait -m -q -e open,close "${devices[@]}" ;;
+    dnd)
+      run_forever monitor_stream dnd dbus-monitor --session \
+        "type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path='/org/freedesktop/Notifications'" \
+        "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged',arg0='org.freedesktop.Notifications'" ;;
+  esac
+}
+
+listener_cleanup() {
+  local pid
+  for pid in "${worker_pids[@]}"; do kill "$pid" 2>/dev/null || :; done
+  for pid in "${worker_pids[@]}"; do wait "$pid" 2>/dev/null || :; done
+  rm -rf -- "$workdir"
+}
+
+main() {
+  require jq || { printf 'status: jq tidak tersedia\n' >&2; return 127; }
+  local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" workdir source input_fd
+  local line active apps json last='' initialized=0
+  local mic=false mic_apps='' camera=false camera_apps='' dnd=false
+  local -A seen=()
+  local -a worker_pids=()
+  mkdir -p "$state"
+  workdir=$(mktemp -d "$state/status.XXXXXX") || return
+  trap 'exit 0' TERM INT HUP
+  trap listener_cleanup EXIT
+  mkfifo "$workdir/events"
+  exec {input_fd}<> "$workdir/events"
+  for source in mic camera dnd; do
+    source_worker "$source" > "$workdir/events" &
+    worker_pids+=("$!")
+  done
+  while IFS= read -r -u "$input_fd" line; do
+    source=$(jq -r '.source' <<< "$line")
+    active=$(jq -r '.active' <<< "$line")
+    apps=$(jq -r '.apps' <<< "$line")
+    case $source in
+      mic) mic=$active mic_apps=$apps ;;
+      camera) camera=$active camera_apps=$apps ;;
+      dnd) dnd=$active ;;
+      *) continue ;;
+    esac
+    if [[ ! ${seen[$source]:-} ]]; then
+      seen[$source]=1
+      initialized=$((initialized + 1))
+    fi
+    (( initialized == 3 )) || continue
+    json=$(jq -cn --argjson mic "$mic" --arg mic_apps "$mic_apps" \
+      --argjson camera "$camera" --arg camera_apps "$camera_apps" --argjson dnd "$dnd" \
+      '{mic:$mic,mic_apps:$mic_apps,camera:$camera,camera_apps:$camera_apps,dnd:$dnd}')
+    if [[ $json != "$last" ]]; then printf '%s\n' "$json"; last=$json; fi
+  done
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

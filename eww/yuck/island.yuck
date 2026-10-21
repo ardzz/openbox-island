@@ -13,6 +13,18 @@
     (box :class "eqbar lvl${viz[4]}" :width 3 :hexpand false :valign "center")
     (box :class "eqbar lvl${viz[5]}" :width 3 :hexpand false :valign "center")))
 
+(defwidget indicators []
+  (box :orientation "h" :space-evenly false :spacing 0 :valign "center"
+    (revealer :transition "none" :reveal {status.mic}
+      (box :class "indicator" :width 16 :tooltip "Mikrofon dipakai: ${status.mic_apps}"
+        (box :class "dot dot-mic" :halign "end" :valign "center")))
+    (revealer :transition "none" :reveal {status.camera}
+      (box :class "indicator" :width 16 :tooltip "Kamera dipakai: ${status.camera_apps}"
+        (box :class "dot dot-camera" :halign "end" :valign "center")))
+    (revealer :transition "none" :reveal {status.dnd}
+      (label :class "dnd" :width 16 :xalign 1
+             :text "󰂛" :tooltip "Jangan Ganggu aktif"))))
+
 (defwindow island
   :monitor 0
   :geometry (geometry :x "0px" :y "8px" :width "480px" :height "36px" :anchor "top center")
@@ -20,13 +32,17 @@
   (eventbox :onhover {media.state == "none" ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
     (box :halign "center" :valign "center" :visible {!island_reveal}
       (stack :selected {alert.kind != "" ? 2 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
-        (box :class "pill pill-idle")
+        (box :class "pill pill-idle" :orientation "h" :halign "center" :space-evenly false :spacing 0
+          (indicators))
         (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
           (cover :size "small")
           (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
                  :text {lyrics.text} :tooltip {lyrics.text} :xalign 0.5 :justify "center"
-                 :width 386 :hexpand false :limit-width 49 :show-truncated true :wrap false)
-          (equalizer))
+                 :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0))}
+                 :hexpand false :limit-width 49 :show-truncated true :wrap false)
+          (box :orientation "h" :space-evenly false :spacing 0
+            (equalizer)
+            (indicators)))
         (box :class "pill pill-alert" :orientation "h" :space-evenly false :spacing 10
           (label :class "alert-icon" :width 24 :text {alert.icon})
           (label :class "alert-text" :text {alert.text} :xalign 0 :hexpand true

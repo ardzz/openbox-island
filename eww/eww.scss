@@ -13,6 +13,10 @@ $muted: mix($fg, $bg, 60%);
 .alert-value { color: $muted; }
 .hud trough { background-color: $alt-bg; border-radius: 2px; min-height: 4px; min-width: 140px; }
 .hud progress { background-color: $blue; border-radius: 2px; min-height: 4px; }
+.dot { min-width: 6px; min-height: 6px; border-radius: 3px; }
+.dot-mic { background-color: $yellow; }
+.dot-camera { background-color: $green; }
+.dnd { color: $muted; font-size: 12px; }
 
 .cover { background-color: $alt-bg; background-size: cover; background-position: center; }
 .cover-small { min-width: 24px; min-height: 24px; border-radius: 8px; }

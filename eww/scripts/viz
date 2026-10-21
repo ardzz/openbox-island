@@ -160,7 +160,7 @@ main() {
           cava -p "$DIR/../cava.conf" < "$work/pcm" > "$work/frames" &
           analyzer=$!
           pw-record --raw --target "$target" --format s16 --rate 48000 --channels 2 \
-            --properties='{"node.dont-fallback":true}' - > "$work/pcm" &
+            --properties='{"node.dont-fallback":true,"application.name":"eww-island-viz"}' - > "$work/pcm" &
           recorder=$!
           current=$target
           last_frame=$SECONDS
