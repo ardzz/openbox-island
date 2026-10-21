@@ -1,11 +1,12 @@
 # tests/launcher.bats
 setup() {
   load helpers
-  export HOME="$BATS_TEST_TMPDIR/home" XDG_CACHE_HOME="$BATS_TEST_TMPDIR/cache" XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
+  export HOME="$BATS_TEST_TMPDIR/home" XDG_CACHE_HOME="$BATS_TEST_TMPDIR/cache" XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
   BIN="$BATS_TEST_TMPDIR/bin"; mkdir -p "$BIN" "$HOME"
   printf '#!/usr/bin/env bash\necho "$*" >> "%s/dunstify.log"\n' "$BATS_TEST_TMPDIR" > "$BIN/dunstify"
   printf '#!/usr/bin/env bash\necho "$*" >> "%s/eww.log"\n' "$BATS_TEST_TMPDIR" > "$BIN/eww"
-  chmod +x "$BIN/dunstify" "$BIN/eww"
+  printf '#!/usr/bin/env bash\necho "$*" >> "%s/dunstctl.log"\nexit "${FAKE_DUNSTCTL_STATUS:-0}"\n' "$BATS_TEST_TMPDIR" > "$BIN/dunstctl"
+  chmod +x "$BIN/dunstify" "$BIN/eww" "$BIN/dunstctl"
   PATH="$BIN:$PATH"
 }
 
@@ -19,6 +20,7 @@ setup() {
 delayed_eww() {
   mkdir -p "$HOME/.config/eww-island" "$XDG_RUNTIME_DIR/eww-island"
   touch "$HOME/.config/eww-island/eww.yuck"
+  ln -s "$REPO/eww/dunst-osd.conf" "$HOME/.config/eww-island/dunst-osd.conf"
   export FAKE_LAUNCH_STATE="$BATS_TEST_TMPDIR/shutdown" FAKE_LAUNCH_LOG="$BATS_TEST_TMPDIR/events"
   export FAKE_LAUNCH_PALETTE="$BATS_TEST_TMPDIR/daemon-colors.scss"
   cat > "$BIN/eww" <<'EOF'
@@ -105,4 +107,59 @@ EOF
     grep -Eq "^\\\$$key: [^;]+;" "$FAKE_LAUNCH_PALETTE"
   done
   cmp "$HOME/.config/eww-island/_colors.scss" "$FAKE_LAUNCH_PALETTE"
+}
+
+@test "launch installs the island OSD drop-in and reloads dunst after opening" {
+  delayed_eww
+  run "$REPO/openbox/island.sh"
+  [ "$status" -eq 0 ]
+  local dropin="$XDG_CONFIG_HOME/dunst/dunstrc.d/50-eww-island-osd.conf"
+  [ -f "$dropin" ]
+  cmp "$REPO/eww/dunst-osd.conf" "$dropin"
+  [ "$(cat "$BATS_TEST_TMPDIR/dunstctl.log")" = reload ]
+}
+
+@test "stop removes the island OSD drop-in and reloads dunst" {
+  delayed_eww
+  local dropin="$XDG_CONFIG_HOME/dunst/dunstrc.d/50-eww-island-osd.conf"
+  mkdir -p "${dropin%/*}"
+  printf 'old island rules\n' > "$dropin"
+  run "$REPO/openbox/island.sh" stop
+  [ "$status" -eq 0 ]
+  [ ! -e "$dropin" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/dunstctl.log")" = reload ]
+}
+
+@test "restart removes old OSD suppression before installing the current drop-in" {
+  delayed_eww
+  local dropin="$XDG_CONFIG_HOME/dunst/dunstrc.d/50-eww-island-osd.conf"
+  mkdir -p "${dropin%/*}"
+  printf 'old island rules\n' > "$dropin"
+  run "$REPO/openbox/island.sh"
+  [ "$status" -eq 0 ]
+  cmp "$REPO/eww/dunst-osd.conf" "$dropin"
+  [ "$(cat "$BATS_TEST_TMPDIR/dunstctl.log")" = $'reload\nreload' ]
+}
+
+@test "launch without dunstctl succeeds without installing OSD suppression" {
+  delayed_eww
+  rm "$BIN/dunstctl"
+  local command
+  for command in bash sleep rm mktemp cp cat mv mkdir setsid; do
+    ln -s "$(command -v "$command")" "$BIN/$command"
+  done
+  run env PATH="$BIN" "$REPO/openbox/island.sh"
+  [ "$status" -eq 0 ]
+  [ ! -e "$XDG_CONFIG_HOME/dunst/dunstrc.d/50-eww-island-osd.conf" ]
+  [ ! -e "$BATS_TEST_TMPDIR/dunstctl.log" ]
+}
+
+@test "dunst reload failure does not fail launch or stop" {
+  delayed_eww
+  export FAKE_DUNSTCTL_STATUS=1
+  run "$REPO/openbox/island.sh"
+  [ "$status" -eq 0 ]
+  run "$REPO/openbox/island.sh" stop
+  [ "$status" -eq 0 ]
+  [ ! -e "$XDG_CONFIG_HOME/dunst/dunstrc.d/50-eww-island-osd.conf" ]
 }

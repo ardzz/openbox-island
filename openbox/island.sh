@@ -3,6 +3,7 @@
 export LC_ALL=C.UTF-8
 CFG="$HOME/.config/eww-island"
 LOG="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island.log"
+OSD="${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc.d/50-eww-island-osd.conf"
 E=(eww --config "$CFG")
 
 fail() {
@@ -25,6 +26,11 @@ stop() {
     fail "daemon lama tidak berhenti"
   }
   rm -rf "${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+  if [[ -e $OSD ]]; then
+    rm -f "$OSD" >/dev/null 2>&1 && {
+      command -v dunstctl >/dev/null 2>&1 && dunstctl reload >/dev/null 2>&1
+    } || :
+  fi
 }
 
 if [[ ${1:-} == stop ]]; then stop stop; exit 0; fi
@@ -61,3 +67,12 @@ for _ in {1..50}; do
 done
 "${E[@]}" ping >/dev/null 2>&1 || fail "daemon tidak merespons"
 "${E[@]}" open island >/dev/null 2>&1 || fail "window island gagal dibuka"
+if command -v dunstctl >/dev/null 2>&1; then
+  (
+    mkdir -p "${OSD%/*}" || exit 1
+    osd_tmp=$(mktemp "${OSD%/*}/.eww-island-osd.XXXXXXXX") || exit 1
+    trap 'rm -f "$osd_tmp"' EXIT
+    cp "$CFG/dunst-osd.conf" "$osd_tmp" && mv "$osd_tmp" "$OSD" || exit 1
+    dunstctl reload
+  ) >/dev/null 2>&1 || :
+fi

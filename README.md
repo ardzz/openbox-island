@@ -61,6 +61,8 @@ Indikator tampil pada pill idle dan media: titik kuning berarti mikrofon dipakai
 
 Scroll ke atas/bawah di atas island ringkas mengubah volume keluaran default sebesar ±5%. Perubahan ini sekaligus membuka bisu (unmute), dengan batas 0–100%.
 
+Jika `dunstctl` tersedia, setelah window island berhasil dibuka launcher memasang aturan penekan OSD volume/kecerahan ke `${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc.d/50-eww-island-osd.conf` lalu memuat ulang dunst. Aturan ini hanya menyembunyikan notifikasi bertag `obvolume` dan `obbacklight`, termasuk dari riwayat, agar OSD tidak muncul dua kali. `island.sh stop` menghapus drop-in tersebut dan memuat ulang dunst; restart juga menghapus aturan lama sebelum memasang ulang. Kegagalan pemasangan atau reload dunst tidak menggagalkan launcher.
+
 Cuaca berasal dari wttr.in. Tanpa pengaturan, lokasi diperkirakan dari alamat IP; isi berkas `eww/weather-location` dengan lokasi pilihan untuk menggantinya. **Privasi:** wttr.in menerima alamat IP dan lokasi yang diminta. Cuaca diperbarui setiap 30 menit, dicoba ulang setelah 5 menit jika gagal, dan cache dapat dipakai selama 3 jam.
 
 Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON.
