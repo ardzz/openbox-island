@@ -1,18 +1,22 @@
 @import "colors";
+// The island keeps a fixed black notch and green accent; text and font follow the theme palette.
+$island-bg: #000000;
+$island-accent: #3ee6c4;
+$island-track: mix($fg, $island-bg, 18%);
 
 * { all: unset; font-family: $font, "Symbols Nerd Font", "Noto Sans"; font-size: 13px; }
 
-$muted: mix($fg, $bg, 60%);
+$muted: mix($fg, $island-bg, 60%);
 
-.pill { background-color: $bg; color: $fg; border: 1px solid $alt-bg; border-radius: 14px; }
-.pill-media { min-height: 34px; min-width: 463px; padding: 0 10px 0 5px; }
-.pill-idle { min-height: 34px; min-width: 64px; padding: 0 14px; }
-.pill-alert { min-height: 34px; min-width: 450px; padding: 0 14px; }
+.pill { background-color: $island-bg; color: $fg; border-radius: 14px; }
+.pill-media { min-height: 36px; min-width: 465px; padding: 0 10px 0 5px; }
+.pill-idle { min-height: 36px; min-width: 64px; padding: 0 14px; }
+.pill-alert { min-height: 36px; min-width: 452px; padding: 0 14px; }
 .alert-icon { font-size: 16px; }
 .alert-text { font-weight: bold; }
 .alert-value { color: $muted; }
-.hud trough { background-color: $alt-bg; border-radius: 2px; min-height: 4px; min-width: 140px; }
-.hud progress { background-color: $blue; border-radius: 2px; min-height: 4px; }
+.hud trough { background-color: $island-track; border-radius: 2px; min-height: 4px; min-width: 140px; }
+.hud progress { background-color: $island-accent; border-radius: 2px; min-height: 4px; }
 .dot { min-width: 6px; min-height: 6px; border-radius: 3px; }
 .dot-mic { background-color: $yellow; }
 .dot-camera { background-color: $green; }
@@ -27,16 +31,16 @@ $muted: mix($fg, $bg, 60%);
 .weather-region, .weather-sun, .weather-details { font-size: 12px; }
 .forecast-day, .forecast-rain { font-size: 11px; }
 .forecast-icon { font-size: 15px; }
-.forecast-rain { color: $blue; }
+.forecast-rain { color: $island-accent; }
 
-.cover { background-color: $alt-bg; background-size: cover; background-position: center; }
+.cover { background-color: $island-track; background-size: cover; background-position: center; }
 .cover-small { min-width: 24px; min-height: 24px; border-radius: 8px; }
 .cover-large { min-width: 64px; min-height: 64px; border-radius: 12px; }
 .cover-fallback { color: $muted; }
 .cover-small .cover-fallback { font-size: 12px; }
 .cover-large .cover-fallback { font-size: 28px; }
 
-.eqbar { background-color: $blue; min-width: 3px; min-height: 4px; border-radius: 2px; }
+.eqbar { background-color: $island-accent; min-width: 3px; min-height: 4px; border-radius: 2px; }
 .eqbar.lvl0 { min-height: 4px; }
 .eqbar.lvl1 { min-height: 5px; }
 .eqbar.lvl2 { min-height: 7px; }
@@ -48,14 +52,14 @@ $muted: mix($fg, $bg, 60%);
 .eqbar.lvl8 { min-height: 16px; }
 .paused .eqbar { min-height: 4px; }
 
-.pill-expanded { min-width: 438px; padding: 14px 20px; border-radius: 16px; }
+.pill-expanded { min-width: 440px; padding: 14px 20px; border-radius: 16px; }
 .title { font-weight: bold; font-size: 14px; }
 .artist, .time { color: $muted; }
 .lyrics { color: $fg; font-style: italic; }
 .lyrics.fallback { color: $muted; }
 .time { font-size: 11px; }
-.progress trough { background-color: $alt-bg; border-radius: 2px; min-height: 4px; min-width: 200px; }
-.progress progress { background-color: $blue; border-radius: 2px; min-height: 4px; }
+.progress trough { background-color: $island-track; border-radius: 2px; min-height: 4px; min-width: 200px; }
+.progress progress { background-color: $island-accent; border-radius: 2px; min-height: 4px; }
 .ctl { font-size: 18px; color: $fg; }
-.ctl:hover { color: $accent; }
+.ctl:hover { color: $island-accent; }
 .ctl-main { font-size: 22px; }
