@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
+declare -g DIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+declare -g CFG="${DIR%/scripts}"
+declare -g CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/weather.json"
+declare -g NONE_JSON='{"ok":false,"icon":"","temp":"","desc":""}'
+
+weather_json() {
+  local temp=$1 code=$2 hour=$3 desc icon
+  case $code in
+    113)
+      desc=Cerah
+      if (( 10#$hour < 6 || 10#$hour >= 18 )); then
+        icon=$'\U000f0594'
+      else
+        icon=$'\U000f0599'
+      fi ;;
+    116) desc='Cerah berawan'; icon=$'\U000f0595' ;;
+    119|122) desc=Berawan; icon=$'\U000f0590' ;;
+    143|248|260) desc=Berkabut; icon=$'\U000f0591' ;;
+    176|185|263|266|281|284|293|296|311|314|353)
+      desc='Hujan ringan'; icon=$'\U000f0597' ;;
+    299|302|305|308|356|359) desc='Hujan lebat'; icon=$'\U000f0596' ;;
+    200|386|389|392|395) desc='Badai petir'; icon=$'\U000f0593' ;;
+    179|182|227|230|317|320|323|326|329|332|335|338|350|362|365|368|371|374|377)
+      desc=Salju; icon=$'\U000f0598' ;;
+    *) desc=Berawan; icon=$'\U000f0590' ;;
+  esac
+  jq -nc --arg icon "$icon" --arg temp "$temp°" --arg desc "$desc" \
+    '{ok:true,icon:$icon,temp:$temp,desc:$desc}'
+}
+
+weather_location() {
+  local location=''
+  if [[ -r $CFG/weather-location ]]; then
+    location=$(< "$CFG/weather-location")
+    location="${location#"${location%%[![:space:]]*}"}"
+    location="${location%"${location##*[![:space:]]}"}"
+  fi
+  jq -nr --arg location "$location" '$location | @uri'
+}
+
+weather_values() {
+  jq -er '
+    def integer_text:
+      (type == "string" or type == "number") and
+      (tostring | test("^-?[0-9]+$"));
+    select(.temp_C | integer_text) |
+    select(.weatherCode | integer_text) |
+    [.temp_C | tostring] + [.weatherCode | tostring] | @tsv
+  ' 2>/dev/null
+}
+
+fetch_weather() {
+  local response condition
+  response=$(curl -sf --max-time 8 "https://wttr.in/$(weather_location)?format=j1") || return 1
+  condition=$(jq -ce '.current_condition[0]' <<< "$response" 2>/dev/null) || return 1
+  weather_values <<< "$condition"
+}
+
+cache_weather() {
+  local temp=$1 code=$2 fetched=$3 file
+  mkdir -p "${CACHE%/*}" || return 1
+  file=$(mktemp "$CACHE.XXXXXX") || return 1
+  if jq -nc --arg temp "$temp" --arg code "$code" --argjson fetched "$fetched" \
+    '{temp_C:$temp,weatherCode:$code,fetched:$fetched}' > "$file" &&
+    mv "$file" "$CACHE"; then
+    return 0
+  fi
+  rm -f "$file"
+  return 1
+}
+
+stream() {
+  require curl jq || return 127
+  local temp='' code='' fetched=0 values cached now hour next_fetch=0 delay last_now
+  local interval=${ISLAND_WEATHER_INTERVAL:-1800} retry=${ISLAND_WEATHER_RETRY:-300}
+  now=$(date +%s)
+  last_now=$now
+  hour=$(date +%H)
+  if [[ -r $CACHE ]]; then
+    cached=$(jq -ce 'select(.fetched | type == "number" and . == floor and . >= 0)' "$CACHE" 2>/dev/null)
+    if values=$(printf '%s\n' "$cached" | weather_values); then
+      fetched=$(printf '%s\n' "$cached" | jq -r '.fetched')
+      if (( now >= fetched && now - fetched < 10800 )); then
+        IFS=$'\t' read -r temp code <<< "$values"
+        weather_json "$temp" "$code" "$hour"
+      fi
+    fi
+  fi
+  while true; do
+    now=$(date +%s)
+    if (( now < last_now )); then
+      next_fetch=$((next_fetch + now - last_now))
+      fetched=$((fetched + now - last_now))
+    fi
+    last_now=$now
+    hour=$(date +%H)
+    if (( now >= next_fetch )); then
+      if values=$(fetch_weather); then
+        IFS=$'\t' read -r temp code <<< "$values"
+        now=$(date +%s)
+        hour=$(date +%H)
+        fetched=$now
+        cache_weather "$temp" "$code" "$fetched" || :
+        next_fetch=$((now + interval))
+      else
+        now=$(date +%s)
+        if (( now < last_now )); then
+          fetched=$((fetched + now - last_now))
+        fi
+        hour=$(date +%H)
+        next_fetch=$((now + retry))
+      fi
+    fi
+    if [[ -n $temp ]] && (( now >= fetched && now - fetched < 10800 )); then
+      weather_json "$temp" "$code" "$hour"
+    else
+      printf '%s\n' "$NONE_JSON"
+    fi
+    delay=$((next_fetch - now))
+    last_now=$now
+    (( delay <= 60 )) || delay=60
+    sleep "$delay"
+  done
+}
+
+main() { run_forever stream | emit_dedup; }
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

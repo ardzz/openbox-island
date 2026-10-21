@@ -17,6 +17,7 @@ $muted: mix($fg, $bg, 60%);
 .dot-mic { background-color: $yellow; }
 .dot-camera { background-color: $green; }
 .dnd { color: $muted; font-size: 12px; }
+.weather-icon { font-size: 15px; }
 
 .cover { background-color: $alt-bg; background-size: cover; background-position: center; }
 .cover-small { min-width: 24px; min-height: 24px; border-radius: 8px; }

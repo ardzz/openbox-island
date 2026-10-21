@@ -33,6 +33,10 @@
     (box :halign "center" :valign "center" :visible {!island_reveal}
       (stack :selected {alert.kind != "" ? 2 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
         (box :class "pill pill-idle" :orientation "h" :halign "center" :space-evenly false :spacing 0
+          (revealer :transition "none" :reveal {weather.ok}
+            (box :orientation "h" :space-evenly false :spacing 6 :tooltip {weather.desc}
+              (label :class "weather-icon" :text {weather.icon})
+              (label :class "weather-temp" :text {weather.temp})))
           (indicators))
         (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
           (cover :size "small")

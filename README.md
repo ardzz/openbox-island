@@ -1,6 +1,6 @@
 # openbox-island
 
-Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), alert volume/kecerahan/baterai/Wi-Fi, serta indikator mikrofon/kamera/Jangan Ganggu.
+Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), alert volume/kecerahan/baterai/Wi-Fi, indikator mikrofon/kamera/Jangan Ganggu, dan cuaca.
 
 ## Pasang
 
@@ -35,7 +35,7 @@ Urutan prioritas ada di `eww/players` (default `ytermusic,edge,%any`): nama play
 
 ## Perilaku
 
-- Idle: island tetap berupa pill kecil dengan indikator aktivitas; jika tidak ada informasi, pill tetap terlihat kosong. Jam ada di bar. Ada musik: cover + satu baris lirik + enam bar spektrum audio nyata serta indikator aktivitas dalam island 480×36 px. Visualizer diproses pada 20 fps; frame yang tidak berubah tidak dikirim ulang. Bar rata setinggi 4 px saat hening, pause, tidak ada stream yang cocok, atau terjadi error; tidak ada animasi pengganti.
+- Idle: island tetap berupa pill kecil dengan cuaca dan indikator aktivitas; jika tidak ada informasi, pill tetap terlihat kosong. Jam ada di bar. Ada musik: cover + satu baris lirik + enam bar spektrum audio nyata serta indikator aktivitas dalam island 480×36 px. Visualizer diproses pada 20 fps; frame yang tidak berubah tidak dikirim ulang. Bar rata setinggi 4 px saat hening, pause, tidak ada stream yang cocok, atau terjadi error; tidak ada animasi pengganti.
 - Hover: membesar menjadi 480×180 px setelah pointer diam di atas island selama 0,3 detik (cover, judul, artis, satu baris lirik, progress, ⏮ ⏯ ⏭). Ganti lagu: membesar 4 detik lalu menciut; selama pointer di atas island, ganti lagu tidak menciutkannya.
 - Saat membesar, judul lebih dari 30 karakter dan artis lebih dari 36 karakter bergulir sekitar 5 karakter/detik, dengan jeda 1,2 detik di awal tiap putaran dan pemisah `   ·   `. Teks pendek tetap diam; guliran dimulai ulang saat window dibuka atau lagu berganti, tanpa polling saat menciut.
 - Hover dibaca dari posisi pointer (`xdotool`), bukan dari urutan event enter/leave eww: event itu juga muncul saat aplikasi lain meng-grab pointer dan bisa diproses tidak berurutan.
@@ -59,7 +59,9 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 
 Indikator tampil pada pill idle dan media: titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, dan ikon lonceng dicoret berarti Jangan Ganggu dunst aktif. Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya. Deteksi kamera hanya melihat proses milik pengguna yang sama.
 
-Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon; `inotify-tools` untuk pengamatan kamera; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `jq` untuk data JSON.
+Cuaca berasal dari wttr.in. Tanpa pengaturan, lokasi diperkirakan dari alamat IP; isi berkas `eww/weather-location` dengan lokasi pilihan untuk menggantinya. **Privasi:** wttr.in menerima alamat IP dan lokasi yang diminta. Cuaca diperbarui setiap 30 menit, dicoba ulang setelah 5 menit jika gagal, dan cache dapat dipakai selama 3 jam.
+
+Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon; `inotify-tools` untuk pengamatan kamera; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON.
 
 ## Fallback lirik NetEase
 
@@ -72,7 +74,7 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/weather openbox/island.sh
 python -m unittest discover -s tests -p 'test_lyrics.py'
 ```
 
