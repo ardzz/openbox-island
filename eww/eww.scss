@@ -29,6 +29,8 @@ $muted: mix($fg, $island-bg, 60%);
 .dot { min-width: 6px; min-height: 6px; border-radius: 3px; }
 .dot-mic { background-color: $yellow; }
 .dot-camera { background-color: $green; }
+.dot-rec { background-color: $red; }
+.rec-time { color: $red; font-size: 11px; }
 .dnd { color: $muted; font-size: 12px; }
 .weather-icon { font-size: 15px; }
 .weather-temp, .forecast-temp { font-size: 13px; }

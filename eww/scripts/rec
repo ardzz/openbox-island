@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+# rec_detect: set rec_app to ffmpeg or OBS while one of this user's processes records the screen.
+rec_detect() {
+  local dir comm fd line flags i
+  local -a args
+  rec_app=''
+  for dir in "${ISLAND_PROC:-/proc}"/[0-9]*; do
+    [[ -O $dir ]] || continue
+    comm=''
+    IFS= read -r comm 2>/dev/null < "$dir/comm" || continue
+    case $comm in
+      ffmpeg)
+        args=()
+        mapfile -d '' -t args 2>/dev/null < "$dir/cmdline" || continue
+        for ((i = 1; i < ${#args[@]}; i++)); do
+          if [[ ${args[i-1]} == -f && ( ${args[i]} == x11grab || ${args[i]} == kmsgrab ) ]]; then
+            rec_app=ffmpeg; return
+          fi
+        done ;;
+      # OBS writes recordings from its obs-ffmpeg-mux helper; older or native outputs write from obs itself.
+      obs|obs-ffmpeg-mux)
+        while IFS= read -r fd; do
+          flags=''
+          while IFS= read -r line; do
+            if [[ $line == flags:* ]]; then flags=${line#flags:}; flags=${flags//[[:space:]]/}; break; fi
+          done 2>/dev/null < "$dir/fdinfo/$fd"
+          # O_WRONLY or O_RDWR: OBS is writing the recording, not reading a media source.
+          if [[ $flags =~ ^[0-7]+$ ]] && (( 8#$flags & 3 )); then rec_app=OBS; return; fi
+        done < <(find "$dir/fd" -mindepth 1 -maxdepth 1 -type l \( -ilname '*.mkv' -o -ilname '*.mp4' \
+          -o -ilname '*.mov' -o -ilname '*.flv' -o -ilname '*.ts' -o -ilname '*.webm' \) -printf '%f\n' 2>/dev/null) ;;
+    esac
+  done
+}
+
+main() {
+  local idle=${ISLAND_REC_INTERVAL:-2} start=0 now us line last='' pause
+  while true; do
+    rec_detect
+    if [[ -n $rec_app ]]; then
+      now=${EPOCHREALTIME/./}
+      (( start )) || start=$now
+      us=$((now - start))
+      line="{\"active\":true,\"app\":\"$rec_app\",\"time\":\"$(fmt_time $((us / 1000000)))\"}"
+      # Wake at the next whole elapsed second so the label ticks evenly.
+      us=$((1000000 - us % 1000000))
+      printf -v pause '%d.%06d' $((us / 1000000)) $((us % 1000000))
+    else
+      start=0 pause=$idle
+      line='{"active":false,"app":"","time":""}'
+    fi
+    if [[ $line != "$last" ]]; then printf '%s\n' "$line"; last=$line; fi
+    poll_sleep "$pause"
+  done
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

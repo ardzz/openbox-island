@@ -15,6 +15,11 @@
 
 (defwidget indicators []
   (box :orientation "h" :space-evenly false :spacing 0 :valign "center"
+    (revealer :transition "none" :reveal {rec.active}
+      (box :class "indicator" :width 56 :tooltip "Merekam layar: ${rec.app}"
+        (box :orientation "h" :space-evenly false :spacing 4 :halign "end" :hexpand true
+          (box :class "dot dot-rec" :valign "center")
+          (label :class "rec-time" :text {rec.time}))))
     (revealer :transition "none" :reveal {status.mic}
       (box :class "indicator" :width 16 :tooltip "Mikrofon dipakai: ${status.mic_apps}"
         (box :class "dot dot-mic" :halign "end" :valign "center")))
@@ -50,7 +55,7 @@
           (cover :size "small")
           (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
                  :text {lyrics.text} :tooltip {lyrics.text} :xalign 0.5 :justify "center"
-                 :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0))}
+                 :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0)) - (rec.active ? 56 : 0)}
                  :hexpand false :limit-width 49 :show-truncated true :wrap false)
           (box :orientation "h" :space-evenly false :spacing 0
             (equalizer)

@@ -1,6 +1,6 @@
 # openbox-island
 
-Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), alert volume/kecerahan/baterai/Wi-Fi, indikator mikrofon/kamera/Jangan Ganggu, dan cuaca.
+Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), alert volume/kecerahan/baterai/Wi-Fi/Bluetooth/tangkapan layar/suhu/Caps Lock, indikator mikrofon/kamera/Jangan Ganggu/perekaman layar, dan cuaca.
 
 ## Pasang
 
@@ -66,7 +66,9 @@ Folder tangkapan layar: `ISLAND_SCREENSHOT_DIR` jika diset, selain itu `Screensh
 
 Suhu dibaca langsung dari hwmon (`/sys/class/hwmon`) setiap 5 detik (`ISLAND_TEMP_INTERVAL`), tanpa `sensors` atau `nvidia-smi` agar GPU diskrit tidak terbangun. Sensor CPU berlabel `CPU Temperature`, `Package id 0`, atau `Tctl` (urutan prioritas); sensor GPU berlabel `GPU Temperature`. Tanpa sensor yang cocok, alert suhu tidak aktif. Saat island dimulai dalam kondisi sudah panas, alert baru muncul setelah suhu turun lalu naik lagi.
 
-Indikator tampil pada pill idle dan media: titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, dan ikon lonceng dicoret berarti Jangan Ganggu dunst aktif. Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya. Deteksi kamera hanya melihat proses milik pengguna yang sama.
+Indikator tampil pada pill idle dan media: titik merah dengan durasi berarti layar sedang direkam, titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, dan ikon lonceng dicoret berarti Jangan Ganggu dunst aktif. Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya. Deteksi kamera hanya melihat proses milik pengguna yang sama.
+
+Perekaman layar terdeteksi dari proses milik pengguna yang sama: `ffmpeg` dengan format input `-f x11grab` atau `-f kmsgrab`, atau OBS (`obs` maupun helper `obs-ffmpeg-mux`) yang sedang menulis berkas `.mkv`/`.mp4`/`.mov`/`.flv`/`.ts`/`.webm`. Saat tidak merekam, `/proc` diperiksa setiap 2 detik (`ISLAND_REC_INTERVAL`); selama merekam, durasi sejak rekaman pertama terdeteksi diperbarui setiap detik dan tooltip menyebut aplikasinya.
 
 Scroll ke atas/bawah di atas island ringkas mengubah volume keluaran default sebesar ±5%. Perubahan ini sekaligus membuka bisu (unmute), dengan batas 0–100%.
 
@@ -102,7 +104,7 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/weather eww/scripts/scroll openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll openbox/island.sh
 python -m unittest discover -s tests -p 'test_lyrics.py'
 ```
 

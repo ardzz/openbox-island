@@ -21,6 +21,14 @@ setup() { load helpers; source "$SCRIPTS/lib.sh"; }
   [ "$output" = $'a\nb\na' ]
 }
 
+@test "poll_sleep blocks for the requested time on every call" {
+  start=${EPOCHREALTIME/./}
+  poll_sleep 0.1; poll_sleep 0.1; poll_sleep 0.1
+  elapsed=$(( ${EPOCHREALTIME/./} - start ))
+  [ "$elapsed" -ge 300000 ]
+  [ "$elapsed" -lt 1000000 ]
+}
+
 @test "require returns 127 and names the missing tool" {
   rc=0; require bash ob-no-such-tool || rc=$?
   [ "$rc" -eq 127 ]

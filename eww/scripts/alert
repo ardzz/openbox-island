@@ -318,12 +318,6 @@ capslock_snapshot() {
   caps_state=$state
 }
 
-# poll_sleep SECONDS: sleep without forking by timing out a read on a pipe nobody writes to.
-poll_sleep() {
-  if [[ -z ${sleep_fd:-} ]]; then exec {sleep_fd}<> <(:); fi
-  read -r -t "$1" -u "$sleep_fd" || :
-}
-
 stop_children() {
   local pid
   if [[ -n ${monitor_pid:-} ]]; then kill "$monitor_pid" 2>/dev/null || :; fi

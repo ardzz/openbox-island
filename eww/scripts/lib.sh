@@ -48,6 +48,12 @@ emit_dedup() {
   done
 }
 
+# poll_sleep SECONDS: sleep without forking by timing out a read on a pipe nobody writes to.
+poll_sleep() {
+  if [[ -z ${sleep_fd:-} ]]; then exec {sleep_fd}<> <(:); fi
+  read -r -t "$1" -u "$sleep_fd" || :
+}
+
 # fmt_time SECONDS: m:ss below an hour, h:mm:ss from an hour. Decimals truncated; junk = 0.
 fmt_time() {
   local s=${1%.*}
