@@ -13,74 +13,12 @@ YTM=${OB_YTM_CLI:-ytm}
 HELPER=${OB_YTM_HELPER:-$DIR/ytm_like.py}
 RETRY=${OB_YTM_RETRY:-0.5}
 
+# shellcheck source=lib/ytm/toggle.sh
+source "$DIR/lib/ytm/toggle.sh"
+# shellcheck source=lib/ytm/jobs.sh
+source "$DIR/lib/ytm/jobs.sh"
+
 ytm_is_player() { [[ $1 == ytm_player || $1 == ytm_player.* ]]; }
-
-# toggle_action KIND CURRENT: "<ytm subcommand> <resulting status>".
-toggle_action() {
-  local kind=$1 current=$2 set=LIKE
-  [[ $kind == dislike ]] && set=DISLIKE
-  if [[ $current == "$set" ]]; then echo "unlike INDIFFERENT"; else echo "$kind $set"; fi
-}
-
-toggle() {
-  local kind=$1 active vid like cmd new
-  command -v "$YTM" >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
-  { IFS= read -r active; IFS= read -r vid; IFS= read -r like; } < <(
-    jq -r '.active, .video_id, .like' "$ISLAND_STATE/ytm.json" 2>/dev/null)
-  [[ $active == true ]] || return 0
-  read -r cmd new < <(toggle_action "$kind" "$like")
-  "$YTM" "$cmd" >/dev/null 2>&1 || return 1
-  [[ -n $vid ]] || return 0
-  printf '%s\t%s\n' "$vid" "$new" > "$ISLAND_STATE/ytm_set.tmp"
-  mv "$ISLAND_STATE/ytm_set.tmp" "$ISLAND_STATE/ytm_set"
-}
-
-# resolve_job GEN TITLE_JSON: video id of the playing track; retried while `ytm status` still names another title.
-resolve_job() {
-  local gen=$1 title=$2 attempt vid now
-  for attempt in 1 2 3 4; do
-    IFS=$'\t' read -r now vid < <(timeout 3 "$YTM" status 2>/dev/null |
-      jq -r '(.track.title // "" | tojson) + "\t" + (.track.video_id // "")' 2>/dev/null)
-    [[ $now == "$title" ]] && break
-    (( attempt < 4 )) && sleep "$RETRY"
-  done
-  printf 'vid\t%s\t%s\n' "$gen" "$vid"
-}
-
-# like_job VID: the helper's answer; an unrunnable helper counts as unavailable.
-like_job() {
-  local answer rc
-  answer=$(timeout 20 "$HELPER" "$1" 2>/dev/null)
-  rc=$?
-  (( rc == 126 || rc == 127 )) && answer=UNAVAILABLE
-  printf 'like\t%s\t%s\n' "$1" "${answer%%$'\n'*}"
-}
-
-# next_track VID: `ytm queue` JSON on stdin -> JSON-encoded "title"<TAB>"artist" of the track after VID,
-# chosen like ytm-player's own peek; "" "" when the queue's current entry is not VID or nothing follows.
-next_track() {
-  local next
-  next=$(jq -r --arg vid "$1" '
-    (.tracks // []) as $t
-    | (if (.current_index | type) == "number" then .current_index
-       else [$t[].video_id] | index($vid) end) as $i
-    | if $i == null or $i < 0 or $t[$i].video_id != $vid then null
-      elif .repeat == "one" then $t[$i]
-      elif $i + 1 < ($t | length) then $t[$i + 1]
-      elif .repeat == "all" and (.shuffle | not) then $t[0]
-      else null end
-    | [.title // "", .artist // ""] | map(tostring | tojson) | join("\t")' 2>/dev/null)
-  next=${next%%$'\n'*}
-  [[ -n $next ]] || next=$'""\t""'
-  printf '%s\n' "$next"
-}
-
-# queue_job GEN VID: the next track after VID in the ytm-player queue.
-queue_job() {
-  local next
-  next=$(timeout 3 "$YTM" queue 2>/dev/null | next_track "$2")
-  printf 'next\t%s\t%s\n' "$1" "$next"
-}
 
 listener_cleanup() {
   # A signal during `IFS=$'\t' read` leaves that IFS in effect here; split job pids on newlines.

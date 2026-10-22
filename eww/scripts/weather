@@ -1,161 +1,16 @@
 #!/usr/bin/env bash
+# weather: current weather and forecast JSON for the island from wttr.in, cached between restarts.
 # shellcheck source-path=SCRIPTDIR
 declare -g DIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
-declare -g CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/weather.json"
-declare -g GEOCODE_CACHE="${CACHE%/*}/geocode"
-declare -g WEATHER_LOCATION='' WEATHER_LAT='' WEATHER_LON=''
-declare -g NONE_JSON='{"ok":false,"icon":"","tone":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}'
-
-weather_json() {
-  local temp=$1 code=$2 hour=$3 record=${4:-}
-  [[ -n $record ]] || record='{}'
-  jq -nc --arg temp "$temp" --arg code "$code" --arg hour "$hour" --argjson record "$record" '
-    def traits:
-      tostring as $c |
-      if $c == "113" then ["󰖙","Cerah","clear"]
-      elif $c == "116" then ["󰖕","Cerah berawan","clear"]
-      elif ["143","149","248","260"] | index($c) then ["󰖑","Berkabut","fog"]
-      elif ["176","185","263","266","281","284","293","296","311","314","353"] | index($c) then ["󰖗","Hujan ringan","rain"]
-      elif ["299","302","305","308","356","359"] | index($c) then ["󰖖","Hujan lebat","rain"]
-      elif ["200","386","389","392","395"] | index($c) then ["󰖓","Badai petir","storm"]
-      elif ["179","182","227","230","317","320","323","326","329","332","335","338","350","362","365","368","371","374","377"] | index($c) then ["󰖘","Salju","snow"]
-      else ["󰖐","Berawan","cloud"] end;
-    # Icon colour class: precipitation and fog win, then heat, then sky and time of day.
-    def tone($temp; $night):
-      (traits[2]) as $sky | ($temp | tostring | sub("[^-0-9]"; ""; "g") | tonumber) as $t |
-      if ["rain","storm","snow","fog"] | index($sky) then $sky
-      elif $t >= 33 then "hot"
-      elif $t <= 15 then "cold"
-      elif $sky == "clear" and $night and . == "113" then "night"
-      elif $t >= 28 then "warm"
-      elif $sky == "clear" then "sunny"
-      else "cloud" end;
-    (($hour|tonumber) < 6 or ($hour|tonumber) >= 18) as $night |
-    ($code | traits) as $current |
-    {ok:true,
-     icon:(if $code == "113" and $night then "󰖔" else $current[0] end),
-     tone:($code | tone($temp; $night)),
-     temp:($temp + "°"),desc:$current[1],
-     city:($record.city // ""),region:($record.region // ""),
-     feels:($record.feels // ""),humidity:($record.humidity // ""),wind:($record.wind // ""),
-     uv:($record.uv // ""),sunrise:($record.sunrise // ""),sunset:($record.sunset // ""),
-     days:[$record.days[]? | {day,
-       icon:(if .weatherCode == "" then "" else (.weatherCode|traits)[0] end),
-       tone:(if .weatherCode == "" or .max == "" then "" else (.max as $max | .weatherCode | tostring | tone($max; false)) end),
-       max,min,rain}]}
-  '
-}
-
-weather_location() {
-  local location='' helper=${ISLAND_GEOCLUE_WHEREAMI:-/usr/lib/geoclue-2.0/demos/where-am-i} response line
-  WEATHER_LAT='' WEATHER_LON=''
-  if [[ -r $ISLAND_CFG/weather-location ]]; then
-    location=$(< "$ISLAND_CFG/weather-location")
-    location="${location#"${location%%[![:space:]]*}"}"
-    location="${location%"${location##*[![:space:]]}"}"
-  fi
-  if [[ -z $location && -x $helper ]] && response=$(timeout 15 "$helper" -t 10 2>/dev/null); then
-    while IFS= read -r line; do
-      if [[ $line =~ Latitude:[[:space:]]*(.*) ]]; then WEATHER_LAT=${BASH_REMATCH[1]}; fi
-      if [[ $line =~ Longitude:[[:space:]]*(.*) ]]; then WEATHER_LON=${BASH_REMATCH[1]}; fi
-    done <<< "$response"
-    WEATHER_LAT=${WEATHER_LAT%°} WEATHER_LON=${WEATHER_LON%°}
-    if [[ $WEATHER_LAT =~ ^[+-]?[0-9]+([.][0-9]+)?$ && $WEATHER_LON =~ ^[+-]?[0-9]+([.][0-9]+)?$ ]]; then
-      location="$WEATHER_LAT,$WEATHER_LON"
-    else
-      WEATHER_LAT='' WEATHER_LON=''
-    fi
-  fi
-  WEATHER_LOCATION=$(jq -nr --arg location "$location" '$location | @uri')
-  printf '%s\n' "$WEATHER_LOCATION"
-}
-
-write_weather_cache() {
-  local path=$1 record=$2 file
-  mkdir -p "${path%/*}" || return 1
-  file=$(mktemp "$path.XXXXXX") || return 1
-  if printf '%s\n' "$record" > "$file" && mv "$file" "$path"; then return 0; fi
-  rm -f "$file"
-  return 1
-}
-
-geocode_weather() {
-  local lat=$1 lon=$2 key path now modified response city
-  [[ $lat =~ ^[+-]?[0-9]+([.][0-9]+)?$ && $lon =~ ^[+-]?[0-9]+([.][0-9]+)?$ ]] || return 1
-  printf -v key '%.2f_%.2f' "$lat" "$lon"
-  path="$GEOCODE_CACHE/$key.json"
-  now=$(date +%s)
-  if [[ -r $path ]] && modified=$(stat -c %Y "$path" 2>/dev/null) &&
-      (( now >= modified && now - modified < 2592000 )); then
-    if city=$(jq -ce 'select((.city|type)=="string" and (.city|length)>0 and (.region|type)=="string") | {city,region}' "$path" 2>/dev/null); then
-      printf '%s\n' "$city"
-      return 0
-    fi
-  fi
-  response=$(curl -sf --max-time 8 -H 'User-Agent: openbox-island/1.0 (+https://github.com/ardzz/openbox-island)' \
-    "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=id&lat=$lat&lon=$lon") || return 1
-  city=$(jq -sce '
-    select(length == 1) | .[0].address |
-    {city:([.city,.town,.municipality,.county,.village] | map(select(type=="string" and length>0)) | .[0]),
-     region:(if (.state|type)=="string" then .state else "" end)} |
-    select(.city != null)
-  ' <<< "$response" 2>/dev/null) || return 1
-  write_weather_cache "$path" "$city" || :
-  printf '%s\n' "$city"
-}
-
-fetch_weather() {
-  local response record coordinates lat lon city
-  weather_location >/dev/null
-  response=$(curl -sf --max-time 8 "https://wttr.in/$WEATHER_LOCATION?format=j1") || return 1
-  record=$(jq -sce '
-    def integer:
-      if (type=="string" or type=="number") and (tostring|test("^-?[0-9]+$")) then tostring else "" end;
-    def unit($suffix): integer | if .=="" then "" else .+$suffix end;
-    def text: if type=="string" then . else "" end;
-    def array: if type=="array" then . else [] end;
-    def clock:
-      if type!="string" then "" else
-        (try (capture("^(?<h>0?[1-9]|1[0-2]):(?<m>[0-5][0-9]) (?<p>AM|PM)$") |
-          (((.h|tonumber)%12 + (if .p=="PM" then 12 else 0 end)) | tostring) as $h |
-          (if ($h|length)==1 then "0"+$h else $h end)+":"+.m) catch "") // ""
-      end;
-    select(length==1) | .[0] as $root |
-    $root.current_condition[0] as $c |
-    ($c.temp_C|integer) as $temp | ($c.weatherCode|integer) as $code |
-    select($temp!="" and $code!="") |
-    {temp_C:$temp,weatherCode:$code,
-     city:((try $root.nearest_area[0].areaName[0].value catch null)|text),
-     region:((try $root.nearest_area[0].region[0].value catch null)|text),
-     feels:($c.FeelsLikeC|unit("°")),humidity:($c.humidity|unit("%")),
-     wind:($c.windspeedKmph|unit(" km/j")),uv:($c.uvIndex|integer),
-     sunrise:((try $root.weather[0].astronomy[0].sunrise catch null)|clock),
-     sunset:((try $root.weather[0].astronomy[0].sunset catch null)|clock),
-     days:[($root.weather|array)[:3] | to_entries[] |
-       .key as $index | .value | select(type=="object") |
-       (.maxtempC|integer) as $max | (.mintempC|integer) as $min |
-       select($max!="" and $min!="") |
-       (.hourly|array|map(select(type=="object"))) as $hours |
-       {day:(if $index==0 then "Hari ini" elif $index==1 then "Besok" else
-         (try (.date|strptime("%Y-%m-%d")|mktime|strftime("%w")|tonumber|
-          ["Min","Sen","Sel","Rab","Kam","Jum","Sab"][.]) catch "") end),
-        weatherCode:((([$hours[] | select(.time=="1200" or .time==1200)][0] // $hours[0]).weatherCode)|integer),
-        max:($max+"°"),min:($min+"°"),
-        rain:([$hours[] | .chanceofrain|integer|select(.!="")|tonumber] | if length==0 then "" else (max|tostring)+"%" end)}]}
-  ' <<< "$response" 2>/dev/null) || return 1
-  lat=$WEATHER_LAT lon=$WEATHER_LON
-  if [[ -z $lat || -z $lon ]]; then
-    coordinates=$(jq -r '[(try .nearest_area[0].latitude catch ""),(try .nearest_area[0].longitude catch "")] | @tsv' <<< "$response" 2>/dev/null)
-    IFS=$'\t' read -r lat lon <<< "$coordinates"
-  fi
-  if city=$(geocode_weather "$lat" "$lon"); then
-    record=$(jq -c --argjson city "$city" '. + $city' <<< "$record")
-  fi
-  printf '%s\n' "$record"
-}
+# shellcheck source=lib/weather/format.sh
+source "$DIR/lib/weather/format.sh"
+# shellcheck source=lib/weather/location.sh
+source "$DIR/lib/weather/location.sh"
+# shellcheck source=lib/weather/fetch.sh
+source "$DIR/lib/weather/fetch.sh"
 
 stream() {
   require curl jq || return 127
@@ -164,21 +19,15 @@ stream() {
   now=$(date +%s)
   last_now=$now
   hour=$(date +%H)
-  if [[ -r $CACHE ]]; then
-    cached=$(jq -ce 'select((.fetched|type)=="number" and (.fetched|floor)==.fetched and .fetched>=0) |
-      select((.temp_C|type)=="string" and (.temp_C|test("^-?[0-9]+$"))) |
-      select((.weatherCode|type)=="string" and (.weatherCode|test("^-?[0-9]+$"))) |
-      select([.city,.region,.feels,.humidity,.wind,.uv,.sunrise,.sunset] | all(type=="string")) |
-      select((.days|type)=="array")' "$CACHE" 2>/dev/null)
-    if [[ -n $cached ]]; then
-      fetched=$(jq -r '.fetched' <<< "$cached")
-      if (( now >= fetched && now - fetched < 10800 )); then
-        record=$cached
-        temp=$(jq -r '.temp_C' <<< "$record") code=$(jq -r '.weatherCode' <<< "$record")
-        weather_json "$temp" "$code" "$hour" "$record"
-        # eww restarts this listener whenever the island reopens: a fresh cache waits for its interval.
-        if (( now - fetched < interval )); then next_fetch=$((fetched + interval)); fi
-      fi
+  cached=$(read_weather_cache)
+  if [[ -n $cached ]]; then
+    fetched=$(jq -r '.fetched' <<< "$cached")
+    if (( now >= fetched && now - fetched < 10800 )); then
+      record=$cached
+      temp=$(jq -r '.temp_C' <<< "$record") code=$(jq -r '.weatherCode' <<< "$record")
+      weather_json "$temp" "$code" "$hour" "$record"
+      # eww restarts this listener whenever the island reopens: a fresh cache waits for its interval.
+      if (( now - fetched < interval )); then next_fetch=$((fetched + interval)); fi
     fi
   fi
   while true; do

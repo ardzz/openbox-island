@@ -4,114 +4,20 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
+# shellcheck source=lib/media/art.sh
+source "$DIR/lib/media/art.sh"
+# shellcheck source=lib/media/record.sh
+source "$DIR/lib/media/record.sh"
+# shellcheck source=lib/media/transition.sh
+source "$DIR/lib/media/transition.sh"
 
-ART_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art"
 AUTO_SECONDS=4
-SEP=$'\x1f'
-REC=$'\x1e'
-FORMAT="{{status}}$SEP{{playerInstance}}$SEP{{title}}$SEP{{artist}}$SEP{{mpris:artUrl}}$SEP{{mpris:length}}$REC"
-NONE_JSON='{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}'
-
-# grace_us: how long (ISLAND_MEDIA_GRACE seconds, default 1.5) a shown track may go missing before
-# the music counts as stopped; players report no track for a moment while changing tracks. 0 = never wait.
-grace_us() {
-  local grace=${ISLAND_MEDIA_GRACE:-1.5}
-  [[ $grace =~ ^[0-9]+(\.[0-9]+)?$ ]] || grace=1.5
-  seconds_us "$grace"
-}
-
-# loading_json PLAYER: the shown player is between tracks; the island draws a skeleton.
-loading_json() {
-  jq -nc --arg player "$1" \
-    '{state: "loading", player: $player, title: "", artist: "", art: "", length: 0, length_text: "0:00"}'
-}
 
 # players_list: comma-separated priority list from eww/players.
 players_list() {
   local list
   list=$(tr -d '[:space:]' 2>/dev/null < "${DIR%/scripts}/players")
   printf '%s\n' "${list:-ytermusic,edge,%any}"
-}
-
-# resolve_art URL: local image path for an MPRIS artUrl ("" when unavailable), always safe inside a single-quoted CSS url().
-resolve_art() {
-  local url=$1 path file
-  case $url in
-    file://*)
-      path=${url#file://}
-      printf -v path '%b' "${path//\%/\\x}"
-      if [[ ! -f $path || ! -r $path ]]; then printf '\n'; return 0; fi
-      if [[ $path == *"'"* || $path == *\\* || $path == *$'\n'* ]]; then
-        file="$ART_CACHE/$(printf '%s' "$path" | sha1sum | cut -c1-40)"
-        mkdir -p "$ART_CACHE"
-        ln -sfn "$path" "$file"
-        printf '%s\n' "$file"
-      else
-        printf '%s\n' "$path"
-      fi ;;
-    http://*|https://*)
-      file="$ART_CACHE/$(printf '%s' "$url" | sha1sum | cut -c1-40)"
-      if [[ ! -s $file ]]; then
-        mkdir -p "$ART_CACHE"
-        if ! curl -sfL --max-time 3 -o "$file.part" "$url"; then
-          rm -f "$file.part"
-          printf '\n'
-          return 0
-        fi
-        mv "$file.part" "$file"
-      fi
-      printf '%s\n' "$file" ;;
-    *) printf '\n' ;;
-  esac
-}
-
-# media_json RECORD: one playerctl --format "$FORMAT" record -> island JSON. Empty record = no player.
-media_json() {
-  local status player title artist art_url length state
-  IFS=$SEP read -r -d '' status player title artist art_url length < <(printf '%s' "$1")
-  case $status in
-    Playing) state=playing ;;
-    Paused) state=paused ;;
-    *) printf '%s\n' "$NONE_JSON"; return 0 ;;
-  esac
-  [[ $length =~ ^[0-9]+$ ]] || length=0
-  length=$(( 10#$length / 1000000 ))
-  jq -nc --arg state "$state" --arg player "$player" --arg title "$title" --arg artist "$artist" \
-     --arg art "$(resolve_art "$art_url")" --argjson length "$length" \
-     --arg length_text "$(fmt_time "$length")" \
-     '{state: $state, player: $player, title: $title, artist: $artist, art: $art, length: $length, length_text: $length_text}'
-}
-
-# track_key RECORD: identity of the shown track; "" when nothing is playing or paused.
-track_key() {
-  local status player title artist
-  IFS=$SEP read -r -d '' status player title artist _ < <(printf '%s' "$1")
-  case $status in
-    Playing|Paused) printf '%s\n' "$player$SEP$title$SEP$artist" ;;
-    *) printf '\n' ;;
-  esac
-}
-
-# has_track RECORD: the record names a playing or paused track; mid-change players drop the title.
-has_track() {
-  local status title
-  IFS=$SEP read -r -d '' status _ title _ < <(printf '%s' "$1")
-  [[ $status == Playing || $status == Paused ]] && [[ -n $title ]]
-}
-
-# media_action FIRST PREV_KEY KEY STATUS: auto = a new track started playing (never on the
-# first update), close = the shown player went away, none = nothing to do.
-media_action() {
-  local first=$1 prev=$2 key=$3 status=$4
-  if [[ -z $key ]]; then
-    if [[ -n $prev ]]; then echo close; else echo none; fi
-  elif (( first )); then
-    echo none
-  elif [[ $key != "$prev" && $status == Playing ]]; then
-    echo auto
-  else
-    echo none
-  fi
 }
 
 # publish JSON: hand JSON to eww and to the scripts that read media.json.
