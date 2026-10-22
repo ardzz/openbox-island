@@ -4,6 +4,8 @@ declare -g DIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$DIR/lib.sh"
+# shellcheck source=vpn.sh
+source "$DIR/vpn.sh"
 
 mic_snapshot() {
   local outputs sources report
@@ -61,6 +63,21 @@ dnd_snapshot() {
   else
     printf '{"source":"dnd","active":false,"apps":""}\n'
   fi
+}
+
+# vpn_poll: report generic VPNs and a Tailscale exit node, printing only changes.
+vpn_poll() {
+  local last=''
+  while true; do
+    vpn_scan
+    ts_sample
+    vpn_summary
+    if [[ "$vpn_active $vpn_desc" != "$last" ]]; then
+      last="$vpn_active $vpn_desc"
+      jq -cn --argjson active "$vpn_active" --arg apps "$vpn_desc" '{source:"vpn",active:$active,apps:$apps}'
+    fi
+    poll_sleep "${ISLAND_VPN_INTERVAL:-10}"
+  done
 }
 
 status_event() {
@@ -125,6 +142,7 @@ source_worker() {
   case $source in
     mic) run_forever monitor_stream mic pactl subscribe ;;
     camera) run_forever monitor_stream camera inotifywait -m -q -e open,close "${devices[@]}" ;;
+    vpn) vpn_poll ;;
     dnd)
       run_forever monitor_stream dnd dbus-monitor --session \
         "type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path='/org/freedesktop/Notifications'" \
@@ -143,7 +161,7 @@ main() {
   require jq || { printf 'status: jq tidak tersedia\n' >&2; return 127; }
   local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" workdir source input_fd
   local line active apps json last='' initialized=0
-  local mic=false mic_apps='' camera=false camera_apps='' dnd=false
+  local mic=false mic_apps='' camera=false camera_apps='' dnd=false vpn=false vpn_desc=''
   local -A seen=()
   local -a worker_pids=()
   mkdir -p "$state"
@@ -152,7 +170,7 @@ main() {
   trap listener_cleanup EXIT
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
-  for source in mic camera dnd; do
+  for source in mic camera dnd vpn; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done
@@ -164,16 +182,18 @@ main() {
       mic) mic=$active mic_apps=$apps ;;
       camera) camera=$active camera_apps=$apps ;;
       dnd) dnd=$active ;;
+      vpn) vpn=$active vpn_desc=$apps ;;
       *) continue ;;
     esac
     if [[ ! ${seen[$source]:-} ]]; then
       seen[$source]=1
       initialized=$((initialized + 1))
     fi
-    (( initialized == 3 )) || continue
+    (( initialized == 4 )) || continue
     json=$(jq -cn --argjson mic "$mic" --arg mic_apps "$mic_apps" \
       --argjson camera "$camera" --arg camera_apps "$camera_apps" --argjson dnd "$dnd" \
-      '{mic:$mic,mic_apps:$mic_apps,camera:$camera,camera_apps:$camera_apps,dnd:$dnd}')
+      --argjson vpn "$vpn" --arg vpn_desc "$vpn_desc" \
+      '{mic:$mic,mic_apps:$mic_apps,camera:$camera,camera_apps:$camera_apps,dnd:$dnd,vpn:$vpn,vpn_desc:$vpn_desc}')
     if [[ $json != "$last" ]]; then printf '%s\n' "$json"; last=$json; fi
   done
 }

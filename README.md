@@ -1,6 +1,6 @@
 # openbox-island
 
-Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), alert volume/kecerahan/baterai/Wi-Fi/Bluetooth/tangkapan layar/suhu/Caps Lock, indikator mikrofon/kamera/Jangan Ganggu/perekaman layar, dan cuaca.
+Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), alert volume/kecerahan/baterai/Wi-Fi/Bluetooth/VPN/tangkapan layar/suhu/Caps Lock, indikator mikrofon/kamera/Jangan Ganggu/VPN/perekaman layar, dan cuaca.
 
 ## Pasang
 
@@ -59,6 +59,8 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 | `battery-low` | `Baterai lemah` saat melewati 20% atau `Baterai kritis` saat melewati 10% ketika daya sedang dipakai; ikon dan meter berwarna merah |
 | `wifi` | `Wi-Fi tersambung` dengan nama koneksi, atau `Wi-Fi terputus` |
 | `bluetooth` | `Bluetooth tersambung` atau `Bluetooth terputus`, dengan nama perangkat (alias) serta persentase baterai saat tersambung jika perangkat melaporkannya; ikon mengikuti jenis perangkat (headphone, gamepad, mouse, keyboard, ponsel) |
+| `vpn` | `VPN tersambung` atau `VPN terputus` dengan nama interface, satu alert per interface; `Tailscale tersambung` dengan nama host perangkat ini, atau `Tailscale terputus`; `Exit node aktif` dengan nama exit node, atau `Exit node dimatikan` |
+| `vpn-error` | `Tailscale perlu login` saat Tailscale meminta login atau persetujuan perangkat; ikon berwarna merah |
 | `screenshot` | `Tangkapan layar` dengan nama berkas dan thumbnail gambar sebagai pengganti ikon, saat berkas `.png`/`.jpg`/`.jpeg` baru selesai ditulis atau dipindahkan ke folder tangkapan layar |
 | `temperature` | `CPU panas` atau `GPU panas` dengan suhunya, sekali saat suhu mencapai batas (CPU 95 °C, GPU 87 °C; ubah dengan `ISLAND_TEMP_CPU`/`ISLAND_TEMP_GPU`); muncul lagi hanya setelah suhu turun di bawah batas − 5 °C. Ikon berwarna merah |
 | `capslock` | `Caps Lock nyala` atau `Caps Lock mati` saat status LED Caps Lock keyboard (`/sys/class/leds/*::capslock`, dibaca setiap 0,25 detik) berubah |
@@ -70,7 +72,9 @@ Suhu dibaca langsung dari hwmon (`/sys/class/hwmon`) setiap 5 detik (`ISLAND_TEM
 
 Mode konservasi baterai Lenovo dibaca dari `ISLAND_CONSERVATION` jika diset, selain itu dari `/sys/bus/platform/devices/VPC2004:*/conservation_mode`, setiap 5 detik (`ISLAND_CONSERVATION_INTERVAL`). Status saat island dimulai tidak memunculkan alert. Tanpa berkas tersebut, alert konservasi tidak aktif dan alert `charging` tidak berubah.
 
-Indikator tampil pada pill idle dan media: titik merah dengan durasi berarti layar sedang direkam, titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, dan ikon lonceng dicoret berarti Jangan Ganggu dunst aktif. Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya. Deteksi kamera hanya melihat proses milik pengguna yang sama.
+VPN diperiksa setiap 10 detik (`ISLAND_VPN_INTERVAL`). VPN umum dibaca langsung dari `/sys/class/net`: interface tun (bukan tap, agar interface VM seperti `vnet0` tidak terhitung), WireGuard, atau `ppp*` yang tidak berstatus `down`; `tailscale*` dikecualikan. Tailscale dibaca dengan `tailscale status --json` tanpa root; nama exit node dicari hanya saat exit node berganti. Tanpa `tailscale` atau saat daemon mati, Tailscale dianggap tidak tersambung tanpa pesan error. Kondisi saat island dimulai tidak memunculkan alert.
+
+Indikator tampil pada pill idle dan media: titik merah dengan durasi berarti layar sedang direkam, titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, ikon lonceng dicoret berarti Jangan Ganggu dunst aktif, dan ikon perisai gembok berarti lalu lintas lewat VPN (VPN umum tersambung atau exit node Tailscale aktif; jaringan Tailscale saja tidak menyalakannya). Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya; tooltip VPN menyebut interface dan exit node, misalnya `VPN: tekna0, Tailscale via exit-jkt`. Deteksi kamera hanya melihat proses milik pengguna yang sama.
 
 Perekaman layar terdeteksi dari proses milik pengguna yang sama: `ffmpeg` dengan format input `-f x11grab` atau `-f kmsgrab`, atau OBS (`obs` maupun helper `obs-ffmpeg-mux`) yang sedang menulis berkas `.mkv`/`.mp4`/`.mov`/`.flv`/`.ts`/`.webm`. Saat tidak merekam, `/proc` diperiksa setiap 2 detik (`ISLAND_REC_INTERVAL`); selama merekam, durasi sejak rekaman pertama terdeteksi diperbarui setiap detik dan tooltip menyebut aplikasinya.
 
@@ -97,7 +101,7 @@ Jalankan demo agent saat login, misalnya tambahkan `/usr/lib/geoclue-2.0/demos/a
 
 **Privasi:** wttr.in menerima alamat IP dan lokasi yang diminta, termasuk koordinat penuh dari GeoClue jika digunakan. Nominatim menerima koordinat penuh dari GeoClue atau hasil lokasi wttr.in, bukan koordinat yang dibulatkan untuk kunci cache. Penentuan posisi Wi-Fi GeoClue mengirim data access point Wi-Fi di sekitar ke layanan lokasinya.
 
-Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth.
+Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert dan indikator Tailscale.
 
 ## Fallback lirik NetEase
 
@@ -110,7 +114,7 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/vpn.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll openbox/island.sh
 python -m unittest discover -s tests -p 'test_lyrics.py'
 ```
 

@@ -93,7 +93,8 @@ $muted: mix($fg, $island-bg, 60%);
 }
 
 .alert-battery-low .alert-icon,
-.alert-temperature .alert-icon {
+.alert-temperature .alert-icon,
+.alert-vpn-error .alert-icon {
   color: $red;
 }
 
@@ -126,6 +127,11 @@ $muted: mix($fg, $island-bg, 60%);
 
 .dnd {
   color: $muted;
+  font-size: 12px;
+}
+
+.vpn {
+  color: $island-accent;
   font-size: 12px;
 }
 

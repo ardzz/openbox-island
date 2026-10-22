@@ -5,11 +5,12 @@ setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
   export ISLAND_DEV="$BATS_TEST_TMPDIR/dev"
   export ISLAND_PROC="$BATS_TEST_TMPDIR/proc"
+  export ISLAND_SYSNET="$BATS_TEST_TMPDIR/net" ISLAND_VPN_INTERVAL=0.05
   export STATUS_LINK
   STATUS_LINK=$(command -v ln)
   ORIGINAL_PATH=$PATH
   BIN="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_DEV" "$ISLAND_PROC"
+  mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_DEV" "$ISLAND_PROC" "$ISLAND_SYSNET"
   local tool
   for tool in bash cat chmod date dirname find jq ln mkdir mkfifo mktemp readlink rm rmdir sleep sort touch tr uniq wc; do
     ln -s "$(command -v "$tool")" "$BIN/$tool"
@@ -60,7 +61,7 @@ exec cat "$STATUS_FIXTURE/dnd-events"
 EOF
   chmod +x "$BIN/pactl" "$BIN/inotifywait" "$BIN/dunstctl" "$BIN/dbus-monitor"
   export PATH="$BIN"
-  EMPTY='{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false}'
+  EMPTY='{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false,"vpn":false,"vpn_desc":""}'
 }
 
 teardown() {
@@ -144,7 +145,7 @@ EOF
  {"index":6,"source":66,"properties":{"application.name":"","application.process.binary":""}}]
 EOF
   start_listener
-  [ "$first" = '{"mic":true,"mic_apps":"Alpha, Aplikasi, Zoom, recorder","camera":false,"camera_apps":"","dnd":false}' ]
+  [ "$first" = '{"mic":true,"mic_apps":"Alpha, Aplikasi, Zoom, recorder","camera":false,"camera_apps":"","dnd":false,"vpn":false,"vpn_desc":""}' ]
 }
 
 @test "audio noise does not query while source-output source and server events refresh microphone" {
@@ -180,7 +181,7 @@ EOF
   "$STATUS_LINK" -s "$ISLAND_DEV/video1" "$ISLAND_PROC/222/fd/4"
   "$STATUS_LINK" -s "$ISLAND_DEV/video0" "$ISLAND_PROC/333/fd/5"
   start_listener
-  [ "$first" = '{"mic":false,"mic_apps":"","camera":true,"camera_apps":"Browser, Zoom","dnd":false}' ]
+  [ "$first" = '{"mic":false,"mic_apps":"","camera":true,"camera_apps":"Browser, Zoom","dnd":false,"vpn":false,"vpn_desc":""}' ]
   wait_ready camera
   rm "$ISLAND_PROC/111/fd/3" "$ISLAND_PROC/222/fd/4" "$ISLAND_PROC/333/fd/5"
   printf '%s CLOSE\n' "$ISLAND_DEV/video0" >&"$camera_fd"
@@ -213,7 +214,7 @@ EOF
 @test "initial dunst paused state is true only for literal true" {
   printf 'true\n' > "$STATUS_FIXTURE/paused"
   start_listener
-  [ "$first" = '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":true}' ]
+  [ "$first" = '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":true,"vpn":false,"vpn_desc":""}' ]
   wait_ready dnd
   printf 'false\n' > "$STATUS_FIXTURE/paused"
   printf 'signal member=NameOwnerChanged\n' >&"$dnd_fd"
@@ -244,7 +245,7 @@ EOF
   printf 'true\n' > "$STATUS_FIXTURE/paused"
   printf 'signal member=PropertiesChanged\n' >&"$dnd_fd"
   next_event
-  [ "$event" = '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":true}' ]
+  [ "$event" = '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":true,"vpn":false,"vpn_desc":""}' ]
   printf 'signal member=PropertiesChanged\n' >&"$dnd_fd"
   assert_silent
   [ "$(cat "$STATUS_FIXTURE/dunst-calls")" = $'query\nquery\nquery' ]
@@ -259,7 +260,7 @@ assert_bad_mic_does_not_block() {
   printf 'true\n' > "$STATUS_FIXTURE/paused"
   printf 'signal member=PropertiesChanged\n' >&"$dnd_fd"
   next_event
-  [ "$event" = '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":true}' ]
+  [ "$event" = '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":true,"vpn":false,"vpn_desc":""}' ]
 }
 
 @test "empty microphone output does not block initial or DND snapshots" {
@@ -321,4 +322,79 @@ assert_bad_mic_does_not_block() {
   next_event
   [ "$event" = "$EMPTY" ]
   assert_silent
+}
+
+# make_vpn_iface NAME [OPERSTATE]: one fake tun device under ISLAND_SYSNET.
+make_vpn_iface() {
+  mkdir -p "$ISLAND_SYSNET/$1"
+  printf '0x5001\n' > "$ISLAND_SYSNET/$1/tun_flags"
+  printf 'INTERFACE=%s\n' "$1" > "$ISLAND_SYSNET/$1/uevent"
+  printf '%s\n' "${2:-unknown}" > "$ISLAND_SYSNET/$1/operstate"
+}
+
+make_tailscale() {
+  cat > "$BIN/tailscale" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$STATUS_FIXTURE/ts-calls"
+[[ ! -e $STATUS_FIXTURE/ts-down ]] || { printf 'failed to connect to local tailscaled\n' >&2; exit 1; }
+case "$*" in
+  'status --json --peers=false') cat "$STATUS_FIXTURE/ts-self" ;;
+  'status --json') cat "$STATUS_FIXTURE/ts-peers" ;;
+  *) exit 2 ;;
+esac
+EOF
+  chmod +x "$BIN/tailscale"
+  printf '{"BackendState":"Running","Peer":{"k1":{"HostName":"exit-jkt","ExitNode":true}}}\n' > "$STATUS_FIXTURE/ts-peers"
+  ts_set Running
+}
+
+# ts_set STATE [EXIT_ID]: the --peers=false answer.
+ts_set() {
+  local exit=null
+  [[ -z ${2:-} ]] || exit="{\"ID\":\"$2\",\"Online\":true,\"TailscaleIPs\":[\"100.64.0.1/32\"]}"
+  printf '{"BackendState":"%s","Self":{"HostName":"loq-irx10"},"ExitNodeStatus":%s}\n' "$1" "$exit" > "$STATUS_FIXTURE/ts-self"
+}
+
+@test "an up generic vpn interface lights vpn with its name and polling follows changes" {
+  make_vpn_iface tekna0
+  make_vpn_iface tailscale0
+  make_vpn_iface tun9 down
+  start_listener
+  [ "$first" = '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false,"vpn":true,"vpn_desc":"tekna0"}' ]
+  printf 'unknown\n' > "$ISLAND_SYSNET/tun9/operstate"
+  next_event
+  [ "$(jq -c '[.vpn,.vpn_desc]' <<< "$event")" = '[true,"tekna0, tun9"]' ]
+  rm -r "$ISLAND_SYSNET/tekna0" "$ISLAND_SYSNET/tun9"
+  next_event
+  [ "$event" = "$EMPTY" ]
+  assert_silent
+}
+
+@test "the tailscale mesh alone keeps vpn off while an exit node lights it" {
+  make_tailscale
+  start_listener
+  [ "$first" = "$EMPTY" ]
+  ts_set Running n1
+  next_event
+  [ "$(jq -c '[.vpn,.vpn_desc]' <<< "$event")" = '[true,"Tailscale via exit-jkt"]' ]
+  make_vpn_iface tekna0
+  next_event
+  [ "$(jq -c '[.vpn,.vpn_desc]' <<< "$event")" = '[true,"tekna0, Tailscale via exit-jkt"]' ]
+  ts_set Stopped n1
+  next_event
+  [ "$(jq -c '[.vpn,.vpn_desc]' <<< "$event")" = '[true,"tekna0"]' ]
+  assert_silent
+  local call lookups=0
+  while IFS= read -r call; do [[ $call != 'status --json' ]] || lookups=$((lookups + 1)); done < "$STATUS_FIXTURE/ts-calls"
+  [ "$lookups" -eq 1 ]
+}
+
+@test "a failing tailscale daemon leaves vpn off without stderr noise" {
+  make_tailscale
+  ts_set Running n1
+  touch "$STATUS_FIXTURE/ts-down"
+  start_listener
+  [ "$first" = "$EMPTY" ]
+  assert_silent
+  [ ! -s "$STATUS_FIXTURE/stderr" ]
 }

@@ -28,7 +28,10 @@
         (box :class "dot dot-camera" :halign "end" :valign "center")))
     (revealer :transition "none" :reveal {status.dnd}
       (label :class "dnd" :width 16 :xalign 1
-             :text "󰂛" :tooltip "Jangan Ganggu aktif"))))
+             :text "󰂛" :tooltip "Jangan Ganggu aktif"))
+    (revealer :transition "none" :reveal {status.vpn}
+      (label :class "vpn" :width 16 :xalign 1
+             :text "󰦝" :tooltip "VPN: ${status.vpn_desc}"))))
 
 (defwindow island
   :monitor 0
@@ -55,7 +58,7 @@
           (cover :size "small")
           (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
                  :text {lyrics.text} :tooltip {lyrics.text} :xalign 0.5 :justify "center"
-                 :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0)) - (rec.active ? 56 : 0)}
+                 :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0) + (status.vpn ? 1 : 0)) - (rec.active ? 56 : 0)}
                  :hexpand false :limit-width 49 :show-truncated true :wrap false)
           (box :orientation "h" :space-evenly false :spacing 0
             (equalizer)

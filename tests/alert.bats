@@ -4,11 +4,12 @@ setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
   export ALERT_FIXTURE="$BATS_TEST_TMPDIR"
   export ISLAND_HWMON="$BATS_TEST_TMPDIR/hwmon" ISLAND_LEDS="$BATS_TEST_TMPDIR/leds"
+  export ISLAND_SYSNET="$BATS_TEST_TMPDIR/net"
   export ISLAND_SCREENSHOT_DIR="$BATS_TEST_TMPDIR/shots" ISLAND_CONSERVATION="$BATS_TEST_TMPDIR/conservation_mode"
   export ISLAND_PLATFORM_PROFILE="$BATS_TEST_TMPDIR/platform_profile"
   unset ISLAND_TEMP_CPU ISLAND_TEMP_GPU
   BIN="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_HWMON" "$ISLAND_LEDS"
+  mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_HWMON" "$ISLAND_LEDS" "$ISLAND_SYSNET"
   export PATH="$BIN:$PATH"
   source "$SCRIPTS/alert"
   CLEAR='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
@@ -177,6 +178,7 @@ make_fakes() {
   printf 'Device F4:93:B1:9A:5C:21 (public)\n\tName: WH-1000XM4\n\tAlias: WH-1000XM4\n\tClass: 0x00240404\n\tIcon: audio-headset\n\tConnected: yes\n\tBattery Percentage: 0x50 (80)\n' \
     > "$ALERT_FIXTURE/bt-info-F4:93:B1:9A:5C:21"
   make_hwmon hwmon3 'CPU Temperature:50000' 'GPU Temperature:50000'
+  make_tailscale
   mkdir -p "$ISLAND_LEDS/input3::capslock"
   printf '0\n' > "$ISLAND_LEDS/input3::capslock/brightness"
   printf 'performance\n' > "$ISLAND_PLATFORM_PROFILE"
@@ -693,9 +695,175 @@ set_profile() {
   done
 }
 
+# make_iface NAME tun|tap|wireguard|plain [OPERSTATE]: one fake /sys/class/net entry.
+make_iface() {
+  local dir="$ISLAND_SYSNET/$1"
+  mkdir -p "$dir"
+  printf 'INTERFACE=%s\nIFINDEX=7\n' "$1" > "$dir/uevent"
+  case $2 in
+    tun) printf '0x5001\n' > "$dir/tun_flags" ;;
+    tap) printf '0x5002\n' > "$dir/tun_flags" ;;
+    wireguard) printf 'DEVTYPE=wireguard\nINTERFACE=%s\nIFINDEX=7\n' "$1" > "$dir/uevent" ;;
+  esac
+  printf '%s\n' "${3:-unknown}" > "$dir/operstate"
+}
+
+make_tailscale() {
+  cat > "$BIN/tailscale" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$ALERT_FIXTURE/ts-calls"
+[[ ! -e $ALERT_FIXTURE/ts-down ]] || { printf 'failed to connect to local tailscaled\n' >&2; exit 1; }
+case "$*" in
+  'status --json --peers=false') cat "$ALERT_FIXTURE/ts-self" ;;
+  'status --json') cat "$ALERT_FIXTURE/ts-peers" ;;
+  *) exit 2 ;;
+esac
+EOF
+  chmod +x "$BIN/tailscale"
+  ts_set Stopped
+  ts_peers
+}
+
+# ts_set STATE [EXIT_ID EXIT_IP]: the --peers=false answer.
+ts_set() {
+  jq -cn --arg s "$1" --arg id "${2:-}" --arg ip "${3:-}" \
+    '{BackendState:$s,Self:{HostName:"loq-irx10"},
+      ExitNodeStatus:(if $id == "" then null else {ID:$id,Online:true,TailscaleIPs:[$ip + "/32"]} end)}' \
+    > "$ALERT_FIXTURE/ts-self"
+}
+
+# ts_peers [EXIT_HOST]: the full answer; without a host no peer is the exit node.
+ts_peers() {
+  jq -cn --arg h "${1:-}" \
+    '{BackendState:"Running",Peer:{"k1":{HostName:"laptop",ExitNode:false},
+      "k2":{HostName:(if $h == "" then "server" else $h end),ExitNode:($h != "")}}}' \
+    > "$ALERT_FIXTURE/ts-peers"
+}
+
+ts_lookups() {
+  grep -cx 'status --json' "$ALERT_FIXTURE/ts-calls" || :
+}
+
+@test "vpn first sample is a silent baseline" {
+  make_tailscale
+  make_iface tekna0 tun
+  ts_peers exit-jkt
+  ts_set Running n1 100.64.0.1
+  {
+    vpn_snapshot
+    vpn_snapshot
+  } > "$RESULT"
+  [ ! -s "$RESULT" ]
+}
+
+@test "generic vpn interfaces alert once per interface on connect and disconnect" {
+  make_tailscale
+  vpn_snapshot > "$RESULT"
+  make_iface tekna0 tun
+  make_iface wg0 wireguard
+  {
+    vpn_snapshot
+    vpn_snapshot
+    rm -r "$ISLAND_SYSNET/tekna0"
+    vpn_snapshot
+  } >> "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["vpn","VPN tersambung","tekna0",-1,""],["vpn","VPN tersambung","wg0",-1,""],["vpn","VPN terputus","tekna0",-1,""]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F099D|\U000F099D|\U000F099E' ]
+}
+
+@test "tailscale, tap, plain and down interfaces are not generic vpns while ppp is" {
+  make_tailscale
+  make_iface tailscale0 tun
+  make_iface vnet0 tap
+  make_iface enp7s0 plain up
+  make_iface tun1 tun down
+  vpn_snapshot > "$RESULT"
+  make_iface ppp0 plain
+  printf 'unknown\n' > "$ISLAND_SYSNET/tun1/operstate"
+  printf 'down\n' > "$ISLAND_SYSNET/tailscale0/operstate"
+  vpn_snapshot >> "$RESULT"
+  printf 'down\n' > "$ISLAND_SYSNET/ppp0/operstate"
+  vpn_snapshot >> "$RESULT"
+  [ "$(jq -sc 'map([.text,.value])' "$RESULT")" = '[["VPN tersambung","ppp0"],["VPN tersambung","tun1"],["VPN terputus","ppp0"]]' ]
+}
+
+@test "tailscale connect disconnect and login transitions" {
+  make_tailscale
+  vpn_snapshot > "$RESULT"
+  {
+    ts_set Running; vpn_snapshot
+    vpn_snapshot
+    ts_set Stopped; vpn_snapshot
+    ts_set NeedsLogin; vpn_snapshot
+    ts_set NeedsMachineAuth; vpn_snapshot
+    ts_set Running; vpn_snapshot
+    ts_set Starting; vpn_snapshot
+    ts_set NoState; vpn_snapshot
+  } >> "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["vpn","Tailscale tersambung","loq-irx10",-1,""],["vpn","Tailscale terputus","",-1,""],["vpn-error","Tailscale perlu login","",-1,""],["vpn","Tailscale tersambung","loq-irx10",-1,""],["vpn","Tailscale terputus","",-1,""]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F15FC|\U000F0319|\U000F0ECC|\U000F15FC|\U000F0319' ]
+}
+
+@test "exit node set change and clear look the name up only when the node changes" {
+  make_tailscale
+  ts_set Running
+  vpn_snapshot > "$RESULT"
+  [ "$(ts_lookups)" -eq 0 ]
+  {
+    ts_peers exit-jkt; ts_set Running n1 100.64.0.1; vpn_snapshot
+    vpn_snapshot
+    vpn_snapshot
+  } >> "$RESULT"
+  [ "$(ts_lookups)" -eq 1 ]
+  {
+    ts_peers exit-sg; ts_set Running n2 100.64.0.2; vpn_snapshot
+    ts_set Running; vpn_snapshot
+    ts_peers; ts_set Running n3 100.64.0.3; vpn_snapshot
+    vpn_snapshot
+  } >> "$RESULT"
+  [ "$(ts_lookups)" -eq 3 ]
+  [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["vpn","Exit node aktif","exit-jkt",-1],["vpn","Exit node aktif","exit-sg",-1],["vpn","Exit node dimatikan","",-1],["vpn","Exit node aktif","100.64.0.3",-1]]' ]
+  [ "$(jq -sr 'map(.icon)|unique|join("|")' "$RESULT")" = $'\U000F1087' ]
+}
+
+@test "stopping tailscale with an exit node reports only the disconnect and reconnecting reports both" {
+  make_tailscale
+  ts_peers exit-jkt
+  ts_set Running n1 100.64.0.1
+  vpn_snapshot > "$RESULT"
+  {
+    ts_set Stopped; vpn_snapshot
+    ts_set Running n1 100.64.0.1; vpn_snapshot
+  } >> "$RESULT"
+  [ "$(jq -sc 'map([.text,.value])' "$RESULT")" = '[["Tailscale terputus",""],["Tailscale tersambung","loq-irx10"],["Exit node aktif","exit-jkt"]]' ]
+}
+
+@test "a failing tailscale daemon or missing CLI counts as not running without stderr noise" {
+  make_tailscale
+  touch "$ALERT_FIXTURE/ts-down"
+  {
+    vpn_snapshot
+    vpn_snapshot
+  } > "$RESULT" 2> "$ALERT_FIXTURE/vpn-stderr"
+  [ ! -s "$RESULT" ]
+  rm "$ALERT_FIXTURE/ts-down"
+  ts_set Running
+  vpn_snapshot > "$RESULT" 2>> "$ALERT_FIXTURE/vpn-stderr"
+  touch "$ALERT_FIXTURE/ts-down"
+  vpn_snapshot >> "$RESULT" 2>> "$ALERT_FIXTURE/vpn-stderr"
+  [ "$(jq -sc 'map(.text)' "$RESULT")" = '["Tailscale tersambung","Tailscale terputus"]' ]
+  rm "$BIN/tailscale"
+  ln -s "$(command -v jq)" "$BIN/jq"
+  make_iface tekna0 tun
+  PATH="$BIN" vpn_snapshot > "$RESULT" 2>> "$ALERT_FIXTURE/vpn-stderr"
+  [ "$(jq -sc 'map([.text,.value])' "$RESULT")" = '[["VPN tersambung","tekna0"]]' ]
+  [ ! -s "$ALERT_FIXTURE/vpn-stderr" ]
+}
+
 start_listener() {
   make_fakes
   export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_CAPS_INTERVAL=0.02 ISLAND_TEMP_INTERVAL=0.05 ISLAND_POWER_INTERVAL=0.02 ISLAND_CONSERVATION_INTERVAL=0.02
+  export ISLAND_VPN_INTERVAL=0.05
   mkfifo "$ALERT_FIXTURE/output"
   exec {output_fd}<> "$ALERT_FIXTURE/output"
   "$SCRIPTS/alert" > "$ALERT_FIXTURE/output" 2> "$ALERT_FIXTURE/stderr" &
@@ -817,4 +985,15 @@ start_listener() {
   printf 'device changed: /org/freedesktop/UPower/devices/battery_BAT1\n' >&"$battery_fd"
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$(jq -c '[.kind,.text,.value,.level]' <<< "$event")" = '["charging","Mengisi daya","76% · batas 80%",76]' ]
+}
+
+@test "listener forwards vpn alerts from its poller" {
+  start_listener
+  ! IFS= read -r -t 0.1 -u "$output_fd" event
+  make_iface tekna0 tun
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.value]' <<< "$event")" = '["vpn","VPN tersambung","tekna0"]' ]
+  ts_set NeedsLogin
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text]' <<< "$event")" = '["vpn-error","Tailscale perlu login"]' ]
 }
