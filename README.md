@@ -27,8 +27,6 @@
 
 <p align="center">
   <img src="docs/assets/live/live-demo.gif" alt="openbox-island on a real Openbox desktop: compact pill, card opening, switching tabs, collapsing" width="100%">
-  <br>
-  <sub>Running on a real Openbox desktop with <em>High Tide</em> by The Poles playing.</sub>
 </p>
 
 <p align="center">
