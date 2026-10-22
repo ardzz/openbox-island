@@ -316,8 +316,13 @@ $ear: 14px;
 
 // Loading skeleton between tracks: grey rounded blocks where the text will be.
 @keyframes skeleton-pulse {
-  from { opacity: 1; }
-  to { opacity: 0.5; }
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.5;
+  }
 }
 
 .skeleton {
@@ -416,7 +421,7 @@ $ear: 14px;
 
 .headphone {
   color: $island-accent;
-  font-size: 13px;
+  font-size: 18px;
 }
 
 .pill-expanded {
@@ -520,9 +525,12 @@ $ear: 14px;
   margin-left: 8px;
 }
 
-.device-icon,
 .device-name {
   font-size: 12px;
+}
+
+.device-icon {
+  font-size: 16px;
 }
 
 // After .headphone and .device so a low battery wins in both places.
