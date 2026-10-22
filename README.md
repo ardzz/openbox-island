@@ -144,10 +144,13 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats -r tests/ && shellcheck -x -S warning eww/scripts/lib/*.sh eww/scripts/vpn.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/fullscreen eww/scripts/tab eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll eww/scripts/notify eww/scripts/notify-hook eww/scripts/notif eww/scripts/todo eww/scripts/ytm eww/scripts/shortcuts openbox/island.sh
+bats -r tests/
+tools/check
 python -m unittest discover -s tests -p 'test_lyrics.py'
 python -m unittest discover -s tests -p 'test_ytm_like.py'
 ```
+
+`tools/check [ROOT]` memeriksa file yang di-track di `eww/`, `openbox/`, `tools/`, dan `tests/`: lebih dari 200 baris `WARN`, lebih dari 300 baris `FAIL` (kecuali `*.conf`, `eww/players`, `eww/shortcuts`, dan gambar), `shellcheck -x -S warning` untuk skrip bash, dan `py_compile` untuk Python. Keluar 1 bila ada FAIL atau error lint.
 
 ## Debug
 

@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# check [ROOT]: size, shellcheck and python syntax gate for the tracked sources of ROOT (default: this repo).
+set -uo pipefail
+
+WARN_LINES=200
+FAIL_LINES=300
+SCOPE=(eww openbox tools tests)
+PYCACHE=''
+
+# skipped PATH: true for files with no size or lint budget (config, data lists, images).
+skipped() {
+  case $1 in
+    *.conf|eww/players|eww/shortcuts) return 0 ;;
+    *.png|*.jpg|*.jpeg|*.gif|*.svg|*.webp|*.ico) return 0 ;;
+  esac
+  return 1
+}
+
+# shebang PATH: the first line of PATH.
+shebang() {
+  local first=''
+  IFS= read -r first < "$1"
+  printf '%s' "$first"
+}
+
+is_bash() {
+  [[ $1 == *.sh || $(shebang "$1") =~ ^#!.*[/[:space:]]bash([[:space:]]|$) ]]
+}
+
+is_python() {
+  [[ $1 == *.py || $(shebang "$1") =~ ^#!.*python ]]
+}
+
+main() {
+  local root=${1:-"$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}
+  local path n rc=0
+  local -a files
+  cd "$root" || return 1
+  mapfile -t files < <(git ls-files -- "${SCOPE[@]}")
+  PYCACHE=$(mktemp -d)
+  trap 'rm -rf "$PYCACHE"' EXIT
+  for path in "${files[@]}"; do
+    [[ -f $path ]] || continue
+    skipped "$path" && continue
+    n=$(awk 'END { print NR }' "$path")
+    if (( n > FAIL_LINES )); then
+      printf 'FAIL %s %d baris\n' "$path" "$n"; rc=1
+    elif (( n > WARN_LINES )); then
+      printf 'WARN %s %d baris\n' "$path" "$n"
+    fi
+    if is_bash "$path"; then
+      shellcheck -x -s bash -S warning "$path" || rc=1
+    elif is_python "$path"; then
+      PYTHONPYCACHEPREFIX=$PYCACHE python3 -m py_compile "$path" || rc=1
+    fi
+  done
+  return "$rc"
+}
+
+[[ ${1:-} == -* ]] && { printf 'pemakaian: check [ROOT]\n' >&2; exit 2; }
+main "$@"
