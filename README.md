@@ -74,7 +74,7 @@ Full behaviour reference: [docs/fitur.md](docs/fitur.md) (Indonesian).
 <p align="center">
   <img src="docs/assets/demo.gif" alt="Rendered demo: music pill with visualizer, card tabs, volume alert, notification" width="520">
   <br>
-  <sub>Rendered from sample data with <code>tools/showcase</code>: music pill, card tabs Music → Weather → Notifications → To-do → Shortcuts, a volume alert and a WhatsApp notification.</sub>
+  <sub>Rendered from sample data with <code>tools/showcase</code>: music pill, card tabs Music → Weather → Notifications → To-do → Shortcuts, a volume alert and an email from Linus Torvalds.</sub>
 </p>
 
 ## Gallery

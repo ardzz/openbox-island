@@ -12,7 +12,7 @@ setup() {
 
   printf 'window=island\nmedia={"state":"playing"}\n' > "$T/samples/pill-music.vars"
   printf 'window=island-expanded\ntab=cuaca\nweather={"ok":true}\n' > "$T/samples/card-weather.vars"
-  printf 'window=island\nnotify={"active":true,"summary":"Rina"}\n' > "$T/samples/pill-notify.vars"
+  printf 'window=island\nnotify={"active":true,"summary":"Linus"}\n' > "$T/samples/pill-notify.vars"
   : > "$T/out/screenshots/gone.png"
 
   export LOG="$T/log" SEEN="$T/seen" PREVIEW_SETTLE=0 SHOWCASE_PACE=0 XDG_CACHE_HOME="$T/cache"
@@ -85,7 +85,7 @@ updates() { awk -F'|' 'index($3, "update ") == 1 { print $3 }' "$LOG"; }
   grep -q 'defwindow preview-backdrop' "$demo/eww.yuck"
   updates | grep -q '^update island_tab=pintasan$'
   updates | grep -q '"kind":"volume".*"level":65'
-  updates | grep -qF 'notify={"active":true,"summary":"Rina"}'
+  updates | grep -qF 'notify={"active":true,"summary":"Linus"}'
   updates | grep -q '^update viz=\['
 }
 
