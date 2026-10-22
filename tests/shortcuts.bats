@@ -27,12 +27,13 @@ case $1 in
   search) printf 'WINDOW=3\nX=706\nY=0\nWIDTH=508\nHEIGHT=218\nSCREEN=0\n' ;;
 esac
 EOF
-  # A stand-in for a screenshot tool: logs its arguments, its session and the open card.
+  # A stand-in for a screenshot tool: records its session and the open card, then logs its
+  # arguments last, because tests wait for that log line before reading the records.
   cat > "$BIN/fakeshot" <<'EOF'
 #!/usr/bin/env bash
-printf 'launched%s\n' "$(printf ' [%s]' "$@")" >> "$FAKE_EWW_LOG"
 ps -o sid= -p $$ | tr -d ' ' > "$FAKE_DIR/sid"
 cp "$FAKE_EWW_ACTIVE" "$FAKE_DIR/active_at_launch"
+printf 'launched%s\n' "$(printf ' [%s]' "$@")" >> "$FAKE_EWW_LOG"
 echo LEAK; echo LEAK >&2
 if [[ -n ${FAKE_HOLD:-} ]]; then exec sleep "$FAKE_HOLD"; fi
 EOF
