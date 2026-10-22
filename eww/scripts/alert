@@ -16,6 +16,7 @@ ICON_BRI_HIGH=$'\U000F00E0'
 ICON_BAT_LOW=$'\U000F12A1'
 ICON_BAT_FULL=$'\U000F0079'
 ICON_BAT_CHARGING=$'\U000F0084'
+ICON_BAT_LIMIT=$'\U000F0081'
 ICON_WIFI_4=$'\U000F0928'
 ICON_WIFI_OFF=$'\U000F092D'
 ICON_BT=$'\U000F00AF'
@@ -155,11 +156,15 @@ brightness_event() {
 }
 
 battery_update() {
-  local state=$1 value=$2 text='' icon=$ICON_BAT_FULL kind=battery
+  local state=$1 value=$2 text='' icon=$ICON_BAT_FULL kind=battery suffix=''
   if [[ -n ${battery_seen:-} ]]; then
     if [[ $state != "$battery_state" ]]; then
       case $state in
-        charging) text='Mengisi daya'; icon=$ICON_BAT_CHARGING; kind=charging ;;
+        charging)
+          text='Mengisi daya'; icon=$ICON_BAT_CHARGING; kind=charging
+          if [[ -n ${conservation_file:-} ]] && conservation_read && [[ $conservation_value == 1 ]]; then
+            suffix=' · batas 80%'
+          fi ;;
         fully-charged) text='Baterai penuh' ;;
         discharging)
           case $battery_state in
@@ -167,7 +172,7 @@ battery_update() {
           esac ;;
       esac
     fi
-    if [[ -n $text ]]; then alert_json "$kind" "$icon" "$text" "$value%" "$value"; fi
+    if [[ -n $text ]]; then alert_json "$kind" "$icon" "$text" "$value%$suffix" "$value"; fi
     if [[ $state == discharging ]]; then
       text='' kind=battery-low icon=$ICON_BAT_LOW
       if (( battery_value > 10 && value <= 10 )); then text='Baterai kritis'
@@ -369,6 +374,39 @@ power_snapshot() {
   power_profile=$profile
 }
 
+# conservation_find: Lenovo conservation_mode file, ISLAND_CONSERVATION overriding sysfs. Fails when absent.
+conservation_find() {
+  local file
+  conservation_file=''
+  if [[ -n ${ISLAND_CONSERVATION:-} ]]; then
+    [[ -e $ISLAND_CONSERVATION ]] && conservation_file=$ISLAND_CONSERVATION
+  else
+    for file in /sys/bus/platform/devices/VPC2004:*/conservation_mode; do
+      if [[ -e $file ]]; then conservation_file=$file; break; fi
+    done
+  fi
+  [[ -n $conservation_file ]]
+}
+
+conservation_read() {
+  local value=''
+  IFS= read -r value 2>/dev/null < "$conservation_file" || :
+  [[ $value == [01] ]] || return 1
+  conservation_value=$value
+}
+
+conservation_snapshot() {
+  conservation_read || return 0
+  if [[ -n ${conservation_state:-} && $conservation_value != "$conservation_state" ]]; then
+    if [[ $conservation_value == 1 ]]; then
+      alert_json battery "$ICON_BAT_LIMIT" 'Batas pengisian aktif' 80% -1
+    else
+      alert_json battery "$ICON_BAT_FULL" 'Pengisian penuh' 100% -1
+    fi
+  fi
+  conservation_state=$conservation_value
+}
+
 stop_children() {
   local pid
   if [[ -n ${monitor_pid:-} ]]; then kill "$monitor_pid" 2>/dev/null || :; fi
@@ -455,6 +493,15 @@ source_worker() {
         poll_sleep "${ISLAND_POWER_INTERVAL:-2}"
         power_snapshot || :
       done ;;
+    conservation)
+      if [[ -z ${conservation_file:-} ]]; then
+        printf 'alert: sumber conservation dilewati, conservation_mode tidak ditemukan\n' >&2
+        return 0
+      fi
+      while true; do
+        conservation_snapshot
+        poll_sleep "${ISLAND_CONSERVATION_INTERVAL:-5}"
+      done ;;
   esac
 }
 
@@ -487,7 +534,8 @@ main() {
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
   printf '%s\n' "$CLEAR_JSON"
-  for source in audio brightness battery wifi bluetooth screenshot temperature capslock power; do
+  conservation_find || :
+  for source in audio brightness battery wifi bluetooth screenshot temperature capslock power conservation; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done

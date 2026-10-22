@@ -54,8 +54,8 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 | `mic` | `Mikrofon nyala` atau `Mikrofon mati` |
 | `output` | `Output audio` saat sink default atau port aktifnya berganti, dengan nama port aktif (jika sink punya lebih dari satu port) atau nama sink; ikon headphone Bluetooth, headphone, monitor (HDMI/DisplayPort), atau speaker |
 | `brightness` | `Kecerahan`, dengan persentase |
-| `charging` | `Mengisi daya` saat charger dipasang, dengan persentase; ikon berwarna aksen dan berdenyut beberapa kali |
-| `battery` | `Charger dicabut` atau `Baterai penuh`, dengan persentase |
+| `charging` | `Mengisi daya` saat charger dipasang, dengan persentase (ditambah `· batas 80%` selama mode konservasi aktif); ikon berwarna aksen dan berdenyut beberapa kali |
+| `battery` | `Charger dicabut` atau `Baterai penuh`, dengan persentase; juga `Batas pengisian aktif` (80%) atau `Pengisian penuh` (100%) saat mode konservasi baterai Lenovo berubah |
 | `battery-low` | `Baterai lemah` saat melewati 20% atau `Baterai kritis` saat melewati 10% ketika daya sedang dipakai; ikon dan meter berwarna merah |
 | `wifi` | `Wi-Fi tersambung` dengan nama koneksi, atau `Wi-Fi terputus` |
 | `bluetooth` | `Bluetooth tersambung` atau `Bluetooth terputus`, dengan nama perangkat (alias) serta persentase baterai saat tersambung jika perangkat melaporkannya; ikon mengikuti jenis perangkat (headphone, gamepad, mouse, keyboard, ponsel) |
@@ -67,6 +67,8 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 Folder tangkapan layar: `ISLAND_SCREENSHOT_DIR` jika diset, selain itu `$(xdg-user-dir PICTURES)/Screenshots`, sama dengan `ob-screenshot`/Satty. Jika folder Gambar XDG belum diatur, `xdg-user-dir` menjawab `$HOME`, sehingga folder yang dipantau adalah `~/Screenshots`. Folder dibuat jika belum ada.
 
 Suhu dibaca langsung dari hwmon (`/sys/class/hwmon`) setiap 5 detik (`ISLAND_TEMP_INTERVAL`), tanpa `sensors` atau `nvidia-smi` agar GPU diskrit tidak terbangun. Sensor CPU berlabel `CPU Temperature`, `Package id 0`, atau `Tctl` (urutan prioritas); sensor GPU berlabel `GPU Temperature`. Tanpa sensor yang cocok, alert suhu tidak aktif. Saat island dimulai dalam kondisi sudah panas, alert baru muncul setelah suhu turun lalu naik lagi.
+
+Mode konservasi baterai Lenovo dibaca dari `ISLAND_CONSERVATION` jika diset, selain itu dari `/sys/bus/platform/devices/VPC2004:*/conservation_mode`, setiap 5 detik (`ISLAND_CONSERVATION_INTERVAL`). Status saat island dimulai tidak memunculkan alert. Tanpa berkas tersebut, alert konservasi tidak aktif dan alert `charging` tidak berubah.
 
 Indikator tampil pada pill idle dan media: titik merah dengan durasi berarti layar sedang direkam, titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, dan ikon lonceng dicoret berarti Jangan Ganggu dunst aktif. Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya. Deteksi kamera hanya melihat proses milik pengguna yang sama.
 

@@ -4,7 +4,7 @@ setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
   export ALERT_FIXTURE="$BATS_TEST_TMPDIR"
   export ISLAND_HWMON="$BATS_TEST_TMPDIR/hwmon" ISLAND_LEDS="$BATS_TEST_TMPDIR/leds"
-  export ISLAND_SCREENSHOT_DIR="$BATS_TEST_TMPDIR/shots"
+  export ISLAND_SCREENSHOT_DIR="$BATS_TEST_TMPDIR/shots" ISLAND_CONSERVATION="$BATS_TEST_TMPDIR/conservation_mode"
   export ISLAND_PLATFORM_PROFILE="$BATS_TEST_TMPDIR/platform_profile"
   unset ISLAND_TEMP_CPU ISLAND_TEMP_GPU
   BIN="$BATS_TEST_TMPDIR/bin"
@@ -119,6 +119,46 @@ teardown() {
   [ "$(jq -sc 'map(.text)' "$RESULT")" = '["Mengisi daya"]' ]
 }
 
+@test "conservation mode toggles emit battery alerts after a silent baseline" {
+  printf '1\n' > "$ISLAND_CONSERVATION"
+  conservation_find
+  [ "$conservation_file" = "$ISLAND_CONSERVATION" ]
+  {
+    conservation_snapshot
+    conservation_snapshot
+    printf '0\n' > "$ISLAND_CONSERVATION"; conservation_snapshot
+    conservation_snapshot
+    printf '1\n' > "$ISLAND_CONSERVATION"; conservation_snapshot
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["battery","Pengisian penuh","100%",-1,""],["battery","Batas pengisian aktif","80%",-1,""]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F0079|\U000F0081' ]
+}
+
+@test "charging alert notes the 80% limit while conservation mode is on" {
+  printf '1\n' > "$ISLAND_CONSERVATION"
+  conservation_find
+  {
+    battery_update discharging 76
+    battery_update charging 76
+    printf '0\n' > "$ISLAND_CONSERVATION"
+    battery_update discharging 76
+    battery_update charging 76
+  } > "$RESULT"
+  [ "$(jq -sc 'map(select(.kind == "charging") | [.text,.value,.level])' "$RESULT")" = '[["Mengisi daya","76% · batas 80%",76],["Mengisi daya","76%",76]]' ]
+}
+
+@test "a missing conservation override is not replaced by sysfs and leaves charging unchanged" {
+  local rc=0
+  conservation_find || rc=$?
+  [ "$rc" -ne 0 ]
+  [ -z "${conservation_file:-}" ]
+  {
+    battery_update discharging 76
+    battery_update charging 76
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.kind,.value])' "$RESULT")" = '[["charging","76%"]]' ]
+}
+
 make_fakes() {
   printf '42\n' > "$ALERT_FIXTURE/volume"
   printf 'no\n' > "$ALERT_FIXTURE/mute"
@@ -127,6 +167,7 @@ make_fakes() {
   printf 'discharging\n' > "$ALERT_FIXTURE/battery-state"
   printf '76\n' > "$ALERT_FIXTURE/battery-percent"
   write_sinks alsa_output.pci-0000_00_1f.3.analog-stereo
+  printf '0\n' > "$ISLAND_CONSERVATION"
   mkfifo "$ALERT_FIXTURE/audio-events" "$ALERT_FIXTURE/brightness-events" \
     "$ALERT_FIXTURE/battery-events" "$ALERT_FIXTURE/wifi-events" \
     "$ALERT_FIXTURE/bluetooth-events" "$ALERT_FIXTURE/screenshot-events"
@@ -636,9 +677,9 @@ set_profile() {
   [ -z "$output" ]
 }
 
-@test "sources without their tools, sensors or LEDs are skipped with a note" {
+@test "sources without their tools, sensors, LEDs or files are skipped with a note" {
   local source
-  for source in bluetooth screenshot temperature capslock power; do
+  for source in bluetooth screenshot temperature capslock power conservation; do
     run bash -c 'source "$2"; PATH=$1; source_worker "$3"' _ "$BIN" "$SCRIPTS/alert" "$source"
     [ "$status" -eq 0 ]
     case $source in
@@ -647,13 +688,14 @@ set_profile() {
       temperature) [ "$output" = 'alert: sumber temperature dilewati, sensor suhu tidak ditemukan' ] ;;
       capslock) [ "$output" = 'alert: sumber capslock dilewati, LED Caps Lock tidak ditemukan' ] ;;
       power) [ "$output" = 'alert: sumber power dilewati, platform_profile tidak ditemukan' ] ;;
+      conservation) [ "$output" = 'alert: sumber conservation dilewati, conservation_mode tidak ditemukan' ] ;;
     esac
   done
 }
 
 start_listener() {
   make_fakes
-  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_CAPS_INTERVAL=0.02 ISLAND_TEMP_INTERVAL=0.05 ISLAND_POWER_INTERVAL=0.02
+  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_CAPS_INTERVAL=0.02 ISLAND_TEMP_INTERVAL=0.05 ISLAND_POWER_INTERVAL=0.02 ISLAND_CONSERVATION_INTERVAL=0.02
   mkfifo "$ALERT_FIXTURE/output"
   exec {output_fd}<> "$ALERT_FIXTURE/output"
   "$SCRIPTS/alert" > "$ALERT_FIXTURE/output" 2> "$ALERT_FIXTURE/stderr" &
@@ -763,4 +805,16 @@ start_listener() {
   ! IFS= read -r -t 0.29 -u "$output_fd" event
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$event" = "$CLEAR" ]
+}
+
+@test "listener forwards conservation toggles and the limited charging value" {
+  start_listener
+  ! IFS= read -r -t 0.1 -u "$output_fd" event
+  printf '1\n' > "$ISLAND_CONSERVATION"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.value,.level]' <<< "$event")" = '["battery","Batas pengisian aktif","80%",-1]' ]
+  printf 'charging\n' > "$ALERT_FIXTURE/battery-state"
+  printf 'device changed: /org/freedesktop/UPower/devices/battery_BAT1\n' >&"$battery_fd"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.value,.level]' <<< "$event")" = '["charging","Mengisi daya","76% · batas 80%",76]' ]
 }
