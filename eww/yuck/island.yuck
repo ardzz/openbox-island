@@ -168,17 +168,18 @@
                 (label :class "time" :text {media.length_text})))
             (revealer :transition "none" :reveal {media.state == "loading"}
               (box :class "skeleton-row" (skeleton :class "skeleton-progress" :width 438))))
-          ; Up next and the headphone share one row so the card keeps its height.
+          ; Up next and the headphone share one row so the card keeps its height; the device is centred when alone.
           (revealer :transition "none" :reveal {(ytm.active && ytm.next_title != "") || status.headphone.kind != "none"}
             (box :orientation "h" :space-evenly false :spacing 0 :width 438 :hexpand false
-              (box :hexpand true
+              (box :hexpand {ytm.active && ytm.next_title != ""}
                 (revealer :transition "none" :reveal {ytm.active && ytm.next_title != ""}
                   (label :class "up-next" :xalign 0 :wrap false :show-truncated true
                          :limit-width {status.headphone.kind != "none" ? 40 : 62}
                          :text "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"
                          :tooltip "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}")))
-              (revealer :transition "none" :reveal {status.headphone.kind != "none"}
+              (revealer :transition "none" :reveal {status.headphone.kind != "none"} :hexpand {!(ytm.active && ytm.next_title != "")}
                 (box :class "device" :orientation "h" :space-evenly false :spacing 6 :tooltip {status.headphone.label}
+                     :halign {ytm.active && ytm.next_title != "" ? "end" : "center"}
                   (label :class "device-icon ${status.headphone.low ? 'headphone-low' : ''}" :text {status.headphone.icon})
                   (label :class "device-name" :text {status.headphone.label} :limit-width 18 :show-truncated true)))))
           (box :class "controls" :orientation "h" :halign "center" :space-evenly false :spacing 28
