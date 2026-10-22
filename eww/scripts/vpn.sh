@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VPN detection shared by alert and status. Source it; do not execute.
+# VPN detection used by alert. Source it; do not execute.
 # shellcheck disable=SC2034 # results are read by the sourcing scripts
 
 declare -ga vpn_ifaces=()
@@ -51,13 +51,4 @@ ts_sample() {
   ts_exit_name=$(tailscale status --json 2>/dev/null |
     jq -r 'first(.Peer[]? | select(.ExitNode == true) | .HostName) // empty' 2>/dev/null) || ts_exit_name=''
   [[ -n $ts_exit_name ]] || ts_exit_name=${ip%%/*}
-}
-
-# vpn_summary: vpn_active is true for any generic VPN or a Tailscale exit node; vpn_desc names them.
-vpn_summary() {
-  local name
-  vpn_active=false vpn_desc=''
-  for name in "${vpn_ifaces[@]}"; do vpn_desc+="${vpn_desc:+, }$name"; done
-  if [[ -n $ts_exit_id ]]; then vpn_desc+="${vpn_desc:+, }Tailscale via $ts_exit_name"; fi
-  if [[ -n $vpn_desc ]]; then vpn_active=true; fi
 }

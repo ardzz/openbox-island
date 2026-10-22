@@ -4,8 +4,6 @@ declare -g DIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$DIR/lib.sh"
-# shellcheck source=vpn.sh
-source "$DIR/vpn.sh"
 
 mic_snapshot() {
   local outputs sources report
@@ -113,21 +111,6 @@ audio_snapshot() {
 
 bluez_snapshot() { headphone_snapshot; }
 
-# vpn_poll: report generic VPNs and a Tailscale exit node, printing only changes.
-vpn_poll() {
-  local last=''
-  while true; do
-    vpn_scan
-    ts_sample
-    vpn_summary
-    if [[ "$vpn_active $vpn_desc" != "$last" ]]; then
-      last="$vpn_active $vpn_desc"
-      jq -cn --argjson active "$vpn_active" --arg apps "$vpn_desc" '{source:"vpn",active:$active,apps:$apps}'
-    fi
-    poll_sleep "${ISLAND_VPN_INTERVAL:-10}"
-  done
-}
-
 status_event() {
   local source=$1 line=$2
   case $source in
@@ -202,7 +185,6 @@ source_worker() {
     audio) run_forever monitor_stream audio pactl subscribe ;;
     bluez) run_forever monitor_stream bluez gdbus monitor --system --dest org.bluez ;;
     camera) run_forever monitor_stream camera inotifywait -m -q -e open,close "${devices[@]}" ;;
-    vpn) vpn_poll ;;
     dnd)
       run_forever monitor_stream dnd dbus-monitor --session \
         "type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path='/org/freedesktop/Notifications'" \
@@ -221,7 +203,7 @@ main() {
   require jq || { printf 'status: jq tidak tersedia\n' >&2; return 127; }
   local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" workdir source input_fd
   local line active apps headphone=$HEADPHONE_NONE json last='' initialized=0
-  local mic=false mic_apps='' camera=false camera_apps='' dnd=false vpn=false vpn_desc=''
+  local mic=false mic_apps='' camera=false camera_apps='' dnd=false
   local -A seen=()
   local -a worker_pids=()
   mkdir -p "$state"
@@ -230,7 +212,7 @@ main() {
   trap listener_cleanup EXIT
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
-  for source in audio camera dnd vpn bluez; do
+  for source in audio camera dnd bluez; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done
@@ -241,7 +223,6 @@ main() {
       mic) mic=$active mic_apps=$apps ;;
       camera) camera=$active camera_apps=$apps ;;
       dnd) dnd=$active ;;
-      vpn) vpn=$active vpn_desc=$apps ;;
       headphone) headphone=$json ;;
       *) continue ;;
     esac
@@ -249,11 +230,11 @@ main() {
       seen[$source]=1
       initialized=$((initialized + 1))
     fi
-    (( initialized == 5 )) || continue
+    (( initialized == 4 )) || continue
     json=$(jq -cn --argjson mic "$mic" --arg mic_apps "$mic_apps" \
       --argjson camera "$camera" --arg camera_apps "$camera_apps" --argjson dnd "$dnd" \
-      --argjson vpn "$vpn" --arg vpn_desc "$vpn_desc" --argjson headphone "$headphone" \
-      '{mic:$mic,mic_apps:$mic_apps,camera:$camera,camera_apps:$camera_apps,dnd:$dnd,vpn:$vpn,vpn_desc:$vpn_desc,headphone:$headphone}')
+      --argjson headphone "$headphone" \
+      '{mic:$mic,mic_apps:$mic_apps,camera:$camera,camera_apps:$camera_apps,dnd:$dnd,headphone:$headphone}')
     if [[ $json != "$last" ]]; then printf '%s\n' "$json"; last=$json; fi
   done
 }

@@ -33,10 +33,7 @@
         (box :class "dot dot-camera" :halign "end" :valign "center")))
     (revealer :transition "none" :reveal {status.dnd}
       (label :class "dnd" :width 16 :xalign 1
-             :text "󰂛" :tooltip "Jangan Ganggu aktif"))
-    (revealer :transition "none" :reveal {status.vpn}
-      (label :class "vpn" :width 16 :xalign 1
-             :text "󰦝" :tooltip "VPN: ${status.vpn_desc}"))))
+             :text "󰂛" :tooltip "Jangan Ganggu aktif"))))
 
 (defwindow island
   :monitor 0
@@ -65,7 +62,7 @@
         (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
           (cover :size "small")
           (box :orientation "v" :space-evenly false :spacing 0 :valign "center"
-               :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0) + (status.vpn ? 1 : 0)) - (rec.active ? 56 : 0) - (status.headphone.kind != "none" ? 18 : 0)}
+               :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0)) - (rec.active ? 56 : 0) - (status.headphone.kind != "none" ? 18 : 0)}
                :hexpand false
             (revealer :transition "none" :reveal {media.state != "loading"}
               (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"

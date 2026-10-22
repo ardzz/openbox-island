@@ -4,7 +4,7 @@
 (deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}' "scripts/alert")
 (deflisten notify :initial '{"active":false,"id":0,"app":"","summary":"","body":"","icon":"","image":"","critical":false}' "scripts/notify")
 (deflisten notif_center :initial '{"total":0,"unread":0,"label":"Notifikasi","rows":[],"more":0,"offset":0}' "scripts/notif")
-(deflisten status :initial '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false,"vpn":false,"vpn_desc":"","headphone":{"kind":"none","icon":"","name":"","battery":null,"low":false,"label":""}}' "scripts/status")
+(deflisten status :initial '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false,"headphone":{"kind":"none","icon":"","name":"","battery":null,"low":false,"label":""}}' "scripts/status")
 (deflisten rec :initial '{"active":false,"app":"","time":""}' "scripts/rec")
 (deflisten ytm :initial '{"active":false,"video_id":"","like":"","next_title":"","next_artist":""}' "scripts/ytm")
 (deflisten weather :initial '{"ok":false,"icon":"","tone":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")
