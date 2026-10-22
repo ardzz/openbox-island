@@ -85,14 +85,34 @@ viz_descendant() {
   return 1
 }
 
+# Streams from in-process players (libmpv) may lack application.process.id;
+# their client's pid then decides, preferring the socket-derived
+# pipewire.sec.pid over the client-supplied application.process.id.
+viz_client_pids() {
+  pactl -f json list clients 2>/dev/null | jq -r '.[] | .properties as $p |
+    [(.index | tostring),
+     ([$p["pipewire.sec.pid"], $p["application.process.id"]] |
+      map(select(. != null) | tostring | select(test("^[1-9][0-9]*$"))) | .[0] // "")] |
+    join("|")' 2>/dev/null
+}
+
 viz_select() {
-  local owner=$1 rows pid serial rank best='' best_rank=-1
+  local owner=$1 rows pid serial rank client best='' best_rank=-1 pid_re='^[1-9][0-9]*$'
+  local -A client_pid=()
   rows=$(jq -r '.[] | select(.corked == true or .corked == false) |
     [(.properties["application.process.id"] // ""),
-     (.properties["object.serial"] // ""), (if .corked then 0 else 1 end)] |
+     (.properties["object.serial"] // ""), (if .corked then 0 else 1 end), (.client // "")] |
     map(tostring) | join("|")') || return 0
-  while IFS='|' read -r pid serial rank; do
-    [[ $pid =~ ^[1-9][0-9]*$ && $serial =~ ^[1-9][0-9]*$ && $rank =~ ^[01]$ ]] || continue
+  while IFS='|' read -r pid _ _ client; do
+    [[ ! $pid =~ $pid_re && $client =~ ^[0-9]+$ ]] || continue
+    while IFS='|' read -r client pid; do
+      [[ $client =~ ^[0-9]+$ ]] && client_pid[$client]=$pid
+    done < <(viz_client_pids)
+    break
+  done <<< "$rows"
+  while IFS='|' read -r pid serial rank client; do
+    if [[ ! $pid =~ $pid_re && $client =~ ^[0-9]+$ ]]; then pid=${client_pid[$client]-}; fi
+    [[ $pid =~ $pid_re && $serial =~ ^[1-9][0-9]*$ && $rank =~ ^[01]$ ]] || continue
     viz_descendant "$pid" "$owner" || continue
     if (( rank > best_rank )) || { (( rank == best_rank )) && [[ $serial -gt ${best:-0} ]]; }; then
       best=$serial
