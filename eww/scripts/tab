@@ -8,20 +8,20 @@ source "$DIR/lib/core.sh"
 # Scroll gestures arrive as bursts of events: one switch per this many deciseconds.
 DEBOUNCE_DS=5
 
-# Header order. A new tab: append its name, add available_NAME, then its chip and page in island.yuck.
-TABS=(musik cuaca notif tugas pintasan)
-# media writes media.json before it calls island, so this never lags behind a stopped player.
-available_musik() { [[ $(jq -r '.state // "none"' "$ISLAND_STATE/media.json" 2>/dev/null) =~ ^(playing|paused|loading)$ ]]; }
-available_cuaca() { [[ $(island_eww get weather 2>/dev/null | jq -r '.ok // false' 2>/dev/null) == true ]]; }
-available_notif() { [[ $(island_eww get notif_center 2>/dev/null | jq -r '(.total // 0) > 0' 2>/dev/null) == true ]]; }
-# The to-do list is offered even when empty (the first item is added from it) while its listener runs.
-available_tugas() { [[ -p $ISLAND_STATE/todo.fifo ]]; }
-available_pintasan() { [[ $("$DIR/shortcuts" list 2>/dev/null) == '[['* ]]; }
+# Header order = lib/tabs/NN-<id>.sh in numeric order; each defines tab_<id>_available.
+# A new tab: add its file there, then its chip and page in yuck/island.yuck.
+TABS=()
+for f in "$DIR"/lib/tabs/*.sh; do
+  # shellcheck source=/dev/null
+  source "$f"
+  f=${f##*/}; f=${f%.sh}; TABS+=("${f#*-}")
+done
+unset f
 
 known() { local t; for t in "${TABS[@]}"; do [[ $t == "$1" ]] && return 0; done; return 1; }
 
 # available: available tabs in header order, one per line.
-available() { local t; for t in "${TABS[@]}"; do "available_$t" && printf '%s\n' "$t"; done; }
+available() { local t; for t in "${TABS[@]}"; do "tab_${t}_available" && printf '%s\n' "$t"; done; }
 
 # resolve [TAB]: TAB if available, else the saved tab if available, else the first available
 # tab, else the first tab. Never saves.
