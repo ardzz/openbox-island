@@ -65,6 +65,54 @@ dnd_snapshot() {
   fi
 }
 
+HEADPHONE_NONE='{"kind":"none","icon":"","name":"","battery":null,"low":false,"label":""}'
+BLUEZ_RE="PropertiesChanged \\('org\\.bluez\\.(Battery1', \\{.*'Percentage'|Device1', \\{.*'Connected')"
+
+# headphone_snapshot: the default sink as a bluetooth headset, wired headphones or nothing.
+headphone_snapshot() {
+  local sink json line='' kind=none name='' mac='' info battery='' icon=''
+  if sink=$(pactl get-default-sink 2>/dev/null) && json=$(pactl -f json list sinks 2>/dev/null); then
+    line=$(jq -r --arg sink "$sink" 'first(.[] | select(.name == $sink)) | . as $s
+      | (first(($s.ports // [])[] | select(.name == $s.active_port)) // {}) as $p
+      | if ($sink | startswith("bluez_")) then
+          ["bt", $s.description // "", $s.properties["api.bluez5.address"]
+            // (try ($sink | capture("(?<m>[0-9A-Fa-f]{2}(_[0-9A-Fa-f]{2}){5})").m | gsub("_"; ":")) catch "")]
+        elif ([$p.name, $p.description, $p.type, $s.description] | map(. // "") | join(" ")
+          | ascii_downcase | test("headphone|headset")) then
+          ["wired", $p.description // $s.description // "", ""]
+        else ["none", "", ""] end
+      | join("\u001f")' <<< "$json" 2>/dev/null) || line=''
+  fi
+  [[ -n $line ]] && IFS=$'\x1f' read -r kind name mac <<< "$line"
+  case $kind in
+    bt)
+      icon=$ICON_HEADPHONES_BT
+      # bluetoothctl waits forever for bluetoothd when the daemon is down.
+      if [[ -n $mac ]] && info=$(timeout 3 bluetoothctl info "$mac" 2>/dev/null); then
+        while read -r line; do
+          case $line in
+            'Alias: '?*) name=${line#Alias: } ;;
+            'Battery Percentage: '*) if [[ $line =~ \(([0-9]+)\) ]]; then battery=${BASH_REMATCH[1]}; fi ;;
+          esac
+        done <<< "$info"
+      fi ;;
+    wired) icon=$ICON_HEADPHONES ;;
+    *) printf '{"source":"headphone","headphone":%s}\n' "$HEADPHONE_NONE"; return ;;
+  esac
+  jq -cn --arg kind "$kind" --arg icon "$icon" --arg name "$name" --arg battery "$battery" '
+    ($battery | if . == "" then null else tonumber end) as $b |
+    {source:"headphone",headphone:{kind:$kind,icon:$icon,name:$name,battery:$b,
+      low:($b != null and $b <= 20),label:($name + (if $b == null then "" else " · \($b)%" end))}}'
+}
+
+# audio_snapshot: both pactl-backed states, microphone and headphone.
+audio_snapshot() {
+  mic_snapshot
+  headphone_snapshot
+}
+
+bluez_snapshot() { headphone_snapshot; }
+
 # vpn_poll: report generic VPNs and a Tailscale exit node, printing only changes.
 vpn_poll() {
   local last=''
@@ -83,15 +131,18 @@ vpn_poll() {
 status_event() {
   local source=$1 line=$2
   case $source in
-    mic)
+    audio)
       case $line in
-        *' on source-output #'*|*' on source #'*|*' on server'*) mic_snapshot ;;
+        *' on server'*) mic_snapshot; headphone_snapshot ;;
+        *' on source-output #'*|*' on source #'*) mic_snapshot ;;
+        *' on sink #'*) headphone_snapshot ;;
       esac ;;
     camera) camera_snapshot ;;
     dnd)
       case $line in
         *member=PropertiesChanged*|*member=NameOwnerChanged*) dnd_snapshot ;;
       esac ;;
+    bluez) if [[ $line =~ $BLUEZ_RE ]]; then headphone_snapshot; fi ;;
   esac
 }
 
@@ -120,7 +171,7 @@ source_worker() {
   trap 'exit 0' TERM INT HUP
   trap worker_cleanup EXIT
   case $source in
-    mic) tools=(pactl) ;;
+    audio) tools=(pactl) ;;
     camera)
       for device in "${ISLAND_DEV:-/dev}"/video*; do
         [[ -e $device ]] && devices+=("$device")
@@ -131,16 +182,25 @@ source_worker() {
       fi
       tools=(inotifywait find) ;;
     dnd) tools=(dunstctl dbus-monitor) ;;
+    bluez) tools=(gdbus) ;;
   esac
   for tool in "${tools[@]}"; do
     if ! require "$tool"; then
       printf 'status: sumber %s dilewati, %s tidak tersedia\n' "$source" "$tool" >&2
-      printf '{"source":"%s","active":false,"apps":""}\n' "$source"
+      case $source in
+        # The audio worker alone reports the headphone without bluez.
+        bluez) ;;
+        audio)
+          printf '{"source":"mic","active":false,"apps":""}\n'
+          printf '{"source":"headphone","headphone":%s}\n' "$HEADPHONE_NONE" ;;
+        *) printf '{"source":"%s","active":false,"apps":""}\n' "$source" ;;
+      esac
       return 0
     fi
   done
   case $source in
-    mic) run_forever monitor_stream mic pactl subscribe ;;
+    audio) run_forever monitor_stream audio pactl subscribe ;;
+    bluez) run_forever monitor_stream bluez gdbus monitor --system --dest org.bluez ;;
     camera) run_forever monitor_stream camera inotifywait -m -q -e open,close "${devices[@]}" ;;
     vpn) vpn_poll ;;
     dnd)
@@ -160,7 +220,7 @@ listener_cleanup() {
 main() {
   require jq || { printf 'status: jq tidak tersedia\n' >&2; return 127; }
   local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" workdir source input_fd
-  local line active apps json last='' initialized=0
+  local line active apps headphone=$HEADPHONE_NONE json last='' initialized=0
   local mic=false mic_apps='' camera=false camera_apps='' dnd=false vpn=false vpn_desc=''
   local -A seen=()
   local -a worker_pids=()
@@ -170,30 +230,30 @@ main() {
   trap listener_cleanup EXIT
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
-  for source in mic camera dnd vpn; do
+  for source in audio camera dnd vpn bluez; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done
   while IFS= read -r -u "$input_fd" line; do
-    source=$(jq -r '.source' <<< "$line")
-    active=$(jq -r '.active' <<< "$line")
-    apps=$(jq -r '.apps' <<< "$line")
+    IFS=$'\x1f' read -r source active apps json < <(jq -r \
+      '[.source, (.active | tostring), (.apps // ""), (.headphone | tojson)] | join("\u001f")' <<< "$line")
     case $source in
       mic) mic=$active mic_apps=$apps ;;
       camera) camera=$active camera_apps=$apps ;;
       dnd) dnd=$active ;;
       vpn) vpn=$active vpn_desc=$apps ;;
+      headphone) headphone=$json ;;
       *) continue ;;
     esac
     if [[ ! ${seen[$source]:-} ]]; then
       seen[$source]=1
       initialized=$((initialized + 1))
     fi
-    (( initialized == 4 )) || continue
+    (( initialized == 5 )) || continue
     json=$(jq -cn --argjson mic "$mic" --arg mic_apps "$mic_apps" \
       --argjson camera "$camera" --arg camera_apps "$camera_apps" --argjson dnd "$dnd" \
-      --argjson vpn "$vpn" --arg vpn_desc "$vpn_desc" \
-      '{mic:$mic,mic_apps:$mic_apps,camera:$camera,camera_apps:$camera_apps,dnd:$dnd,vpn:$vpn,vpn_desc:$vpn_desc}')
+      --argjson vpn "$vpn" --arg vpn_desc "$vpn_desc" --argjson headphone "$headphone" \
+      '{mic:$mic,mic_apps:$mic_apps,camera:$camera,camera_apps:$camera_apps,dnd:$dnd,vpn:$vpn,vpn_desc:$vpn_desc,headphone:$headphone}')
     if [[ $json != "$last" ]]; then printf '%s\n' "$json"; last=$json; fi
   done
 }

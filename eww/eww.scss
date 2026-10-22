@@ -419,6 +419,11 @@ $ear: 14px;
   min-height: 4px;
 }
 
+.headphone {
+  color: $island-accent;
+  font-size: 13px;
+}
+
 .pill-expanded {
   min-width: 440px;
   padding: 22px 20px 14px;
@@ -512,6 +517,22 @@ $ear: 14px;
 
 .up-next {
   font-size: 12px;
+}
+
+// The margin sits inside the device revealer so a hidden device leaves no gap.
+.device {
+  color: $muted;
+  margin-left: 8px;
+}
+
+.device-icon,
+.device-name {
+  font-size: 12px;
+}
+
+// After .headphone and .device so a low battery wins in both places.
+.headphone-low {
+  color: $red;
 }
 
 .progress trough {

@@ -65,7 +65,7 @@
         (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
           (cover :size "small")
           (box :orientation "v" :space-evenly false :spacing 0 :valign "center"
-               :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0) + (status.vpn ? 1 : 0)) - (rec.active ? 56 : 0)}
+               :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0) + (status.vpn ? 1 : 0)) - (rec.active ? 56 : 0) - (status.headphone.kind != "none" ? 18 : 0)}
                :hexpand false
             (revealer :transition "none" :reveal {media.state != "loading"}
               (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
@@ -75,6 +75,9 @@
               (box :halign "center" (skeleton :class "skeleton-lyrics" :width 200))))
           (box :orientation "h" :space-evenly false :spacing 0
             (equalizer)
+            (revealer :transition "none" :reveal {status.headphone.kind != "none"}
+              (label :class "headphone ${status.headphone.low ? 'headphone-low' : ''}" :width 18 :xalign 1
+                     :text {status.headphone.icon} :tooltip {status.headphone.label}))
             (indicators)))
         (box :class "pill pill-alert alert-${alert.kind}" :orientation "h" :space-evenly false :spacing 10
           ; One slot for thumbnail or icon; revealers because :visible stays hidden in never-shown stack pages.
@@ -168,11 +171,19 @@
                 (label :class "time" :text {media.length_text})))
             (revealer :transition "none" :reveal {media.state == "loading"}
               (box :class "skeleton-row" (skeleton :class "skeleton-progress" :width 438))))
-          (revealer :transition "none" :reveal {ytm.active && ytm.next_title != ""}
-            (label :class "up-next" :xalign 0 :width 438 :hexpand false :limit-width 62
-                   :show-truncated true :wrap false
-                   :text "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"
-                   :tooltip "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"))
+          ; Up next and the headphone share one row so the card keeps its height.
+          (revealer :transition "none" :reveal {(ytm.active && ytm.next_title != "") || status.headphone.kind != "none"}
+            (box :orientation "h" :space-evenly false :spacing 0 :width 438 :hexpand false
+              (box :hexpand true
+                (revealer :transition "none" :reveal {ytm.active && ytm.next_title != ""}
+                  (label :class "up-next" :xalign 0 :wrap false :show-truncated true
+                         :limit-width {status.headphone.kind != "none" ? 40 : 62}
+                         :text "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"
+                         :tooltip "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}")))
+              (revealer :transition "none" :reveal {status.headphone.kind != "none"}
+                (box :class "device" :orientation "h" :space-evenly false :spacing 6 :tooltip {status.headphone.label}
+                  (label :class "device-icon ${status.headphone.low ? 'headphone-low' : ''}" :text {status.headphone.icon})
+                  (label :class "device-name" :text {status.headphone.label} :limit-width 18 :show-truncated true)))))
           (box :class "controls" :orientation "h" :halign "center" :space-evenly false :spacing 28
             (revealer :transition "none" :reveal {ytm.active}
               (button :class "ctl ctl-ytm ${ytm.like == 'DISLIKE' ? 'on' : ''}" :tooltip "Tidak suka"

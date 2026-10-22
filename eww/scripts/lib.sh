@@ -2,6 +2,9 @@
 # Shared helpers for island scripts. Source it; do not execute.
 export LC_ALL=C.UTF-8
 
+# shellcheck disable=SC2034 # read by alert and status
+ICON_HEADPHONES=$'\U000F02CB' ICON_HEADPHONES_BT=$'\U000F0970'
+
 MISSING_DEP=""
 
 # require TOOL...: return 127 and remember the first missing tool.
