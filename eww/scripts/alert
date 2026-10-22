@@ -243,8 +243,8 @@ screenshot_dir() {
   if command -v xdg-user-dir > /dev/null 2>&1; then
     pictures=$(xdg-user-dir PICTURES 2>/dev/null) || pictures=''
   fi
-  # xdg-user-dir answers $HOME when PICTURES is not configured.
-  if [[ -z $pictures || ${pictures%/} == "${HOME%/}" ]]; then pictures=$HOME/Pictures; fi
+  # Same directory ob-screenshot saves to; xdg-user-dir answers $HOME when PICTURES is unset.
+  [[ -n $pictures ]] || pictures=$HOME
   printf '%s\n' "${pictures%/}/Screenshots"
 }
 

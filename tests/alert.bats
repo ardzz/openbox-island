@@ -398,7 +398,7 @@ bt_line() {
   [ "$(jq -r .image "$RESULT")" = 'file:///home/user/Layar%20%281%29/it%27s%20a%5Cshot.png' ]
 }
 
-@test "screenshot directory prefers the override then XDG pictures then ~/Pictures" {
+@test "screenshot directory follows ob-screenshot: override, else XDG pictures (\$HOME when unset)" {
   export HOME="$BATS_TEST_TMPDIR/home"
   [ "$(screenshot_dir)" = "$ISLAND_SCREENSHOT_DIR" ]
   unset ISLAND_SCREENSHOT_DIR
@@ -411,9 +411,9 @@ EOF
   printf '%s\n' "$HOME/Gambar" > "$ALERT_FIXTURE/xdg-pictures"
   [ "$(screenshot_dir)" = "$HOME/Gambar/Screenshots" ]
   printf '%s\n' "$HOME" > "$ALERT_FIXTURE/xdg-pictures"
-  [ "$(screenshot_dir)" = "$HOME/Pictures/Screenshots" ]
+  [ "$(screenshot_dir)" = "$HOME/Screenshots" ]
   rm "$BIN/xdg-user-dir"
-  [ "$(PATH="$BIN" screenshot_dir)" = "$HOME/Pictures/Screenshots" ]
+  [ "$(PATH="$BIN" screenshot_dir)" = "$HOME/Screenshots" ]
 }
 
 set_temp() {
