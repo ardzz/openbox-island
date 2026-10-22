@@ -4,8 +4,10 @@ setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
   export ALERT_FIXTURE="$BATS_TEST_TMPDIR"
   export ISLAND_SCREENSHOT_DIR="$BATS_TEST_TMPDIR/shots"
+  export ISLAND_HWMON="$BATS_TEST_TMPDIR/hwmon"
+  unset ISLAND_TEMP_CPU ISLAND_TEMP_GPU
   BIN="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$BIN" "$XDG_RUNTIME_DIR"
+  mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_HWMON"
   export PATH="$BIN:$PATH"
   source "$SCRIPTS/alert"
   CLEAR='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
@@ -131,6 +133,7 @@ make_fakes() {
     > "$ALERT_FIXTURE/bt-info-AA:BB:CC:DD:EE:01"
   printf 'Device F4:93:B1:9A:5C:21 (public)\n\tName: WH-1000XM4\n\tAlias: WH-1000XM4\n\tClass: 0x00240404\n\tIcon: audio-headset\n\tConnected: yes\n\tBattery Percentage: 0x50 (80)\n' \
     > "$ALERT_FIXTURE/bt-info-F4:93:B1:9A:5C:21"
+  make_hwmon hwmon3 'CPU Temperature:50000' 'GPU Temperature:50000'
   cat > "$BIN/pactl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$ALERT_FIXTURE/audio-queries"
@@ -200,6 +203,19 @@ exec cat "$ALERT_FIXTURE/screenshot-events"
 EOF
   chmod +x "$BIN/pactl" "$BIN/light" "$BIN/udevadm" "$BIN/upower" "$BIN/nmcli" \
     "$BIN/bluetoothctl" "$BIN/gdbus" "$BIN/inotifywait"
+}
+
+# make_hwmon DIR 'LABEL:MILLIDEGREES'...: one fake hwmon device with labelled temp inputs.
+make_hwmon() {
+  local dir="$ISLAND_HWMON/$1" spec n=0
+  shift
+  mkdir -p "$dir"
+  printf 'fake\n' > "$dir/name"
+  for spec in "$@"; do
+    n=$((n + 1))
+    printf '%s\n' "${spec%:*}" > "$dir/temp${n}_label"
+    printf '%s\n' "${spec##*:}" > "$dir/temp${n}_input"
+  done
 }
 
 @test "fractional battery snapshots truncate percentages and retain charging transitions" {
@@ -398,21 +414,94 @@ EOF
   [ "$(PATH="$BIN" screenshot_dir)" = "$HOME/Pictures/Screenshots" ]
 }
 
-@test "sources without their tools are skipped with a note" {
+set_temp() {
+  printf '%s\n' "$2" > "$ISLAND_HWMON/$1_input"
+}
+
+@test "temperature warns once per crossing and re-arms only below threshold minus five" {
+  make_hwmon hwmon0 'CPU Temperature:50000' 'GPU Temperature:50000'
+  temperature_find
+  {
+    temperature_snapshot
+    set_temp hwmon0/temp1 94999; temperature_snapshot
+    set_temp hwmon0/temp1 95000; temperature_snapshot
+    set_temp hwmon0/temp1 99000; temperature_snapshot
+    set_temp hwmon0/temp1 90500; temperature_snapshot
+    set_temp hwmon0/temp1 96000; temperature_snapshot
+    set_temp hwmon0/temp1 89999; temperature_snapshot
+    set_temp hwmon0/temp1 96400; temperature_snapshot
+    set_temp hwmon0/temp2 86999; temperature_snapshot
+    set_temp hwmon0/temp2 87000; temperature_snapshot
+    temperature_snapshot
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["temperature","CPU panas","95°C",-1,""],["temperature","CPU panas","96°C",-1,""],["temperature","GPU panas","87°C",-1,""]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F050F|\U000F050F|\U000F050F' ]
+}
+
+@test "starting hot is silent until re-armed and thresholds follow the environment" {
+  export ISLAND_TEMP_CPU=80 ISLAND_TEMP_GPU=70
+  make_hwmon hwmon0 'CPU Temperature:85000' 'GPU Temperature:72000'
+  temperature_find
+  {
+    temperature_snapshot
+    temperature_snapshot
+    set_temp hwmon0/temp1 75500; temperature_snapshot
+    set_temp hwmon0/temp1 81000; temperature_snapshot
+    set_temp hwmon0/temp1 74000; temperature_snapshot
+    set_temp hwmon0/temp1 80000; temperature_snapshot
+    set_temp hwmon0/temp2 64000; temperature_snapshot
+    set_temp hwmon0/temp2 70000; temperature_snapshot
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.text,.value])' "$RESULT")" = '[["CPU panas","80°C"],["GPU panas","70°C"]]' ]
+}
+
+@test "cpu sensor prefers CPU Temperature then Package id 0 then Tctl" {
+  make_hwmon hwmon0 'Composite:40000'
+  make_hwmon hwmon1 'Tctl:40000'
+  make_hwmon hwmon2 'Package id 0:40000' 'Core 0:40000'
+  make_hwmon hwmon3 'CPU Temperature:40000' 'GPU Temperature:40000'
+  {
+    (
+      temperature_find; temperature_snapshot
+      set_temp hwmon0/temp1 99000; set_temp hwmon1/temp1 99000
+      set_temp hwmon2/temp1 99000; set_temp hwmon2/temp2 99000
+      temperature_snapshot
+      set_temp hwmon3/temp1 97000; temperature_snapshot
+    )
+    rm -r "$ISLAND_HWMON/hwmon3"
+    set_temp hwmon1/temp1 40000; set_temp hwmon2/temp1 40000
+    (
+      temperature_find; temperature_snapshot
+      set_temp hwmon1/temp1 99000; temperature_snapshot
+      set_temp hwmon2/temp1 98000; temperature_snapshot
+    )
+    rm -r "$ISLAND_HWMON/hwmon2"
+    set_temp hwmon1/temp1 40000
+    (
+      temperature_find; temperature_snapshot
+      set_temp hwmon0/temp1 99000; temperature_snapshot
+      set_temp hwmon1/temp1 96000; temperature_snapshot
+    )
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.text,.value])' "$RESULT")" = '[["CPU panas","97°C"],["CPU panas","98°C"],["CPU panas","96°C"]]' ]
+}
+
+@test "sources without their tools or sensors are skipped with a note" {
   local source
-  for source in bluetooth screenshot; do
+  for source in bluetooth screenshot temperature; do
     run bash -c 'source "$2"; PATH=$1; source_worker "$3"' _ "$BIN" "$SCRIPTS/alert" "$source"
     [ "$status" -eq 0 ]
     case $source in
       bluetooth) [ "$output" = 'alert: sumber bluetooth dilewati, gdbus tidak tersedia' ] ;;
       screenshot) [ "$output" = 'alert: sumber screenshot dilewati, inotifywait tidak tersedia' ] ;;
+      temperature) [ "$output" = 'alert: sumber temperature dilewati, sensor suhu tidak ditemukan' ] ;;
     esac
   done
 }
 
 start_listener() {
   make_fakes
-  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4
+  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_TEMP_INTERVAL=0.05
   mkfifo "$ALERT_FIXTURE/output"
   exec {output_fd}<> "$ALERT_FIXTURE/output"
   "$SCRIPTS/alert" > "$ALERT_FIXTURE/output" 2> "$ALERT_FIXTURE/stderr" &
@@ -432,6 +521,8 @@ start_listener() {
   exec {wifi_fd}<> "$ALERT_FIXTURE/wifi-events"
   exec {bluetooth_fd}<> "$ALERT_FIXTURE/bluetooth-events"
   exec {screenshot_fd}<> "$ALERT_FIXTURE/screenshot-events"
+  # Pollers take their baseline at worker start; give them a moment before changing inputs.
+  sleep 0.1
 }
 
 @test "listener starts cleared then emits a changed volume and clears after its hold" {
@@ -473,9 +564,12 @@ start_listener() {
   [ "$event" = "$CLEAR" ]
 }
 
-@test "listener forwards bluetooth and screenshot alerts with the alert hold" {
+@test "listener forwards temperature bluetooth and screenshot alerts with the alert hold" {
   start_listener
   ! IFS= read -r -t 0.1 -u "$output_fd" event
+  printf '96000\n' > "$ISLAND_HWMON/hwmon3/temp1_input"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.value]' <<< "$event")" = '["temperature","CPU panas","96°C"]' ]
   bt_line F4_93_B1_9A_5C_21 Device1 "'Connected': <true>" >&"$bluetooth_fd"
   printf '\n' >&"$bluetooth_fd"
   IFS= read -r -t 1 -u "$output_fd" event

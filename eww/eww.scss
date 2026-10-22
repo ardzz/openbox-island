@@ -24,7 +24,7 @@ $muted: mix($fg, $island-bg, 60%);
 .hud progress { background-color: $island-accent; border-radius: 2px; min-height: 4px; }
 @keyframes alert-pulse { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
 .alert-charging .alert-icon { color: $island-accent; animation: alert-pulse 0.7s ease-in-out 3; }
-.alert-battery-low .alert-icon { color: $red; }
+.alert-battery-low .alert-icon, .alert-temperature .alert-icon { color: $red; }
 .alert-battery-low .hud progress { background-color: $red; }
 .dot { min-width: 6px; min-height: 6px; border-radius: 3px; }
 .dot-mic { background-color: $yellow; }

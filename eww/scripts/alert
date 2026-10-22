@@ -25,9 +25,10 @@ ICON_MOUSE=$'\U000F037D'
 ICON_KEYBOARD=$'\U000F030C'
 ICON_PHONE=$'\U000F011C'
 ICON_CAMERA=$'\U000F0100'
+ICON_THERMOMETER=$'\U000F050F'
 CLEAR_JSON='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
 BT_CONNECTED_RE="^/org/bluez/hci[0-9]+/dev_([0-9A-Fa-f_]{17}): org\\.freedesktop\\.DBus\\.Properties\\.PropertiesChanged \\('org\\.bluez\\.Device1', \\{.*'Connected': <(true|false)>"
-declare -gA wifi_states=() bt_states=()
+declare -gA wifi_states=() bt_states=() temp_inputs=() temp_states=()
 
 level_icon() {
   if (( $1 < 34 )); then printf '%s' "$2"
@@ -254,6 +255,57 @@ screenshot_event() {
   esac
 }
 
+# temperature_find: pick the CPU and GPU hwmon inputs by label. Fails when neither exists.
+temperature_find() {
+  local file label
+  local -A inputs=()
+  temp_inputs=() temp_states=()
+  for file in "${ISLAND_HWMON:-/sys/class/hwmon}"/hwmon*/temp*_label; do
+    label=''
+    IFS= read -r label 2>/dev/null < "$file" || :
+    [[ -n $label && -z ${inputs[$label]:-} ]] || continue
+    inputs[$label]=${file%_label}_input
+  done
+  for label in 'CPU Temperature' 'Package id 0' Tctl; do
+    if [[ -n ${inputs[$label]:-} ]]; then temp_inputs[cpu]=${inputs[$label]}; break; fi
+  done
+  if [[ -n ${inputs['GPU Temperature']:-} ]]; then temp_inputs[gpu]=${inputs['GPU Temperature']}; fi
+  (( ${#temp_inputs[@]} ))
+}
+
+# temperature_update SENSOR MILLIDEGREES: warn on reaching the threshold, re-arm 5 °C below it.
+temperature_update() {
+  local sensor=$1 celsius threshold=${ISLAND_TEMP_GPU:-87} text='GPU panas'
+  [[ $2 =~ ^[0-9]+$ ]] || return 0
+  celsius=$((10#$2 / 1000))
+  if [[ $sensor == cpu ]]; then threshold=${ISLAND_TEMP_CPU:-95} text='CPU panas'; fi
+  case ${temp_states[$sensor]:-} in
+    armed)
+      if (( celsius >= threshold )); then
+        temp_states[$sensor]=hot
+        alert_json temperature "$ICON_THERMOMETER" "$text" "${celsius}°C" -1
+      fi ;;
+    hot) if (( celsius < threshold - 5 )); then temp_states[$sensor]=armed; fi ;;
+    *) temp_states[$sensor]=armed; if (( celsius >= threshold )); then temp_states[$sensor]=hot; fi ;;
+  esac
+}
+
+temperature_snapshot() {
+  local sensor value
+  for sensor in cpu gpu; do
+    [[ -n ${temp_inputs[$sensor]:-} ]] || continue
+    value=''
+    IFS= read -r value 2>/dev/null < "${temp_inputs[$sensor]}" || :
+    temperature_update "$sensor" "$value"
+  done
+}
+
+# poll_sleep SECONDS: sleep without forking by timing out a read on a pipe nobody writes to.
+poll_sleep() {
+  if [[ -z ${sleep_fd:-} ]]; then exec {sleep_fd}<> <(:); fi
+  read -r -t "$1" -u "$sleep_fd" || :
+}
+
 stop_children() {
   local pid
   if [[ -n ${monitor_pid:-} ]]; then kill "$monitor_pid" 2>/dev/null || :; fi
@@ -313,6 +365,15 @@ source_worker() {
         return 0
       fi
       run_forever monitor_stream screenshot_event inotifywait -m -q -e close_write,moved_to --format '%w%f' "$path" ;;
+    temperature)
+      if ! temperature_find; then
+        printf 'alert: sumber temperature dilewati, sensor suhu tidak ditemukan\n' >&2
+        return 0
+      fi
+      while true; do
+        temperature_snapshot
+        poll_sleep "${ISLAND_TEMP_INTERVAL:-5}"
+      done ;;
   esac
 }
 
@@ -345,7 +406,7 @@ main() {
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
   printf '%s\n' "$CLEAR_JSON"
-  for source in audio brightness battery wifi bluetooth screenshot; do
+  for source in audio brightness battery wifi bluetooth screenshot temperature; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done
