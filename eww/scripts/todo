@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # todo: deflisten printing the to-do list (expanded card tab "tugas"), one JSON object per line.
-# todo add TEXT | prompt | toggle ID | remove ID | clear-done | scroll up|down
+# todo add TEXT [--due EPOCH] | set-due ID EPOCH|none | prompt | toggle ID | remove ID | clear-done | scroll up|down
 # The list lives in $XDG_DATA_HOME/eww-island/todo.json so it survives reboots. Commands change it
 # through lib/store.sh and send "@refresh" to the FIFO
 # $ISLAND_STATE/todo.fifo; the listener also takes "@scroll -1|1" and "@expanded 0".
@@ -9,25 +9,27 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/lib/core.sh"
 # shellcheck source=lib/store.sh
 source "$DIR/lib/store.sh"
+# shellcheck source=lib/todo/data.sh
+source "$DIR/lib/todo/data.sh"
+# shellcheck source=lib/todo/deadline.sh
+source "$DIR/lib/todo/deadline.sh"
 # shellcheck source=lib/listener.sh
 source "$DIR/lib/listener.sh"
 # shellcheck source=lib/paged.sh
 source "$DIR/lib/paged.sh"
-FILE="${XDG_DATA_HOME:-$HOME/.local/share}/eww-island/todo.json"
 ROWS=4
 MAX_TEXT=200
-EMPTY='{"next_id":1,"items":[]}'
 
-# A stored list failing this is corrupt: it reads as empty and is kept aside on the next change.
-# shellcheck disable=SC2034 # read by lib/store.sh
-STORE_VALID_JQ='type == "object" and (.items | type) == "array"
-  and all(.items[]; type == "object" and (.id | type) == "number" and (.text | type) == "string"
-    and (.done | type) == "boolean")'
-# A stored list -> the list with next_id past every id.
-NORMALIZE_JQ='{next_id: ([(.next_id | numbers) // 0, ((.items | map(.id) | max) // 0) + 1] | max), items}'
 # Raw text -> one trimmed line of at most $max characters.
 TEXT_JQ='$t | gsub("[[:cntrl:][:space:]]+"; " ") | ltrimstr(" ") | .[:$max] | rtrimstr(" ")'
-ADD_JQ='.next_id as $id | .items += [{id: $id, text: $text, done: false, created: $now}] | .next_id = $id + 1'
+ADD_JQ='.next_id as $id
+  | .items += [{id: $id, text: $text, done: false, created: $now}
+      + (if $due == null then {} else {due: $due, reminded: $reminded} end)]
+  | .next_id = $id + 1'
+SET_DUE_JQ='if any(.items[]; .id == $id)
+  then .items |= map(if .id != $id then .
+    elif $due == null then del(.due, .reminded) else .due = $due | .reminded = $reminded end)
+  else null end'
 # Toggle and remove answer null for an unknown id: nothing is saved.
 TOGGLE_JQ='if any(.items[]; .id == $id)
   then .items |= map(if .id == $id then (.done |= not) | .done_at = (if .done then $now else null end) else . end)
@@ -41,24 +43,30 @@ RENDER_JQ='(.items | map(select(.done | not)) | sort_by(-.id)) as $open
   | ($all | '"$PAGED_JQ"') as $page
   | {open: $count, done: ($done | length), total: $total,
      label: ("Tugas" + (if $count > 0 then " \($count)" else "" end)),
-     rows: [$page.rows[] | {id, text, done}], more: $page.more, offset: $page.offset}'
+     rows: [$page.rows[] | {id, text, done, due}], more: $page.more, offset: $page.offset}'
 
-# change FILTER [JQ ARGS...]: apply FILTER to the list and tell the listener.
-# Status 1 when FILTER answers null (nothing saved), 3 on other failures.
-change() {
-  local rc=0
-  store_update "$FILE" "$EMPTY" "$NORMALIZE_JQ | ($1)" "${@:2}" || rc=$?
-  if (( rc == 0 )); then fifo_signal todo '@refresh'; return 0; fi
-  return $(( rc == 1 ? 1 : 3 ))
-}
 
 now_us() { printf '%s' "${EPOCHREALTIME/./}"; }
 
+# due_args EPOCH|none: the jq arguments setting that deadline, its past reminders marked fired.
+due_args() {
+  if [[ $1 == none ]]; then printf '%s\0' --argjson due null --argjson reminded null; return; fi
+  printf '%s\0' --argjson due "$((10#$1))" --argjson reminded "$(deadline_passed_keys "$((10#$1))" "$(todo_now)")"
+}
+
 add() {
   local text
+  local -a due
   text=$(jq -rn --arg t "$1" --argjson max "$MAX_TEXT" "$TEXT_JQ") || return
   if [[ -z $text ]]; then printf 'todo: teks kosong\n' >&2; return 1; fi
-  change "$ADD_JQ" --arg text "$text" --argjson now "$(now_us)"
+  mapfile -d '' -t due < <(due_args "${2:-none}")
+  todo_change "$ADD_JQ" --arg text "$text" --argjson now "$(now_us)" "${due[@]}"
+}
+
+set_due() {
+  local -a due
+  mapfile -d '' -t due < <(due_args "$2")
+  todo_change "$SET_DUE_JQ" --argjson id "$((10#$1))" "${due[@]}"
 }
 
 # prompt: close the card (it cannot take keyboard focus), ask rofi and add the answer.
@@ -72,7 +80,7 @@ prompt() {
 
 # load: read the list (missing or corrupt = empty) and keep the offset within it.
 load() {
-  doc=$(store_read "$FILE" "$EMPTY")
+  doc=$(store_read "$TODO_FILE" "$TODO_EMPTY")
   total=$(jq '.items | length' <<< "$doc")
   (( offset <= total - ROWS )) || offset=$(( total > ROWS ? total - ROWS : 0 ))
 }
@@ -100,7 +108,7 @@ todo_handle() {
   listen_tick=0
 }
 
-usage() { printf 'usage: todo [add TEXT | prompt | toggle ID | remove ID | clear-done | scroll up|down]\n' >&2; return 2; }
+usage() { printf 'usage: todo [add TEXT [--due EPOCH] | set-due ID EPOCH|none | prompt | toggle ID | remove ID | clear-done | scroll up|down]\n' >&2; return 2; }
 
 main() {
   case ${1:-} in
@@ -111,21 +119,27 @@ main() {
         *) usage; return ;;
       esac
       return 0 ;;
-    add|prompt|toggle|remove|clear-done|'') ;;
+    add|set-due|prompt|toggle|remove|clear-done|'') ;;
     *) usage; return ;;
   esac
   require jq || { printf 'todo: jq tidak tersedia\n' >&2; return 127; }
   case ${1:-} in
-    add) (( $# == 2 )) || { usage; return; }; add "$2" ;;
+    add)
+      if (( $# == 2 )); then add "$2"
+      elif (( $# == 4 )) && [[ $3 == --due && $4 =~ ^[0-9]{1,12}$ ]]; then add "$2" "$4"
+      else usage; return; fi ;;
+    set-due)
+      (( $# == 3 )) && [[ $2 =~ ^[0-9]{1,15}$ && ( $3 == none || $3 =~ ^[0-9]{1,12}$ ) ]] || { usage; return; }
+      set_due "$2" "$3" ;;
     prompt) prompt ;;
     toggle|remove)
       [[ ${2:-} =~ ^[0-9]{1,15}$ ]] || { usage; return; }
       if [[ $1 == toggle ]]; then
-        change "$TOGGLE_JQ" --argjson id "$((10#$2))" --argjson now "$(now_us)"
+        todo_change "$TOGGLE_JQ" --argjson id "$((10#$2))" --argjson now "$(now_us)"
       else
-        change "$REMOVE_JQ" --argjson id "$((10#$2))"
+        todo_change "$REMOVE_JQ" --argjson id "$((10#$2))"
       fi ;;
-    clear-done) change "$CLEAR_JQ" ;;
+    clear-done) todo_change "$CLEAR_JQ" ;;
     '')
       local doc='' total=0 offset=0
       # The first load comes as a "@tick" right after the FIFO exists, so it misses no "@refresh".
