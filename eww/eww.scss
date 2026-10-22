@@ -273,30 +273,46 @@ $muted: mix($fg, $island-bg, 60%);
 }
 
 .eqbar.lvl2 {
-  min-height: 7px;
+  min-height: 6px;
 }
 
 .eqbar.lvl3 {
-  min-height: 8px;
+  min-height: 7px;
 }
 
 .eqbar.lvl4 {
-  min-height: 10px;
+  min-height: 8px;
 }
 
 .eqbar.lvl5 {
-  min-height: 11px;
+  min-height: 9px;
 }
 
 .eqbar.lvl6 {
-  min-height: 13px;
+  min-height: 10px;
 }
 
 .eqbar.lvl7 {
-  min-height: 14px;
+  min-height: 11px;
 }
 
 .eqbar.lvl8 {
+  min-height: 12px;
+}
+
+.eqbar.lvl9 {
+  min-height: 13px;
+}
+
+.eqbar.lvl10 {
+  min-height: 14px;
+}
+
+.eqbar.lvl11 {
+  min-height: 15px;
+}
+
+.eqbar.lvl12 {
   min-height: 16px;
 }
 
