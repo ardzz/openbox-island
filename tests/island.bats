@@ -19,15 +19,15 @@ esac
 printf '%s\n' "$*" >> "$FAKE_EWW_LOG"
 EOF
   # Fake xdotool: the pointer comes from $FAKE_POINTER; the visible island windows from eww's
-  # active windows, at their real geometry (compact 240x36+840+8, expanded 420x156+750+8).
+  # active windows, at their real geometry on a 1920px screen (compact 508x44+706+0, expanded 508x218+706+0).
   cat > "$BIN/xdotool" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
   "getmouselocation --shell")
     read -r x y < "$FAKE_POINTER"; printf 'X=%s\nY=%s\nSCREEN=0\nWINDOW=1\n' "$x" "$y" ;;
   "search --onlyvisible --name ^Eww - island(-expanded)?\$ getwindowgeometry --shell %@")
-    grep -qx 'island: island' "$FAKE_EWW_ACTIVE" && printf 'WINDOW=2\nX=840\nY=8\nWIDTH=240\nHEIGHT=36\nSCREEN=0\n'
-    grep -qx 'island-expanded: island-expanded' "$FAKE_EWW_ACTIVE" && printf 'WINDOW=3\nX=750\nY=8\nWIDTH=420\nHEIGHT=156\nSCREEN=0\n'
+    grep -qx 'island: island' "$FAKE_EWW_ACTIVE" && printf 'WINDOW=2\nX=706\nY=0\nWIDTH=508\nHEIGHT=44\nSCREEN=0\n'
+    grep -qx 'island-expanded: island-expanded' "$FAKE_EWW_ACTIVE" && printf 'WINDOW=3\nX=706\nY=0\nWIDTH=508\nHEIGHT=218\nSCREEN=0\n'
     exit 0 ;;
   *) echo "unexpected xdotool $*" >> "$FAKE_EWW_LOG"; exit 1 ;;
 esac

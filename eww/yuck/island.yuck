@@ -35,11 +35,13 @@
 
 (defwindow island
   :monitor 0
-  :geometry (geometry :x "0px" :y "8px" :width "480px" :height "36px" :anchor "top center")
+  :geometry (geometry :x "0px" :y "0px" :width "508px" :height "44px" :anchor "top center")
   :wm-ignore true
   ; Hovering a shown notification never expands the island: the pointer is on its way to click it.
   (eventbox :onhover {(media.state == "none" && !weather.ok) || (notify.active && alert.kind == "") ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
-    (box :halign "center" :valign "center" :visible {!island_reveal}
+    ; The pill hangs from the top edge; the ears beside it curve into the screen edge like a notch.
+    (box :halign "center" :valign "start" :visible {!island_reveal} :orientation "h" :space-evenly false
+      (box :class "ear ear-left" :valign "start")
       (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/scroll {} &"
       (stack :selected {alert.kind != "" ? 2 : notify.active ? 3 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
         (box :class "pill pill-idle" :orientation "h" :halign "center" :space-evenly false :spacing 0
@@ -97,16 +99,19 @@
                        :limit-width 50 :show-truncated true :wrap false)))
             (revealer :transition "none" :reveal {notify.app != ""}
               (label :class "notify-app" :text {notify.app} :xalign 1 :valign "center"
-                     :limit-width 16 :show-truncated true)))))))))
+                     :limit-width 16 :show-truncated true))))))
+      (box :class "ear ear-right" :valign "start"))))
 
 (defwindow island-expanded
   :monitor 0
-  :geometry (geometry :x "0px" :y "8px" :width "480px" :height "210px" :anchor "top center")
+  :geometry (geometry :x "0px" :y "0px" :width "508px" :height "218px" :anchor "top center")
   :wm-ignore true
   (eventbox :onhover "${EWW_CONFIG_DIR}/scripts/island hover &"
             :onhoverlost "${EWW_CONFIG_DIR}/scripts/island hover &"
     (box :halign "center" :valign "start"
       (revealer :transition "slidedown" :reveal island_reveal :duration "300ms"
+       (box :orientation "h" :space-evenly false
+        (box :class "ear ear-left" :valign "start")
         (box :orientation "v" :space-evenly false
           (revealer :transition "none" :reveal {media.state != "none"}
         (box :class "pill pill-expanded" :orientation "v" :space-evenly false :spacing 8
@@ -165,4 +170,5 @@
                 (box :orientation "h" :space-evenly false :halign "center" :spacing 6
                   (label :class "forecast-icon tone-${day.tone}" :text {day.icon})
                   (label :class "forecast-temp" :text "${day.max} / ${day.min}"))
-                (label :class "forecast-rain" :text "󰖌 ${day.rain}")))))))))))
+                (label :class "forecast-rain" :text "󰖌 ${day.rain}")))))))
+        (box :class "ear ear-right" :valign "start"))))))

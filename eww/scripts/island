@@ -69,7 +69,7 @@ usage() { echo "usage: island hover | auto SECONDS | close" >&2; return 2; }
 main() {
   case $1 in
     hover)
-      # The 480px compact strip overlaps browser tabs; ignore pointers just passing through.
+      # The 508px compact notch overlaps browser tabs; ignore pointers just passing through.
       if ! is_open; then sleep "$HOVER_SECONDS"; fi
       # Re-check after expanding: a pointer that left while opening gets no leave event.
       lock; if hovered; then expand; fi; collapse_if_idle ;;
