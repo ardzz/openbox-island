@@ -39,14 +39,15 @@
       (box :hexpand {ytm.active && ytm.next_title != ""}
         (revealer :transition "none" :reveal {ytm.active && ytm.next_title != ""}
           (label :class "up-next" :xalign 0 :wrap false :show-truncated true
-                 :limit-width {status.headphone.kind != "none" ? 40 : 62}
+                 :limit-width {status.headphone.kind != "none" ? 36 : 62}
                  :text "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"
                  :tooltip "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}")))
       (revealer :transition "none" :reveal {status.headphone.kind != "none"} :hexpand {!(ytm.active && ytm.next_title != "")}
         (box :class "device" :orientation "h" :space-evenly false :spacing 6 :tooltip {status.headphone.label}
              :halign {ytm.active && ytm.next_title != "" ? "end" : "center"}
           (label :class "device-icon ${status.headphone.low ? 'headphone-low' : ''}" :text {status.headphone.icon})
-          (label :class "device-name" :text {status.headphone.label} :limit-width 18 :show-truncated true))))))
+          (label :class "device-name" :text {status.headphone.label} :show-truncated true
+                 :limit-width {ytm.active && ytm.next_title != "" ? 22 : 40}))))))
 
 ; Previous, play/pause, next; YouTube Music adds dislike and like around them.
 (defwidget musik-controls []
