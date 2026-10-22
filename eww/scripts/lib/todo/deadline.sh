@@ -33,10 +33,11 @@ deadline_date() {
 deadline_parse() {
   local s now=$2 h='' m=0 time offset='' roll=0 date='' target i
   s=$(tr -s '[:space:]' ' ' <<< "${1,,}"); s=${s# }; s=${s% }
-  if [[ $s =~ ^(.*)(^| )(jam )?([0-9]{1,2})[:.]([0-9]{2})$ ]]; then
-    s=${BASH_REMATCH[1]} h=$((10#${BASH_REMATCH[4]})) m=$((10#${BASH_REMATCH[5]}))
-  elif [[ $s =~ ^(.*)(^| )jam\ ([0-9]{1,2})$ ]]; then
+  if [[ $s =~ ^(.*)(^| )jam\ ([0-9]{1,2})([:.]([0-9]{2}))?$ ]]; then
     s=${BASH_REMATCH[1]} h=$((10#${BASH_REMATCH[3]}))
+    if [[ -n ${BASH_REMATCH[5]} ]]; then m=$((10#${BASH_REMATCH[5]})); fi
+  elif [[ $s =~ ^(.*)(^| )([0-9]{1,2})[:.]([0-9]{2})$ ]]; then
+    s=${BASH_REMATCH[1]} h=$((10#${BASH_REMATCH[3]})) m=$((10#${BASH_REMATCH[4]}))
   fi
   time=${ISLAND_DEADLINE_TIME:-17:00}
   if [[ -n $h ]]; then

@@ -19,12 +19,14 @@ rejects() { run deadline_parse "$1" "$NOW"; [ "$status" -ne 0 ]; [ -z "$output" 
   parses 'Besok 09:00' '2026-10-22 09:00'
   parses '  LUSA   jam 8 ' '2026-10-23 08:00'
   parses 'besok 14.30' '2026-10-22 14:30'
+  parses 'besok jam 14:30' '2026-10-22 14:30'
 }
 
 @test "a bare time is today, or tomorrow once it is not ahead" {
   parses '14:00' '2026-10-21 14:00'
   parses '09:00' '2026-10-22 09:00'
   parses 'jam 10' '2026-10-22 10:00'
+  parses 'jam 14.30' '2026-10-21 14:30'
 }
 
 @test "weekdays mean the next such day, today only while the time is ahead" {
