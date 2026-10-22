@@ -120,6 +120,11 @@
             (progress :class "progress" :hexpand true :valign "center"
                       :value {media.length > 0 ? pos.pos * 100 / media.length : 0})
             (label :class "time" :text {media.length_text}))
+          (revealer :transition "none" :reveal {ytm.active && ytm.next_title != ""}
+            (label :class "up-next" :xalign 0 :width 438 :hexpand false :limit-width 62
+                   :show-truncated true :wrap false
+                   :text "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"
+                   :tooltip "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"))
           (box :class "controls" :orientation "h" :halign "center" :space-evenly false :spacing 28
             (revealer :transition "none" :reveal {ytm.active}
               (button :class "ctl ctl-ytm ${ytm.like == 'DISLIKE' ? 'on' : ''}" :tooltip "Tidak suka"

@@ -370,7 +370,8 @@ $muted: mix($fg, $island-bg, 60%);
 }
 
 .artist,
-.time {
+.time,
+.up-next {
   color: $muted;
 }
 
@@ -385,6 +386,10 @@ $muted: mix($fg, $island-bg, 60%);
 
 .time {
   font-size: 11px;
+}
+
+.up-next {
+  font-size: 12px;
 }
 
 .progress trough {
