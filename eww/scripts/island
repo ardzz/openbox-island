@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# island hover | auto SECONDS | close
-# Opens/closes the expanded island. State: auto_until (epoch seconds until which an
-# auto-expand holds the island open). Whether the island is hovered is read from the
-# pointer itself: eww's onhover/onhoverlost also fire on pointer grabs and reach this
+# island hover | auto SECONDS | close | hide | show
+# Opens/closes the expanded island; hide/show close and restore both windows for
+# scripts/fullscreen. State: auto_until (epoch seconds until which an auto-expand holds the
+# island open), fullscreen (present while hidden). Whether the island is hovered is read from
+# the pointer itself: eww's onhover/onhoverlost also fire on pointer grabs and reach this
 # script in no reliable order, so they only trigger a re-check.
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
@@ -40,6 +41,7 @@ hovered() {
 
 # expand [TAB]: open the card on `tab resolve [TAB]`; an explicit TAB also switches an open card.
 expand() {
+  [[ ! -e $STATE/fullscreen ]] || return 0
   if ! is_open; then
     put marquee_at "$(date +%s%1N)"
     eww update island_reveal=false "island_tab=$("$DIR/tab" resolve "$@")"
@@ -71,7 +73,28 @@ collapse_if_idle() {
   if (( $(date +%s) >= $(get auto_until) )) && ! hovered; then collapse; fi
 }
 
-usage() { echo "usage: island hover | auto SECONDS | close" >&2; return 2; }
+# hide: close both windows until show. eww stops every listener only these windows use.
+hide() {
+  [[ ! -e $STATE/fullscreen ]] || return 0
+  : > "$STATE/fullscreen"
+  put auto_until 0
+  if is_open; then
+    eww update island_reveal=false
+    eww close island-expanded
+    notify_signal '@expanded 0'
+    notif_signal '@expanded 0'
+  fi
+  eww close island
+}
+
+# show: bring the compact island back after hide. Never auto-starts a stopped daemon.
+show() {
+  [[ -e $STATE/fullscreen ]] || return 0
+  rm -f "$STATE/fullscreen"
+  if eww ping >/dev/null 2>&1; then eww open island; fi
+}
+
+usage() { echo "usage: island hover | auto SECONDS | close | hide | show" >&2; return 2; }
 
 main() {
   case $1 in
@@ -90,6 +113,8 @@ main() {
       # The player went away: a card kept open by the pointer falls back to another tab.
       lock; put auto_until 0; collapse_if_idle
       if is_open; then eww update "island_tab=$("$DIR/tab" resolve)"; fi ;;
+    hide) lock; hide ;;
+    show) lock; show ;;
     *) usage ;;
   esac
 }

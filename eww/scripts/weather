@@ -177,6 +177,8 @@ stream() {
         record=$cached
         temp=$(jq -r '.temp_C' <<< "$record") code=$(jq -r '.weatherCode' <<< "$record")
         weather_json "$temp" "$code" "$hour" "$record"
+        # eww restarts this listener whenever the island reopens: a fresh cache waits for its interval.
+        if (( now - fetched < interval )); then next_fetch=$((fetched + interval)); fi
       fi
     fi
   fi

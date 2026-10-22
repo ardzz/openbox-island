@@ -292,3 +292,14 @@ wait_for_calls() {
   [ "$(calls)" = 'update island_tab=cuaca' ]
   [ "$(cat "$ST/tab")" = musik ]
 }
+
+@test "hover and auto never open the card while a fullscreen window hides the island" {
+  mkdir -p "$ST"; : > "$ST/fullscreen"
+  stub_hover_sleep; on_compact
+  run "$SCRIPTS/island" hover
+  [ "$status" -eq 0 ]
+  run "$SCRIPTS/island" auto 0
+  [ "$status" -eq 0 ]
+  sleep 0.2
+  [ "$(calls)" = "" ]
+}

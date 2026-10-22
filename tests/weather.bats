@@ -283,8 +283,8 @@ EOF
   [ "$output" = '{"fetched":100000}' ]
 }
 
-@test "fresh cache emits before blocked fetch and recomputes current night glyph" {
-  seed_weather_cache 99900
+@test "cache older than the interval emits before blocked fetch and recomputes current night glyph" {
+  seed_weather_cache 98000
   printf '23\n' > "$WEATHER_FIXTURE/hour"
   printf '' > "$WEATHER_FIXTURE/block-fetch"
   start_weather
@@ -292,6 +292,19 @@ EOF
   printf 'continue\n' >&"$gate_fd"
   next_weather
   assert_weather '29°' 'Cerah' '󰖔'
+}
+
+@test "a restart within the fetch interval reuses the cache without fetching until it is due" {
+  seed_weather_cache 99900
+  start_weather
+  assert_weather '21°' 'Cerah' '󰖙'
+  weather_tick 100060
+  ! IFS= read -r -t 0.1 -u "$output_fd" event
+  [ "$(cat "$WEATHER_FIXTURE/calls")" = 0 ]
+  weather_tick 101700
+  next_weather
+  assert_weather '29°' 'Cerah' '󰖙'
+  [ "$(cat "$WEATHER_FIXTURE/calls")" = 1 ]
 }
 
 @test "cache at three hours with failed fetch is unavailable" {

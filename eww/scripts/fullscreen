@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# fullscreen DAEMON_PID: hide the island (scripts/island hide/show) while the active window is
+# fullscreen over the top centre of monitor 0, where eww puts the island.
+# ISLAND_FULLSCREEN_HIDE=0 disables it. openbox/island.sh starts it beside the daemon rather than
+# as a deflisten: eww stops a deflisten once no open window uses its variable, which would end
+# the watcher the moment it hides both windows. xprop spies _NET_ACTIVE_WINDOW on the root and
+# _NET_WM_STATE on the active window; every event re-reads the active window. The watcher exits
+# with DAEMON_PID and takes its spies along.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+MONITOR_RE='^ *0: [^ ]+ ([0-9]+)/[0-9]+x([0-9]+)/[0-9]+\+(-?[0-9]+)\+(-?[0-9]+)'
+ISLAND_RE='WM_NAME\([A-Z_]+\) = "Eww - island(-expanded)?"'
+INT_RE='^-?[0-9]+$'
+
+# monitor0: "X Y WIDTH HEIGHT" of eww's monitor 0, the first RandR monitor.
+monitor0() {
+  local line
+  while IFS= read -r line; do
+    if [[ $line =~ $MONITOR_RE ]]; then
+      printf '%s %s %s %s\n' "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+      return 0
+    fi
+  done < <(xrandr --listmonitors 2>/dev/null)
+  return 1
+}
+
+# covering WINDOW: 1 when WINDOW is fullscreen over the island's spot, else 0; nothing for the
+# island's own windows, which never change the state.
+covering() {
+  local win=$1 props k v x='' y='' w='' h='' mx my mw cx n
+  if [[ ! $win =~ ^0x[0-9a-fA-F]+$ ]] || (( win == 0 )); then echo 0; return; fi
+  props=$(xprop -id "$win" WM_NAME _NET_WM_STATE 2>/dev/null) || { echo 0; return; }
+  [[ ! $props =~ $ISLAND_RE ]] || return 0
+  if [[ $props != *_NET_WM_STATE_FULLSCREEN* ]]; then echo 0; return; fi
+  read -r mx my mw _ < <(monitor0) || { echo 0; return; }
+  while IFS='=' read -r k v; do
+    case $k in X) x=$v ;; Y) y=$v ;; WIDTH) w=$v ;; HEIGHT) h=$v ;; esac
+  done < <(xdotool getwindowgeometry --shell "$win" 2>/dev/null)
+  for n in "$x" "$y" "$w" "$h"; do [[ $n =~ $INT_RE ]] || { echo 0; return; }; done
+  cx=$((mx + mw / 2))
+  if (( x <= cx && cx < x + w && y <= my && my < y + h )); then echo 1; else echo 0; fi
+}
+
+# relay CMD...: run CMD into the event pipe and announce @exit when it ends; TERM ends CMD too.
+relay() {
+  (
+    trap 'kill "$child" 2>/dev/null; exit' TERM
+    "$@" & child=$!
+    wait "$child"
+    echo @exit
+  ) 1>&"$events" 2>/dev/null &
+  relays+=("$!")
+}
+
+# A watcher stopped by a signal shows a hidden island again; a gone daemon needs nothing.
+cleanup() {
+  kill "${relays[@]}" $spy 2>/dev/null
+  if [[ $hidden == 1 ]] && kill -0 "$daemon" 2>/dev/null; then "$DIR/island" show {events}>&-; fi
+}
+
+main() {
+  [[ ${ISLAND_FULLSCREEN_HIDE:-1} != 0 ]] || return 0
+  daemon=${1:-}
+  [[ $daemon =~ ^[1-9][0-9]*$ ]] || { echo 'usage: fullscreen DAEMON_PID' >&2; return 2; }
+  require xprop xdotool xrandr tail || { echo "fullscreen: missing dependency $MISSING_DEP" >&2; return 127; }
+  local line win now active=''
+  relays=() spy='' hidden=''
+  exec {events}<> <(:)
+  trap 'exit 0' TERM INT HUP
+  trap cleanup EXIT
+  relay tail --pid="$daemon" -f /dev/null
+  relay xprop -spy -root _NET_ACTIVE_WINDOW
+  while IFS= read -r -u "$events" line; do
+    case $line in
+      @exit) return 0 ;;
+      _NET_ACTIVE_WINDOW*)
+        win=0x0
+        if [[ $line =~ \#\ (0x[0-9a-fA-F]+) ]]; then win=${BASH_REMATCH[1]}; fi
+        if [[ $win != "$active" ]]; then
+          if [[ -n $spy ]]; then kill "$spy" 2>/dev/null; spy=''; fi
+          active=$win
+          if (( win )); then
+            xprop -spy -id "$win" _NET_WM_STATE 1>&"$events" 2>/dev/null &
+            spy=$!
+          fi
+        fi ;;
+    esac
+    now=$(covering "$active")
+    [[ -n $now && $now != "$hidden" ]] || continue
+    hidden=$now
+    if (( hidden )); then "$DIR/island" hide {events}>&-; else "$DIR/island" show {events}>&-; fi
+  done
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

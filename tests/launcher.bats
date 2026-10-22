@@ -46,11 +46,19 @@ case $1 in
       cp "$HOME/.config/eww-island/_colors.scss" "$FAKE_LAUNCH_PALETTE"
     fi
     echo daemon >> "$FAKE_LAUNCH_LOG"
+    echo "$$" > "$FAKE_LAUNCH_STATE.pid"
     echo $(( -1 - ${FAKE_STARTUP_POLLS:-0} )) > "$FAKE_LAUNCH_STATE" ;;
   open) echo "$*" >> "$FAKE_LAUNCH_LOG" ;;
 esac
 EOF
   chmod +x "$BIN/eww"
+}
+
+# fake_watcher: a fullscreen watcher in the island config that logs its argument.
+fake_watcher() {
+  mkdir -p "$HOME/.config/eww-island/scripts"
+  printf '#!/usr/bin/env bash\necho "fullscreen $*" >> "$FAKE_LAUNCH_LOG"\n' > "$HOME/.config/eww-island/scripts/fullscreen"
+  chmod +x "$HOME/.config/eww-island/scripts/fullscreen"
 }
 
 @test "restart waits for shutdown before starting the daemon and opening island" {
@@ -176,4 +184,21 @@ EOF
   run "$REPO/openbox/island.sh" stop
   [ "$status" -eq 0 ]
   [ ! -e "$XDG_CONFIG_HOME/dunst/dunstrc.d/50-eww-island-osd.conf" ]
+}
+
+@test "launch starts the fullscreen watcher for the new daemon after opening the island" {
+  delayed_eww; fake_watcher
+  unset ISLAND_FULLSCREEN_HIDE
+  run "$REPO/openbox/island.sh"
+  [ "$status" -eq 0 ]
+  for _ in {1..100}; do grep -q '^fullscreen' "$FAKE_LAUNCH_LOG" && break; sleep 0.02; done
+  [ "$(grep -E '^(open|fullscreen)' "$FAKE_LAUNCH_LOG")" = "open island"$'\n'"fullscreen $(cat "$FAKE_LAUNCH_STATE.pid")" ]
+}
+
+@test "ISLAND_FULLSCREEN_HIDE=0 launches without the fullscreen watcher" {
+  delayed_eww; fake_watcher
+  ISLAND_FULLSCREEN_HIDE=0 run "$REPO/openbox/island.sh"
+  [ "$status" -eq 0 ]
+  sleep 0.3
+  ! grep -q '^fullscreen' "$FAKE_LAUNCH_LOG"
 }

@@ -60,7 +60,9 @@ EOF
   exit 1
 ) || [[ -e $CFG/_colors.scss ]] || fail "palet island gagal ditulis"
 mkdir -p "${LOG%/*}"
-setsid -f "${E[@]}" daemon --no-daemonize >"$LOG" 2>&1 </dev/null || fail "daemon gagal start"
+# The shell reports its PID, then becomes the daemon: scripts/fullscreen exits with it.
+daemon_pid=$(LOG="$LOG" setsid -f bash -c 'echo "$$"; exec "$@" >"$LOG" 2>&1 </dev/null' _ "${E[@]}" daemon --no-daemonize) ||
+  fail "daemon gagal start"
 # A loaded session can take several seconds to bring the daemon up; giving up early leaves dunst without the drop-in.
 for _ in {1..300}; do
   "${E[@]}" ping >/dev/null 2>&1 && break
@@ -68,6 +70,9 @@ for _ in {1..300}; do
 done
 "${E[@]}" ping >/dev/null 2>&1 || fail "daemon tidak merespons"
 "${E[@]}" open island >/dev/null 2>&1 || fail "window island gagal dibuka"
+if [[ ${ISLAND_FULLSCREEN_HIDE:-1} != 0 ]]; then
+  setsid -f "$CFG/scripts/fullscreen" "$daemon_pid" >>"$LOG" 2>&1 </dev/null
+fi
 if command -v dunstctl >/dev/null 2>&1; then
   (
     mkdir -p "${OSD%/*}" || exit 1
