@@ -73,7 +73,7 @@ teardown() {
   [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F00DE|\U000F00DF|\U000F00E0' ]
 }
 
-@test "battery charging unplug and full transitions emit once per transition" {
+@test "battery transitions emit once each and plugging in uses the charging kind" {
   {
     battery_update discharging 76
     battery_update charging 76
@@ -85,7 +85,7 @@ teardown() {
     battery_update fully-charged 100
     battery_update discharging 100
   } > "$RESULT"
-  [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["battery","Mengisi daya","76%",76],["battery","Charger dicabut","77%",77],["battery","Charger dicabut","78%",78],["battery","Baterai penuh","100%",100],["battery","Charger dicabut","100%",100]]' ]
+  [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["charging","Mengisi daya","76%",76],["battery","Charger dicabut","77%",77],["battery","Charger dicabut","78%",78],["battery","Baterai penuh","100%",100],["battery","Charger dicabut","100%",100]]' ]
   [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F0084|\U000F0079|\U000F0079|\U000F0079|\U000F0079' ]
 }
 
@@ -186,7 +186,7 @@ EOF
   } > "$RESULT"
   [ "$battery_value" -eq 9 ]
   [ "$battery_state" = discharging ]
-  [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["battery-low","Baterai lemah","19%",19],["battery","Mengisi daya","19%",19],["battery","Charger dicabut","9%",9],["battery-low","Baterai kritis","9%",9]]' ]
+  [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["battery-low","Baterai lemah","19%",19],["charging","Mengisi daya","19%",19],["battery","Charger dicabut","9%",9],["battery-low","Baterai kritis","9%",9]]' ]
 }
 
 @test "each monitor connection silently refreshes its baseline before queued events" {

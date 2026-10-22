@@ -114,7 +114,7 @@ battery_update() {
   if [[ -n ${battery_seen:-} ]]; then
     if [[ $state != "$battery_state" ]]; then
       case $state in
-        charging) text='Mengisi daya'; icon=$ICON_BAT_CHARGING ;;
+        charging) text='Mengisi daya'; icon=$ICON_BAT_CHARGING; kind=charging ;;
         fully-charged) text='Baterai penuh' ;;
         discharging)
           case $battery_state in

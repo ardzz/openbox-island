@@ -3,6 +3,8 @@
 $island-bg: #000000;
 $island-accent: #3ee6c4;
 $island-track: mix($fg, $island-bg, 18%);
+// Bar palettes usually define $red; the generated default palette does not.
+$red: #ff453a !default;
 
 * { all: unset; font-family: $font, "Symbols Nerd Font", "Noto Sans"; font-size: 13px; }
 
@@ -17,6 +19,10 @@ $muted: mix($fg, $island-bg, 60%);
 .alert-value { color: $muted; }
 .hud trough { background-color: $island-track; border-radius: 2px; min-height: 4px; min-width: 140px; }
 .hud progress { background-color: $island-accent; border-radius: 2px; min-height: 4px; }
+@keyframes alert-pulse { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
+.alert-charging .alert-icon { color: $island-accent; animation: alert-pulse 0.7s ease-in-out 3; }
+.alert-battery-low .alert-icon { color: $red; }
+.alert-battery-low .hud progress { background-color: $red; }
 .dot { min-width: 6px; min-height: 6px; border-radius: 3px; }
 .dot-mic { background-color: $yellow; }
 .dot-camera { background-color: $green; }

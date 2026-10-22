@@ -53,8 +53,9 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 | `volume` | `Volume` atau `Bisu`, dengan persentase volume |
 | `mic` | `Mikrofon nyala` atau `Mikrofon mati` |
 | `brightness` | `Kecerahan`, dengan persentase |
-| `battery` | `Mengisi daya`, `Charger dicabut`, atau `Baterai penuh`, dengan persentase |
-| `battery-low` | `Baterai lemah` saat melewati 20% atau `Baterai kritis` saat melewati 10% ketika daya sedang dipakai |
+| `charging` | `Mengisi daya` saat charger dipasang, dengan persentase; ikon berwarna aksen dan berdenyut beberapa kali |
+| `battery` | `Charger dicabut` atau `Baterai penuh`, dengan persentase |
+| `battery-low` | `Baterai lemah` saat melewati 20% atau `Baterai kritis` saat melewati 10% ketika daya sedang dipakai; ikon dan meter berwarna merah |
 | `wifi` | `Wi-Fi tersambung` dengan nama koneksi, atau `Wi-Fi terputus` |
 
 Indikator tampil pada pill idle dan media: titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, dan ikon lonceng dicoret berarti Jangan Ganggu dunst aktif. Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya. Deteksi kamera hanya melihat proses milik pengguna yang sama.

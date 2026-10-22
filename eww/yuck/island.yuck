@@ -55,7 +55,7 @@
           (box :orientation "h" :space-evenly false :spacing 0
             (equalizer)
             (indicators)))
-        (box :class "pill pill-alert" :orientation "h" :space-evenly false :spacing 10
+        (box :class "pill pill-alert alert-${alert.kind}" :orientation "h" :space-evenly false :spacing 10
           (label :class "alert-icon" :width 24 :text {alert.icon})
           (label :class "alert-text" :text {alert.text} :xalign 0 :hexpand true
                  :limit-width 28 :show-truncated true)
