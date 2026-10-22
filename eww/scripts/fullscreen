@@ -9,6 +9,8 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
+# shellcheck source=lib/monitor.sh
+source "$DIR/lib/monitor.sh"
 
 MONITOR_RE='^ *0: [^ ]+ ([0-9]+)/[0-9]+x([0-9]+)/[0-9]+\+(-?[0-9]+)\+(-?[0-9]+)'
 ISLAND_RE='WM_NAME\([A-Z_]+\) = "Eww - island(-expanded)?"'
@@ -43,20 +45,25 @@ covering() {
   if (( x <= cx && cx < x + w && y <= my && my < y + h )); then echo 1; else echo 0; fi
 }
 
-# relay CMD...: run CMD into the event pipe and announce @exit when it ends; TERM ends CMD too.
-relay() {
-  (
-    trap 'kill "$child" 2>/dev/null; exit' TERM
-    "$@" & child=$!
-    wait "$child"
-    echo @exit
-  ) 1>&"$events" 2>/dev/null &
-  relays+=("$!")
+# pass LINE: hand a spied line on to the watcher.
+pass() { printf '%s\n' "$1"; }
+
+# spy CMD...: pass CMD's lines on until CMD ends; TERM ends CMD too.
+spy() {
+  trap 'exit 0' TERM
+  trap spy_stop EXIT
+  monitor_run pass "$@"
 }
+spy_stop() { [[ -z $monitor_pid ]] || kill "$monitor_pid" 2>/dev/null; }
+
+# The watcher lives as long as the daemon and the root window spy: either ending announces @exit.
+daemon_spy() { spy tail --pid="$daemon" -f /dev/null; echo @exit; }
+root_spy() { spy xprop -spy -root _NET_ACTIVE_WINDOW; echo @exit; }
 
 # A watcher stopped by a signal shows a hidden island again; a gone daemon needs nothing.
 cleanup() {
-  kill "${relays[@]}" $spy 2>/dev/null
+  [[ -z $window_spy ]] || kill "$window_spy" 2>/dev/null
+  workers_stop
   if [[ $hidden == 1 ]] && kill -0 "$daemon" 2>/dev/null; then "$DIR/island" show {events}>&-; fi
 }
 
@@ -66,12 +73,11 @@ main() {
   [[ $daemon =~ ^[1-9][0-9]*$ ]] || { echo 'usage: fullscreen DAEMON_PID' >&2; return 2; }
   require xprop xdotool xrandr tail || { echo "fullscreen: missing dependency $MISSING_DEP" >&2; return 127; }
   local line win now active=''
-  relays=() spy='' hidden=''
+  window_spy='' hidden=''
   exec {events}<> <(:)
   trap 'exit 0' TERM INT HUP
   trap cleanup EXIT
-  relay tail --pid="$daemon" -f /dev/null
-  relay xprop -spy -root _NET_ACTIVE_WINDOW
+  workers_start daemon_spy root_spy 1>&"$events" 2>/dev/null
   while IFS= read -r -u "$events" line; do
     case $line in
       @exit) return 0 ;;
@@ -79,11 +85,12 @@ main() {
         win=0x0
         if [[ $line =~ \#\ (0x[0-9a-fA-F]+) ]]; then win=${BASH_REMATCH[1]}; fi
         if [[ $win != "$active" ]]; then
-          if [[ -n $spy ]]; then kill "$spy" 2>/dev/null; spy=''; fi
+          if [[ -n $window_spy ]]; then kill "$window_spy" 2>/dev/null; window_spy=''; fi
           active=$win
+          # Not a worker: it follows the active window and is stopped alone on every switch.
           if (( win )); then
-            xprop -spy -id "$win" _NET_WM_STATE 1>&"$events" 2>/dev/null &
-            spy=$!
+            spy xprop -spy -id "$win" _NET_WM_STATE 1>&"$events" 2>/dev/null &
+            window_spy=$!
           fi
         fi ;;
     esac
