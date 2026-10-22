@@ -122,7 +122,13 @@ make_fakes() {
   printf 'discharging\n' > "$ALERT_FIXTURE/battery-state"
   printf '76\n' > "$ALERT_FIXTURE/battery-percent"
   mkfifo "$ALERT_FIXTURE/audio-events" "$ALERT_FIXTURE/brightness-events" \
-    "$ALERT_FIXTURE/battery-events" "$ALERT_FIXTURE/wifi-events"
+    "$ALERT_FIXTURE/battery-events" "$ALERT_FIXTURE/wifi-events" \
+    "$ALERT_FIXTURE/bluetooth-events"
+  printf 'Device AA:BB:CC:DD:EE:01 Keyboard K380\n' > "$ALERT_FIXTURE/bt-connected"
+  printf 'Device AA:BB:CC:DD:EE:01 (public)\n\tName: K380\n\tAlias: Keyboard K380\n\tIcon: input-keyboard\n\tConnected: yes\n' \
+    > "$ALERT_FIXTURE/bt-info-AA:BB:CC:DD:EE:01"
+  printf 'Device F4:93:B1:9A:5C:21 (public)\n\tName: WH-1000XM4\n\tAlias: WH-1000XM4\n\tClass: 0x00240404\n\tIcon: audio-headset\n\tConnected: yes\n\tBattery Percentage: 0x50 (80)\n' \
+    > "$ALERT_FIXTURE/bt-info-F4:93:B1:9A:5C:21"
   cat > "$BIN/pactl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$ALERT_FIXTURE/audio-queries"
@@ -167,7 +173,24 @@ case "$*" in
   *) exit 2 ;;
 esac
 EOF
-  chmod +x "$BIN/pactl" "$BIN/light" "$BIN/udevadm" "$BIN/upower" "$BIN/nmcli"
+  cat > "$BIN/bluetoothctl" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$ALERT_FIXTURE/bt-queries"
+case $1 in
+  devices) [[ $# == 2 && $2 == Connected ]] || exit 2; cat "$ALERT_FIXTURE/bt-connected" ;;
+  info) [[ $# == 2 && -e $ALERT_FIXTURE/bt-info-$2 ]] || { printf 'Device %s not available\n' "$2"; exit 1; }
+        cat "$ALERT_FIXTURE/bt-info-$2" ;;
+  *) exit 2 ;;
+esac
+EOF
+  cat > "$BIN/gdbus" <<'EOF'
+#!/usr/bin/env bash
+[[ $* == 'monitor --system --dest org.bluez' ]] || exit 2
+touch "$ALERT_FIXTURE/bluetooth-ready"
+exec cat "$ALERT_FIXTURE/bluetooth-events"
+EOF
+  chmod +x "$BIN/pactl" "$BIN/light" "$BIN/udevadm" "$BIN/upower" "$BIN/nmcli" \
+    "$BIN/bluetoothctl" "$BIN/gdbus"
 }
 
 @test "fractional battery snapshots truncate percentages and retain charging transitions" {
@@ -280,6 +303,66 @@ EOF
   [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F0928|\U000F092D' ]
 }
 
+bt_line() {
+  printf "/org/bluez/hci0/dev_%s: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.%s', {%s}, @as [])" "$1" "$2" "$3"
+}
+
+@test "bluetooth connection changes emit per device with alias battery and device icon" {
+  make_fakes
+  bluetooth_snapshot > "$RESULT"
+  {
+    bluetooth_event "$(bt_line AA_BB_CC_DD_EE_01 Device1 "'Connected': <true>")"
+    bluetooth_event "$(bt_line F4_93_B1_9A_5C_21 Device1 "'ServicesResolved': <true>, 'Connected': <true>")"
+    bluetooth_event "$(bt_line F4_93_B1_9A_5C_21 Device1 "'Connected': <true>")"
+    bluetooth_event "$(bt_line F4_93_B1_9A_5C_21 Device1 "'Connected': <false>, 'ServicesResolved': <false>")"
+    bluetooth_event "$(bt_line AA_BB_CC_DD_EE_01 Device1 "'Connected': <false>")"
+    bluetooth_event "$(bt_line AA_BB_CC_DD_EE_01 Device1 "'Connected': <false>")"
+  } >> "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["bluetooth","Bluetooth tersambung","WH-1000XM4 · 80%",-1],["bluetooth","Bluetooth terputus","WH-1000XM4",-1],["bluetooth","Bluetooth terputus","Keyboard K380",-1]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F02CB|\U000F02CB|\U000F030C' ]
+}
+
+@test "bluetooth ignores signals other than a device Connected change without querying" {
+  make_fakes
+  bluetooth_snapshot > "$RESULT"
+  {
+    bluetooth_event "$(bt_line F4_93_B1_9A_5C_21 Device1 "'RSSI': <int16 -60>")"
+    bluetooth_event "$(bt_line F4_93_B1_9A_5C_21 Battery1 "'Percentage': <byte 0x4f>")"
+    bluetooth_event "/org/bluez/hci0/dev_F4_93_B1_9A_5C_21/sep1/fd0: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.MediaTransport1', {'State': <'active'>}, @as [])"
+    bluetooth_event "/org/bluez/hci0: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.Adapter1', {'Discovering': <true>}, @as [])"
+    bluetooth_event 'Monitoring signals from all objects owned by org.bluez'
+  } >> "$RESULT"
+  [ ! -s "$RESULT" ]
+  [ "$(cat "$ALERT_FIXTURE/bt-queries")" = 'devices Connected' ]
+}
+
+@test "bluetooth icons map audio gaming mouse keyboard and phone devices with a bluetooth fallback" {
+  make_fakes
+  bluetooth_snapshot > /dev/null
+  local icon
+  for icon in audio-headphones audio-headset audio-card input-gaming input-mouse input-keyboard phone computer ''; do
+    {
+      printf 'Device 11:22:33:44:55:66 (public)\n\tAlias: Perangkat\n'
+      [[ -z $icon ]] || printf '\tIcon: %s\n' "$icon"
+    } > "$ALERT_FIXTURE/bt-info-11:22:33:44:55:66"
+    bluetooth_event "$(bt_line 11_22_33_44_55_66 Device1 "'Connected': <true>")"
+    bluetooth_event "$(bt_line 11_22_33_44_55_66 Device1 "'Connected': <false>")"
+  done > "$RESULT"
+  [ "$(jq -sr 'map(select(.text == "Bluetooth tersambung") | .icon)|join("|")' "$RESULT")" = $'\U000F02CB|\U000F02CB|\U000F02CB|\U000F0297|\U000F037D|\U000F030C|\U000F011C|\U000F00AF|\U000F00AF' ]
+  [ "$(jq -sc 'map(.value)|unique' "$RESULT")" = '["Perangkat"]' ]
+}
+
+@test "sources without their tools are skipped with a note" {
+  local source
+  for source in bluetooth; do
+    run bash -c 'source "$2"; PATH=$1; source_worker "$3"' _ "$BIN" "$SCRIPTS/alert" "$source"
+    [ "$status" -eq 0 ]
+    case $source in
+      bluetooth) [ "$output" = 'alert: sumber bluetooth dilewati, gdbus tidak tersedia' ] ;;
+    esac
+  done
+}
+
 start_listener() {
   make_fakes
   export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4
@@ -289,7 +372,7 @@ start_listener() {
   listener_pid=$!
   IFS= read -r -t 2 -u "$output_fd" first
   [ "$first" = "$CLEAR" ]
-  for source in audio brightness battery wifi; do
+  for source in audio brightness battery wifi bluetooth; do
     for ((attempt=0; attempt<200; attempt++)); do
       [[ -e $ALERT_FIXTURE/$source-ready ]] && break
       sleep 0.005
@@ -300,6 +383,7 @@ start_listener() {
   exec {brightness_fd}<> "$ALERT_FIXTURE/brightness-events"
   exec {battery_fd}<> "$ALERT_FIXTURE/battery-events"
   exec {wifi_fd}<> "$ALERT_FIXTURE/wifi-events"
+  exec {bluetooth_fd}<> "$ALERT_FIXTURE/bluetooth-events"
 }
 
 @test "listener starts cleared then emits a changed volume and clears after its hold" {
@@ -337,6 +421,18 @@ start_listener() {
   sleep 0.15
   printf "Event 'change' on sink #65\n" >&"$audio_fd"
   ! IFS= read -r -t 0.15 -u "$output_fd" event
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$event" = "$CLEAR" ]
+}
+
+@test "listener forwards bluetooth alerts with the alert hold" {
+  start_listener
+  ! IFS= read -r -t 0.1 -u "$output_fd" event
+  bt_line F4_93_B1_9A_5C_21 Device1 "'Connected': <true>" >&"$bluetooth_fd"
+  printf '\n' >&"$bluetooth_fd"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.value]' <<< "$event")" = '["bluetooth","Bluetooth tersambung","WH-1000XM4 · 80%"]' ]
+  ! IFS= read -r -t 0.29 -u "$output_fd" event
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$event" = "$CLEAR" ]
 }
