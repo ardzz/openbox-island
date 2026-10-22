@@ -121,10 +121,18 @@
                       :value {media.length > 0 ? pos.pos * 100 / media.length : 0})
             (label :class "time" :text {media.length_text}))
           (box :class "controls" :orientation "h" :halign "center" :space-evenly false :spacing 28
+            (revealer :transition "none" :reveal {ytm.active}
+              (button :class "ctl ctl-ytm ${ytm.like == 'DISLIKE' ? 'on' : ''}" :tooltip "Tidak suka"
+                      :onclick "${EWW_CONFIG_DIR}/scripts/ytm toggle-dislike &"
+                {ytm.like == "DISLIKE" ? "󰔑" : "󰔒"}))
             (button :class "ctl" :onclick "playerctl --player=${media.player} previous &" "󰒮")
             (button :class "ctl ctl-main" :onclick "playerctl --player=${media.player} play-pause &"
               {media.state == "playing" ? "󰏤" : "󰐊"})
-            (button :class "ctl" :onclick "playerctl --player=${media.player} next &" "󰒭"))))
+            (button :class "ctl" :onclick "playerctl --player=${media.player} next &" "󰒭")
+            (revealer :transition "none" :reveal {ytm.active}
+              (button :class "ctl ctl-ytm ${ytm.like == 'LIKE' ? 'on' : ''}" :tooltip "Suka"
+                      :onclick "${EWW_CONFIG_DIR}/scripts/ytm toggle-like &"
+                {ytm.like == "LIKE" ? "󰔓" : "󰔔"})))))
           (revealer :transition "none" :reveal {media.state == "none"}
         (box :class "pill pill-expanded weather-card" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 12

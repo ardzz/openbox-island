@@ -5,6 +5,7 @@
 (deflisten notify :initial '{"active":false,"id":0,"app":"","summary":"","body":"","icon":"","image":"","critical":false}' "scripts/notify")
 (deflisten status :initial '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false,"vpn":false,"vpn_desc":""}' "scripts/status")
 (deflisten rec :initial '{"active":false,"app":"","time":""}' "scripts/rec")
+(deflisten ytm :initial '{"active":false,"video_id":"","like":""}' "scripts/ytm")
 (deflisten weather :initial '{"ok":false,"icon":"","tone":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")
 (defvar island_reveal false)
 (defpoll pos :interval "1s" :initial '{"pos":0,"text":"0:00"}' :run-while island_reveal "scripts/position")

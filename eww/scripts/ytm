@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# ytm: YouTube Music like/dislike state for the island while ytm-player is the shown player.
+#   ytm                  listener: {"active":bool,"video_id":"…","like":"LIKE|DISLIKE|INDIFFERENT|"}
+#   ytm toggle-like      like the current track, or unlike it when already liked
+#   ytm toggle-dislike   dislike the current track, or undo the dislike
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+YTM=${OB_YTM_CLI:-ytm}
+HELPER=${OB_YTM_HELPER:-$DIR/ytm_like.py}
+RETRY=${OB_YTM_RETRY:-0.5}
+
+ytm_is_player() { [[ $1 == ytm_player || $1 == ytm_player.* ]]; }
+
+# toggle_action KIND CURRENT: "<ytm subcommand> <resulting status>".
+toggle_action() {
+  local kind=$1 current=$2 set=LIKE
+  [[ $kind == dislike ]] && set=DISLIKE
+  if [[ $current == "$set" ]]; then echo "unlike INDIFFERENT"; else echo "$kind $set"; fi
+}
+
+toggle() {
+  local kind=$1 active vid like cmd new
+  command -v "$YTM" >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
+  { IFS= read -r active; IFS= read -r vid; IFS= read -r like; } < <(
+    jq -r '.active, .video_id, .like' "$STATE/ytm.json" 2>/dev/null)
+  [[ $active == true ]] || return 0
+  read -r cmd new < <(toggle_action "$kind" "$like")
+  "$YTM" "$cmd" >/dev/null 2>&1 || return 1
+  [[ -n $vid ]] || return 0
+  printf '%s\t%s\n' "$vid" "$new" > "$STATE/ytm_set.tmp"
+  mv "$STATE/ytm_set.tmp" "$STATE/ytm_set"
+}
+
+# resolve_job GEN TITLE_JSON: video id of the playing track; retried while `ytm status` still names another title.
+resolve_job() {
+  local gen=$1 title=$2 attempt vid now
+  for attempt in 1 2 3 4; do
+    IFS=$'\t' read -r now vid < <(timeout 3 "$YTM" status 2>/dev/null |
+      jq -r '(.track.title // "" | tojson) + "\t" + (.track.video_id // "")' 2>/dev/null)
+    [[ $now == "$title" ]] && break
+    (( attempt < 4 )) && sleep "$RETRY"
+  done
+  printf 'vid\t%s\t%s\n' "$gen" "$vid"
+}
+
+# like_job VID: the helper's answer; an unrunnable helper counts as unavailable.
+like_job() {
+  local answer rc
+  answer=$(timeout 20 "$HELPER" "$1" 2>/dev/null)
+  rc=$?
+  (( rc == 126 || rc == 127 )) && answer=UNAVAILABLE
+  printf 'like\t%s\t%s\n' "$1" "${answer%%$'\n'*}"
+}
+
+listener_cleanup() {
+  # A signal during `IFS=$'\t' read` leaves that IFS in effect here; split job pids on newlines.
+  local IFS=$'\n' pids
+  pids=$(jobs -p)
+  # shellcheck disable=SC2086
+  [[ -z $pids ]] || kill $pids 2>/dev/null
+  rm -rf -- "$work"
+}
+
+listen() {
+  local work events watch='' kind a b gen=0 key='' vid='' api=1 last=''
+  local player media_key title state
+  local -A cache=() pending=()
+  emit() {
+    local json='{"active":false,"video_id":"","like":""}'
+    if [[ -n $key && -n $vid ]] && (( api )); then
+      printf -v json '{"active":true,"video_id":"%s","like":"%s"}' "$vid" "${cache[$vid]:-}"
+    elif [[ -n $key ]] && (( api )); then
+      json='{"active":true,"video_id":"","like":""}'
+    fi
+    [[ $json == "$last" ]] && return
+    last=$json
+    printf '%s\n' "$json" > "$STATE/ytm.json.tmp"
+    mv "$STATE/ytm.json.tmp" "$STATE/ytm.json"
+    printf '%s\n' "$json"
+  }
+  fetch() {
+    [[ -n $vid && -z ${cache[$vid]+x} && -z ${pending[$vid]:-} ]] || return 0
+    pending[$vid]=1
+    like_job "$vid" > "$work/events" &
+  }
+  refresh() {
+    player='' media_key='' title='' state=''
+    [[ ! -r $STATE/player ]] || IFS= read -r player < "$STATE/player" || :
+    { IFS= read -r state; IFS= read -r media_key; IFS= read -r title; } < <(
+      jq -r '.state, ([.player, .title, .artist] | tojson), (.title | tojson)' "$STATE/media.json" 2>/dev/null)
+    if ! ytm_is_player "$player" || [[ $state != playing && $state != paused ]]; then
+      key='' vid=''
+    elif [[ $media_key != "$key" ]]; then
+      key=$media_key vid=''
+      gen=$((gen + 1))
+      (( api )) && resolve_job "$gen" "$title" > "$work/events" &
+    fi
+    emit
+  }
+
+  mkdir -p "$STATE"
+  rm -f "$STATE/ytm_set"
+  emit
+  command -v "$YTM" >/dev/null 2>&1 || return 0
+  if ! require jq inotifywait; then
+    printf 'ytm: %s tidak tersedia, tombol suka dinonaktifkan\n' "$MISSING_DEP" >&2
+    return 0
+  fi
+  work=$(mktemp -d "$STATE/ytm.XXXXXX") || return 0
+  trap 'exit 0' TERM INT HUP
+  trap listener_cleanup EXIT
+  mkfifo "$work/events"
+  exec {events}<> "$work/events"
+  while true; do
+    if [[ -z $watch ]] || ! kill -0 "$watch" 2>/dev/null; then
+      [[ -z $watch ]] || wait "$watch" 2>/dev/null
+      # stderr joins the FIFO: "Watches established." triggers the snapshot without a race.
+      inotifywait -m -e close_write,moved_to --format 'state:%f' "$STATE" > "$work/events" 2>&1 &
+      watch=$!
+    fi
+    IFS=$'\t' read -r -t 5 -u "$events" kind a b || continue
+    case $kind in
+      'Watches established.'|state:media.json) refresh ;;
+      state:ytm_set)
+        IFS=$'\t' read -r a b < "$STATE/ytm_set" 2>/dev/null || continue
+        cache[$a]=$b
+        emit ;;
+      vid)
+        [[ $a == "$gen" && -n $key && $b =~ ^[A-Za-z0-9_-]{11}$ ]] || continue
+        vid=$b
+        emit
+        fetch ;;
+      like)
+        unset "pending[$a]"
+        case $b in
+          UNAVAILABLE) api=0; key=''; vid='' ;;
+          LIKE|DISLIKE|INDIFFERENT) [[ -n ${cache[$a]+x} ]] || cache[$a]=$b ;;
+          *) continue ;;
+        esac
+        emit ;;
+    esac
+  done
+}
+
+main() {
+  case ${1:-} in
+    toggle-like) toggle like ;;
+    toggle-dislike) toggle dislike ;;
+    '') listen ;;
+    *) printf 'pemakaian: %s [toggle-like|toggle-dislike]\n' "${0##*/}" >&2; return 2 ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

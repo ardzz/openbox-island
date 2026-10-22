@@ -412,3 +412,11 @@ $muted: mix($fg, $island-bg, 60%);
 .ctl-main {
   font-size: 22px;
 }
+
+.ctl-ytm {
+  font-size: 16px;
+}
+
+.ctl-ytm.on {
+  color: $island-accent;
+}

@@ -33,10 +33,13 @@ picom tidak boleh menggambar bayangan untuk window eww: tambahkan `"class_g = 'E
 
 Urutan prioritas ada di `eww/players` (default `ytm_player,ytermusic,edge,%any`; `ytm_player` adalah [ytm-player](https://ytm-player.com)): nama player MPRIS dipisah koma, `%any` = player lain. Lihat nama player: `playerctl -l`. Setelah mengubah, jalankan ulang `~/.config/openbox/island.sh`.
 
+Tombol suka/tidak suka YouTube Music memerlukan [ytm-player](https://ytm-player.com) (CLI `ytm`, nama MPRIS `ytm_player`) yang sudah login, serta paket Python `ytmusicapi` untuk membaca status suka. Login dibaca dari `~/.config/ytm-player/auth.json` (ubah dengan `OB_YTM_AUTH`). Tanpa keduanya tombol tidak tampil.
+
 ## Perilaku
 
 - Idle: island tetap berupa pill kecil dengan cuaca dan indikator aktivitas; jika tidak ada informasi, pill tetap terlihat kosong. Jam ada di bar. Ada musik: cover + satu baris lirik + enam bar spektrum audio nyata serta indikator aktivitas dalam island 480×36 px. Visualizer diproses sesuai refresh rate monitor island saat ini (mode aktif `xrandr` pada output di titik 0,0 atau primary; dibulatkan, 1–240 fps, 60 fps bila tidak terbaca), dengan 13 tingkat tinggi bar (4–16 px, langkah 1 px); `ISLAND_VIZ_FPS` (bilangan bulat 1–240) menimpanya. Refresh rate dibaca ulang setiap kali capture audio dimulai ulang (ganti player/stream), tanpa polling. Frame yang tidak berubah tidak dikirim ulang. Bar rata setinggi 4 px saat hening, pause, tidak ada stream yang cocok, atau terjadi error; tidak ada animasi pengganti.
 - Hover: membesar menjadi 480×180 px setelah pointer diam di atas island selama 0,3 detik (cover, judul, artis, satu baris lirik, progress, ⏮ ⏯ ⏭). Ganti lagu: membesar 4 detik lalu menciut; selama pointer di atas island, ganti lagu tidak menciutkannya.
+- YouTube Music: selama player yang tampil adalah `ytm_player`, kontrol diapit tombol tidak suka (kiri) dan suka (kanan). Status suka lagu dibaca sekali per lagu di latar belakang lewat ytmusicapi (`get_watch_playlist`, sekitar 1,5 detik) dan disimpan selama listener berjalan; jawaban lambat untuk lagu sebelumnya diabaikan. Tombol yang aktif terisi dan berwarna aksen. Klik menjalankan `ytm like`/`ytm dislike`, atau `ytm unlike` bila status itu sudah aktif, lalu tampilan langsung berubah. Listener mengikuti state `scripts/media` lewat `inotifywait`, tanpa polling; `ytm status` dipanggil sekali saat lagu berganti untuk mengambil video ID.
 - Saat membesar, judul lebih dari 30 karakter dan artis lebih dari 36 karakter bergulir sekitar 5 karakter/detik, dengan jeda 1,2 detik di awal tiap putaran dan pemisah `   ·   `. Teks pendek tetap diam; guliran dimulai ulang saat window dibuka atau lagu berganti, tanpa polling saat menciut.
 - Hover dibaca dari posisi pointer (`xdotool`), bukan dari urutan event enter/leave eww: event itu juga muncul saat aplikasi lain meng-grab pointer dan bisa diproses tidak berurutan.
 - Visualizer hanya mengambil stream keluaran milik PID player MPRIS aktif atau proses turunannya, bukan mikrofon, monitor audio sistem, atau sumber audio default sebagai fallback. Metadata dan kontrol MPRIS tetap bekerja jika visualizer tidak mendapat audio.
@@ -126,15 +129,16 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/vpn.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll eww/scripts/notify eww/scripts/notify-hook openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/vpn.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll eww/scripts/notify eww/scripts/notify-hook eww/scripts/ytm openbox/island.sh
 python -m unittest discover -s tests -p 'test_lyrics.py'
+python -m unittest discover -s tests -p 'test_ytm_like.py'
 ```
 
 ## Debug
 
 - `~/.cache/eww-island.log`: log daemon island, termasuk diagnostik `viz:` (dependensi hilang atau worker audio berhenti) dan stderr `lyrics:` (lookup/cache gagal)
 - `eww --config ~/.config/eww-island state`
-- `$XDG_RUNTIME_DIR/eww-island/`: state controller (`auto_until`, `player`, `marquee_at` dalam desidetik, `media.json` berisi metadata terakhir)
+- `$XDG_RUNTIME_DIR/eww-island/`: state controller (`auto_until`, `player`, `marquee_at` dalam desidetik, `media.json` berisi metadata terakhir, `ytm.json` berisi status tombol suka terakhir, `ytm_set` berisi hasil klik terakhir untuk listener)
 - `$XDG_RUNTIME_DIR/eww-island/notify.fifo`: FIFO listener notifikasi; menerima satu baris JSON per notifikasi dari `notify-hook` serta sinyal `@alert 0|1`, `@expanded 0|1`, dan `@click ID`. Kirim notifikasi uji dengan `notify-send Tes 'isi'`.
 - `$XDG_RUNTIME_DIR/eww-island/viz.XXXXXXXX/`: direktori privat sementara visualizer berisi FIFO `events`, `frames`, dan `pcm`, dibersihkan saat listener berhenti. Jika `XDG_RUNTIME_DIR` tidak tersedia, state dan direktori ini berada di `/tmp/eww-island/`.
 - `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/lyrics/`: cache lirik YouTube Music/LRCLIB/NetEase (format versi 2), terpisah dari cache cover.
@@ -143,7 +147,7 @@ python -m unittest discover -s tests -p 'test_lyrics.py'
 
 - MPRIS Edge/Chromium tidak memberi URL tab: YouTube biasa atau media web lain dari Edge juga tampil.
 - Tab Edge dapat berbagi stream audio dalam proses yang sama; visualizer tidak dapat menjamin isolasi audio per tab. Aplikasi yang stream-nya tidak cocok dengan PID player aktif atau turunannya menampilkan bar rata.
-- Progress hanya tampilan (tanpa seek); tidak ada like/dislike atau slider volume. Volume diubah lewat scroll pada island ringkas.
+- Progress hanya tampilan (tanpa seek); tidak ada slider volume. Volume diubah lewat scroll pada island ringkas. Like/dislike hanya untuk ytm-player; klik dianggap berhasil bila `ytm` sukses, tanpa membaca ulang status dari YouTube Music.
 - Cakupan lirik bergantung pada YouTube Music (khusus `ytm_player`), LRCLIB/NetEase, dan kecocokan versi rekaman; aturan pencocokan NetEase dijelaskan di atas. LRCLIB mensyaratkan judul/artis cocok dengan durasi dalam toleransi ±2 detik; pencocokan artis menerima alias dalam tanda kurung dan nama kolaborator. Sinkronisasi per baris, bukan per kata; intro tambahan pada video YouTube dapat menggeser waktu lirik meskipun metadata cocok. Lirik YouTube Music tanpa timestamp hanya perkiraan posisi, bukan sinkron.
 - Hanya monitor 0.
 - Island hanya jalan saat panel aktif adalah eww (dipanggil dari `eww.sh` openbox-omp).
