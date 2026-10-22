@@ -65,3 +65,31 @@ setup() {
   run ls -A "${F%/*}"
   [ "$output" = $'list.json\nlist.json.lock' ]
 }
+
+@test "STORE_VALID_JQ makes store_read answer the default for a value failing it" {
+  STORE_VALID_JQ='type == "object" and (.n | type) == "number"'
+  mkdir -p "${F%/*}"
+  printf '{"n": 3}\n' > "$F"
+  run store_read "$F" '{"n":0}'; [ "$(jq -c . <<< "$output")" = '{"n":3}' ]
+  printf '[]\n' > "$F"
+  run store_read "$F" '{"n":0}'; [ "$output" = '{"n":0}' ]
+  printf '{"n":"x"}\n' > "$F"
+  run store_read "$F" '{"n":0}'; [ "$output" = '{"n":0}' ]
+  # A check that errors, or answers anything but one true, also rejects.
+  STORE_VALID_JQ='.n | error("no")'
+  run store_read "$F" '{"n":0}'; [ "$output" = '{"n":0}' ]
+  STORE_VALID_JQ='true, true'
+  run store_read "$F" '{"n":0}'; [ "$output" = '{"n":0}' ]
+}
+
+@test "STORE_VALID_JQ makes store_update set a value failing it aside and start from the default" {
+  STORE_VALID_JQ='type == "object"'
+  mkdir -p "${F%/*}"; printf '[1]\n' > "$F"
+  run store_update "$F" '{"n":0}' '.n += 1'
+  [ "$status" -eq 0 ]
+  [ "$(cat "$F.corrupt")" = '[1]' ]
+  [ "$(jq -c . "$F")" = '{"n":1}' ]
+  run store_update "$F" '{"n":0}' '.n += 1'
+  [ "$(jq -c . "$F")" = '{"n":2}' ]
+  [ "$(cat "$F.corrupt")" = '[1]' ]
+}

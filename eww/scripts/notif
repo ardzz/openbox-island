@@ -1,83 +1,65 @@
 #!/usr/bin/env bash
 # notif: deflisten printing the notification center (expanded card tab "notif"), one JSON object per line.
 # notif click ID | clear | scroll up|down
-# The list is dunst's history: every notification skips its popup (dunst-osd.conf), so dunst keeps
-# them all there with their ids; it outlives island restarts and history-rm/history-clear act on it.
+# The list is dunst's history (lib/notify/history.sh).
 # Input is the FIFO $ISLAND_STATE/notif.fifo: "@refresh" (notify-hook, click, clear),
 # "@expanded 0|1" (scripts/island), "@tab NAME" (scripts/tab) and "@scroll -1|1".
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=notify
-source "$DIR/notify"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
+# shellcheck source=lib/listener.sh
+source "$DIR/lib/listener.sh"
+# shellcheck source=lib/paged.sh
+source "$DIR/lib/paged.sh"
+# shellcheck source=lib/notify/clean.sh
+source "$DIR/lib/notify/clean.sh"
+# shellcheck source=lib/notify/history.sh
+source "$DIR/lib/notify/history.sh"
+# shellcheck source=lib/notify/activate.sh
+source "$DIR/lib/notify/activate.sh"
+# shellcheck source=lib/notify/wake.sh
+source "$DIR/lib/notify/wake.sh"
 ROWS=4
 
-# dunstctl history -> its entries the island shows, newest first. dunst stores a copy per update of the
-# same id or app + stack tag (they skip the display queues that replace them); the newest stands for all.
-ITEMS_JQ="$CLEAN_JQ"'
-  def v($key): .[$key].data // "";
-  [(.data[0] // [])[] | objects
-   | {id: (v("id") | tonumber? // 0), rawapp: (v("appname") | tostring), app: (v("appname") | clean),
-      tag: (v("stack_tag") | tostring), summary: (v("summary") | clean), body: (v("body") | clean),
-      ts: (v("timestamp") | tonumber? // 0), icon: (v("icon_path") | tostring),
-      critical: (v("urgency") | tostring | ascii_upcase == "CRITICAL")}
-   | select(.id > 0 and .app != "eww-island" and (.tag | IN("obvolume", "obbacklight") | not))]
-  | sort_by(-.ts, -.id)'
-# Entries -> total NUL entries-JSON NUL icon paths (NUL each).
-LOAD_JQ="$ITEMS_JQ"'
-  | reduce .[] as $e ({seen: {}, out: []};
-      if .seen["i\($e.id)"] or ($e.tag != "" and .seen["k\($e.app)\u001e\($e.tag)"]) then .
-      else .seen["i\($e.id)"] = true | .seen["k\($e.app)\u001e\($e.tag)"] = ($e.tag != "") | .out += [$e] end)
-  | .out
-  | "\(length)\u0000\(tojson)\u0000" + ([.[].icon | select(. != "") + "\u0000"] | unique | add // "")'
 # Entries -> the eww value. $ARGS.positional lists the icon paths that exist.
-RENDER_JQ='def ago: ($now - .ts) / 1000000 | floor
+RENDER_JQ="$CLEAN_JQ"'def ago: ($now - .ts) / 1000000 | floor
     | if . < 60 then "baru saja" elif . < 3600 then "\(. / 60 | floor) mnt"
       elif . < 86400 then "\(. / 3600 | floor) jam" else "\(. / 86400 | floor) hari" end;
-  length as $total | ([.[] | select(.ts > $seen)] | length) as $unread
+  length as $total | ([.[] | select(.ts > $seen)] | length) as $unread | ('"$PAGED_JQ"') as $page
   | {total: $total, unread: $unread, label: ("Notifikasi" + (if $unread > 0 then " \($unread)" else "" end)),
-     rows: [.[$offset:$offset + $rows][]
+     rows: [$page.rows[]
        | {id, app, summary, body, time: ago, critical, icon: $bell,
-          image: (if .icon != "" and (.icon | IN($ARGS.positional[])) then "file://" + (.icon | split("/") | map(@uri) | join("/")) else "" end)}],
-     more: ([$total - $offset - $rows, 0] | max), offset: $offset}'
-# Clicked ID -> raw app NUL clean app NUL ids to remove (space separated): the entry and its hidden copies.
-CLICK_JQ="$ITEMS_JQ"'
-  | (first(.[] | select(.id == $id)) // empty) as $hit
-  | "\($hit.rawapp)\u0000\($hit.app)\u0000"
-    + ([.[] | select(.id == $id or ($hit.tag != "" and .app == $hit.app and .tag == $hit.tag)) | .id | tostring] | join(" "))'
+          image: (if .icon != "" and (.icon | IN($ARGS.positional[])) then .icon | file_uri else "" end)}],
+     more: $page.more, offset: $page.offset}'
 
 # uptime_us: now on dunst's timestamp clock (CLOCK_BOOTTIME, as /proc/uptime), in microseconds.
 uptime_us() {
   local up=''
-  read -r up _ < "${ISLAND_UPTIME_FILE:-/proc/uptime}" 2>/dev/null
+  read -r up _ 2>/dev/null < "${ISLAND_UPTIME_FILE:-/proc/uptime}"
   if [[ $up =~ ^[0-9]+(\.[0-9]+)?$ ]]; then seconds_us "$up"; else printf 0; fi
 }
 
-# load: read dunst history into entries, total and icons.
+# load: reread dunst history and keep the offset within it.
 load() {
-  local -a parts
-  entries='[]' total=0 icons=()
-  mapfile -d '' parts < <(dunstctl history 2>/dev/null | jq -j "$LOAD_JQ" 2>/dev/null)
-  [[ ${parts[0]:-} =~ ^[0-9]+$ && -n ${parts[1]:-} ]] || return 0
-  total=${parts[0]} entries=${parts[1]}
-  local icon
-  for icon in "${parts[@]:2}"; do [[ -f $icon ]] && icons+=("$icon"); done
+  history_load
   (( offset <= total - ROWS )) || offset=$(( total > ROWS ? total - ROWS : 0 ))
 }
 
-# render: emit the shown rows. While the island shows this tab, everything up to now counts as read.
-render() {
-  local now seen json
+# update: rebuild the shown value. While the island shows this tab, everything up to now counts as read.
+update() {
+  local now seen='' json
   now=$(uptime_us)
   if (( expanded )) && [[ $(island_eww get island_tab 2>/dev/null) == notif ]]; then
     seen=$now
     printf '%s\n' "$now" > "$ISLAND_STATE/notif_seen"
   else
-    seen=$(cat "$ISLAND_STATE/notif_seen" 2>/dev/null)
+    read -r seen 2>/dev/null < "$ISLAND_STATE/notif_seen"
     [[ $seen =~ ^[0-9]+$ ]] || seen=0
   fi
-  if (( expanded )); then tick_at=$((${EPOCHREALTIME/./} + tick_us)); fi
+  if (( expanded )); then tick_at=$((${EPOCHREALTIME/./} + tick_every_us)); fi
   json=$(jq -c --argjson now "$now" --argjson seen "$seen" --argjson offset "$offset" --argjson rows "$ROWS" \
     --arg bell "$ICON_BELL" "$RENDER_JQ" --args "${icons[@]}" <<< "$entries" 2>/dev/null) || return 0
-  emit "$json"
+  view=$json
 }
 
 # scroll STEP: move the shown rows by STEP within the list.
@@ -85,29 +67,41 @@ scroll() {
   local next=$((offset + $1)) top=$(( total > ROWS ? total - ROWS : 0 ))
   (( next < 0 )) && next=0
   (( next > top )) && next=$top
-  if (( next != offset )); then offset=$next; render; fi
+  if (( next != offset )); then offset=$next; update; fi
+}
+
+# wake VAR: when to reload next: the settle after "@refresh", else while expanded the relative-time tick.
+wake() {
+  local due=$refresh_at
+  (( due || ! expanded )) || due=$tick_at
+  printf -v "$1" '%d' "$due"
+}
+
+notif_render() { [[ -n $view ]] && printf '%s' "$view"; }
+
+notif_handle() {
+  local at
+  wake at
+  if (( at && at <= ${EPOCHREALTIME/./} )); then refresh_at=0; load; update; fi
+  case $1 in
+    # dunst stores a notification right after starting its hook: wait, and take a burst at once.
+    '@refresh') (( refresh_at )) || refresh_at=$((${EPOCHREALTIME/./} + refresh_delay_us)) ;;
+    # scripts/island repeats this while the pointer stays; only opening rereads the history.
+    '@expanded 1') if (( ! expanded )); then expanded=1; load; update; fi ;;
+    '@expanded 0') if (( expanded )); then expanded=0; offset=0; update; fi ;;
+    '@tab '*) if (( expanded )); then update; fi ;;
+    '@scroll -1') scroll -1 ;;
+    '@scroll 1') scroll 1 ;;
+  esac
+  wake at
+  wake_at "$at"
 }
 
 # click ID: activate the entry's app like the pill click, then drop it and its copies from history.
 click() {
-  local -a parts
-  local app entry='' line_id line_app line_entry id
-  mapfile -d '' parts < <(dunstctl history 2>/dev/null | jq -j --argjson id "$1" "$CLICK_JQ" 2>/dev/null)
-  (( ${#parts[@]} == 3 )) || return 0
-  # notify-hook saved the desktop entry under its own form of the app name.
-  app=${parts[0]//[[:cntrl:]]/ }
-  app=${app:0:80}
-  while IFS=$'\t' read -r line_id line_app line_entry; do
-    if [[ $line_id == "$1" && $line_app == "$app" ]]; then entry=$line_entry; fi
-  done < "$ISLAND_STATE/notif_entries" 2>/dev/null
-  for id in ${parts[2]}; do dunstctl history-rm "$id" > /dev/null 2>&1; done
-  activate "${parts[1]}" "$entry" > /dev/null 2>&1 &
-  notif_signal '@refresh'
-}
-
-clear_all() {
-  dunstctl history-clear > /dev/null 2>&1
-  if [[ -f $ISLAND_STATE/notif_entries ]]; then : > "$ISLAND_STATE/notif_entries"; fi
+  local app entry
+  history_take "$1" app entry || return 0
+  activate "$app" "$entry" > /dev/null 2>&1 &
   notif_signal '@refresh'
 }
 
@@ -116,7 +110,7 @@ usage() { printf 'usage: notif [click ID | clear | scroll up|down]\n' >&2; retur
 main() {
   case ${1:-} in
     click) [[ ${2:-} =~ ^[0-9]+$ ]] || { usage; return; }; click "$((10#$2))"; return 0 ;;
-    clear) clear_all; return 0 ;;
+    clear) history_clear; notif_signal '@refresh'; return 0 ;;
     scroll)
       case ${2:-} in
         up) notif_signal '@scroll -1' ;;
@@ -128,45 +122,15 @@ main() {
     *) usage; return ;;
   esac
   require jq || { printf 'notif: jq tidak tersedia\n' >&2; return 127; }
-  local fifo input_fd line timeout wake remaining settle_us tick_us
-  # shellcheck disable=SC2034 # emit (scripts/notify) dedupes against it.
-  local last=''
-  local entries='[]' total=0 offset=0 expanded=0 deadline=0 tick_at=0
+  # Not settle_us/tick_us: listen's own locals would shadow them in the handlers.
+  local entries='[]' total=0 offset=0 expanded=0 view='' refresh_at=1 tick_at=0 refresh_delay_us tick_every_us
   local -a icons=()
-  settle_us=$(seconds_us "${ISLAND_NOTIF_SETTLE_SECONDS:-0.15}")
-  tick_us=$(seconds_us "${ISLAND_NOTIF_TICK_SECONDS:-60}")
-  fifo=$ISLAND_STATE/notif.fifo
-  mkdir -p "$ISLAND_STATE"
-  rm -f -- "$fifo"
-  mkfifo -m 600 "$fifo" || return
-  exec {input_fd}<> "$fifo"
-  trap 'exit 0' TERM INT HUP
-  # notify_cleanup removes $fifo while it is still the one this listener reads.
-  trap notify_cleanup EXIT
-  load; render
-  while true; do
-    # Wake for a settling refresh, else, while expanded, to tick the relative times.
-    wake=$deadline
-    if (( ! wake && expanded )); then wake=$tick_at; fi
-    if (( wake )); then
-      remaining=$((wake - ${EPOCHREALTIME/./}))
-      if (( remaining <= 0 )); then deadline=0; load; render; continue; fi
-      printf -v timeout '%d.%06d' "$((remaining / 1000000))" "$((remaining % 1000000))"
-      IFS= read -r -t "$timeout" -u "$input_fd" line || continue
-    else
-      IFS= read -r -u "$input_fd" line || continue
-    fi
-    case $line in
-      # dunst stores a notification right after starting its hook: wait, and take a burst at once.
-      '@refresh') (( deadline )) || deadline=$((${EPOCHREALTIME/./} + settle_us)) ;;
-      # scripts/island repeats this while the pointer stays; only opening rereads the history.
-      '@expanded 1') if (( ! expanded )); then expanded=1; load; render; fi ;;
-      '@expanded 0') if (( expanded )); then expanded=0; offset=0; render; fi ;;
-      '@tab '*) if (( expanded )); then render; fi ;;
-      '@scroll -1') scroll -1 ;;
-      '@scroll 1') scroll 1 ;;
-    esac
-  done
+  refresh_delay_us=$(seconds_us "${ISLAND_NOTIF_SETTLE_SECONDS:-0.15}")
+  tick_every_us=$(seconds_us "${ISLAND_NOTIF_TICK_SECONDS:-60}")
+  # The first load is a refresh due at once, so it runs after the FIFO exists and misses no "@refresh".
+  # shellcheck disable=SC2034 # read by listen
+  listen_tick=0.000001
+  LISTEN_SETTLE=0 listen notif notif_render notif_handle
 }
 
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

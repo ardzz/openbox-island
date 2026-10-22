@@ -4,35 +4,18 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
-
-# field VAR VALUE MAX: VALUE with control characters as spaces, cut to MAX characters.
-field() {
-  local value=${2//[[:cntrl:]]/ }
-  printf -v "$1" '%s' "${value:0:$3}"
-}
-
-# remember_entry ID APP ENTRY: dunst history has no desktop entry, so scripts/notif click reads
-# it from $ISLAND_STATE/notif_entries ("ID TAB APP TAB ENTRY", newest last, at most ENTRIES_MAX lines).
-ENTRIES_MAX=64
-remember_entry() {
-  local file="$ISLAND_STATE/notif_entries" fd lines
-  [[ $1 =~ ^[0-9]+$ && -n $3 && -d ${file%/*} ]] || return 0
-  exec {fd}>> "$file" || return 0
-  flock "$fd" || return 0
-  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >&"$fd"
-  mapfile -t lines < "$file"
-  if (( ${#lines[@]} > ENTRIES_MAX )); then
-    printf '%s\n' "${lines[@]: -$((ENTRIES_MAX / 2))}" > "$file"
-  fi
-  exec {fd}>&-
-}
+# shellcheck source=lib/notify/clean.sh
+source "$DIR/lib/notify/clean.sh"
+# shellcheck source=lib/notify/history.sh
+source "$DIR/lib/notify/history.sh"
 
 main() {
   local icon=${DUNST_ICON_PATH:-} app summary body urgency entry tag line
   # Field limits keep the line below PIPE_BUF (4096 bytes), so concurrent hooks never interleave.
   field app "${DUNST_APP_NAME:-}" 80
   field entry "${DUNST_DESKTOP_ENTRY:-}" 80
-  remember_entry "${DUNST_ID:-}" "$app" "$entry"
+  # dunst history has no desktop entry: scripts/notif click looks it up here.
+  desktop_remember "${DUNST_ID:-}" "$app" "$entry"
   # The notification center rereads dunst history once dunst has stored this one.
   notif_signal '@refresh'
   [[ -p $ISLAND_STATE/notify.fifo ]] || return 0
