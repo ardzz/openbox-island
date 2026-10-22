@@ -40,7 +40,8 @@
   :geometry (geometry :x "0px" :y "0px" :width "508px" :height "44px" :anchor "top center")
   :wm-ignore true
   ; Hovering a shown notification never expands the island: the pointer is on its way to click it.
-  (eventbox :onhover {(media.state == "none" && !weather.ok && notif_center.total == 0) || (notify.active && alert.kind == "") ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
+  ; Otherwise the card always has a tab to show: the to-do list.
+  (eventbox :onhover {notify.active && alert.kind == "" ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
     ; The pill hangs from the top edge; the ears beside it curve into the screen edge like a notch.
     (box :halign "center" :valign "start" :visible {!island_reveal} :orientation "h" :space-evenly false
       (box :class "ear ear-left" :valign "start")
@@ -128,16 +129,17 @@
       (revealer :transition "slidedown" :reveal island_reveal :duration "300ms"
        (box :orientation "h" :space-evenly false
         (box :class "ear ear-left" :valign "start")
-        ; The header shows once two or more tabs have content (count each tab's condition).
-        (box :class "pill pill-expanded ${(media.state != 'none' ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) >= 2 ? 'with-tabs' : ''}"
+        ; The header shows once two or more tabs have content (count each tab's condition; the to-do list always counts).
+        (box :class "pill pill-expanded ${(media.state != 'none' ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) + 1 >= 2 ? 'with-tabs' : ''}"
              :orientation "v" :space-evenly false
           ; eww's onscroll only reports vertical scrolling: up/down over the header switches tabs.
-          (revealer :transition "none" :reveal {(media.state != "none" ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) >= 2}
+          (revealer :transition "none" :reveal {(media.state != "none" ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) + 1 >= 2}
             (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/tab {} &"
               (box :class "tabs" :orientation "h" :halign "center" :space-evenly false :spacing 4
                 (tab-chip :id "musik" :label "Musik" :available {media.state != "none"})
                 (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok})
-                (tab-chip :id "notif" :label {notif_center.label} :available {notif_center.total > 0}))))
+                (tab-chip :id "notif" :label {notif_center.label} :available {notif_center.total > 0})
+                (tab-chip :id "tugas" :label {todo.label} :available true))))
           (revealer :transition "none" :reveal {island_tab == "musik"}
         (box :class "page" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 14
@@ -249,5 +251,28 @@
           (box :orientation "h" :space-evenly false
             (label :class "notif-more" :hexpand true :xalign 0
                    :text {notif_center.more > 0 ? "+${notif_center.more} lainnya" : notif_center.total == 0 ? "Tidak ada notifikasi" : ""})
-            (button :class "notif-clear" :onclick "${EWW_CONFIG_DIR}/scripts/notif clear &" "Hapus semua")))))
+            (button :class "notif-clear" :onclick "${EWW_CONFIG_DIR}/scripts/notif clear &" "Hapus semua"))))
+          ; Open items first, newest first; scrolling over the list pages it. The card takes no
+          ; keyboard focus, so "+ Tambah" closes it and asks in rofi.
+          (revealer :transition "none" :reveal {island_tab == "tugas"}
+        (box :class "page" :orientation "v" :space-evenly false :spacing 6
+          (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/todo scroll {} &"
+            (box :class "todo-list" :orientation "v" :space-evenly false :spacing 2
+              (revealer :transition "none" :reveal {todo.total == 0}
+                (label :class "todo-empty" :text "Belum ada tugas"))
+              (for row in {todo.rows}
+                (box :class "todo-row ${row.done ? 'todo-done' : ''}" :orientation "h" :space-evenly false :spacing 8
+                  (button :class "todo-check" :onclick "${EWW_CONFIG_DIR}/scripts/todo toggle ${row.id} &"
+                          :tooltip {row.done ? "Tandai belum selesai" : "Tandai selesai"}
+                    {row.done ? "󰄵" : "󰄱"})
+                  (label :class "todo-text" :text {row.text} :tooltip {row.text} :xalign 0 :hexpand true
+                         :limit-width 54 :show-truncated true :wrap false)
+                  (button :class "todo-remove" :tooltip "Hapus" :onclick "${EWW_CONFIG_DIR}/scripts/todo remove ${row.id} &"
+                    "󰅖")))))
+          (box :orientation "h" :space-evenly false :spacing 6
+            (label :class "notif-more" :hexpand true :xalign 0
+                   :text {todo.more > 0 ? "+${todo.more} lainnya" : ""})
+            (revealer :transition "none" :reveal {todo.done > 0}
+              (button :class "notif-clear" :onclick "${EWW_CONFIG_DIR}/scripts/todo clear-done &" "Bersihkan selesai"))
+            (button :class "notif-clear todo-add" :onclick "${EWW_CONFIG_DIR}/scripts/todo prompt &" "+ Tambah")))))
         (box :class "ear ear-right" :valign "start"))))))

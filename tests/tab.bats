@@ -226,3 +226,24 @@ no_notif() { notif 0; }
   [ "$line" = '@tab notif' ]
   [ "$(calls)" = 'update island_tab=notif' ]
 }
+
+@test "the to-do tab is offered while its list listener runs, even with nothing else" {
+  no_music; no_weather; no_notif
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = musik ]
+  mkfifo "$ST/todo.fifo"
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = tugas ]
+  run "$SCRIPTS/tab" select tugas
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ST/tab")" = tugas ]
+}
+
+@test "the to-do tab comes after notifications" {
+  both; notif; shown notif; mkfifo "$ST/todo.fifo"
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = tugas ]
+  rm -f "$ST/tab_at"
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = musik ]
+}

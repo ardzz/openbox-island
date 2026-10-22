@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# island hover | auto SECONDS | close | hide | show
+# island hover | auto SECONDS | close | dismiss | hide | show
 # Opens/closes the expanded island; hide/show close and restore both windows for
 # scripts/fullscreen. State: auto_until (epoch seconds until which an auto-expand holds the
 # island open), fullscreen (present while hidden). Whether the island is hovered is read from
@@ -66,11 +66,24 @@ collapse() {
   eww close island-expanded
   notify_signal '@expanded 0'
   notif_signal '@expanded 0'
+  fifo_signal todo '@expanded 0'
 }
 
 # collapse_if_idle: collapse unless the pointer is on the island or an auto-expand still holds it.
 collapse_if_idle() {
   if (( $(date +%s) >= $(get auto_until) )) && ! hovered; then collapse; fi
+}
+
+# dismiss: hide and close the card now, even under the pointer: a launched tool takes the screen.
+dismiss() {
+  put auto_until 0
+  is_open || return 0
+  eww update island_reveal=false
+  sleep "$REVEAL_SECONDS"
+  eww close island-expanded
+  notify_signal '@expanded 0'
+  notif_signal '@expanded 0'
+  fifo_signal todo '@expanded 0'
 }
 
 # hide: close both windows until show. eww stops every listener only these windows use.
@@ -83,6 +96,7 @@ hide() {
     eww close island-expanded
     notify_signal '@expanded 0'
     notif_signal '@expanded 0'
+    fifo_signal todo '@expanded 0'
   fi
   eww close island
 }
@@ -94,7 +108,7 @@ show() {
   if eww ping >/dev/null 2>&1; then eww open island; fi
 }
 
-usage() { echo "usage: island hover | auto SECONDS | close | hide | show" >&2; return 2; }
+usage() { echo "usage: island hover | auto SECONDS | close | dismiss | hide | show" >&2; return 2; }
 
 main() {
   case $1 in
@@ -113,6 +127,7 @@ main() {
       # The player went away: a card kept open by the pointer falls back to another tab.
       lock; put auto_until 0; collapse_if_idle
       if is_open; then eww update "island_tab=$("$DIR/tab" resolve)"; fi ;;
+    dismiss) lock; dismiss ;;
     hide) lock; hide ;;
     show) lock; show ;;
     *) usage ;;

@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# todo: deflisten printing the to-do list (expanded card tab "tugas"), one JSON object per line.
+# todo add TEXT | prompt | toggle ID | remove ID | clear-done | scroll up|down
+# The list lives in $XDG_DATA_HOME/eww-island/todo.json so it survives reboots. Commands change it
+# under a lock, replace it atomically and send "@refresh" to the FIFO
+# $XDG_RUNTIME_DIR/eww-island/todo.fifo; the listener also takes "@scroll -1|1" and "@expanded 0".
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/eww-island"
+FILE="$DATA_DIR/todo.json"
+ROWS=4
+MAX_TEXT=200
+EMPTY='{"next_id":1,"items":[]}'
+
+# A stored list -> the list with next_id past every id; anything else is an error.
+VALID_JQ='if type == "object" and (.items | type) == "array"
+    and all(.items[]; type == "object" and (.id | type) == "number" and (.text | type) == "string"
+      and (.done | type) == "boolean")
+  then {next_id: ([(.next_id | numbers) // 0, ((.items | map(.id) | max) // 0) + 1] | max), items}
+  else error("invalid list") end'
+# Raw text -> one trimmed line of at most $max characters.
+CLEAN_JQ='$t | gsub("[[:cntrl:][:space:]]+"; " ") | ltrimstr(" ") | .[:$max] | rtrimstr(" ")'
+ADD_JQ='.next_id as $id | .items += [{id: $id, text: $text, done: false, created: $now}] | .next_id = $id + 1'
+# Toggle and remove answer null for an unknown id: nothing is saved.
+TOGGLE_JQ='if any(.items[]; .id == $id)
+  then .items |= map(if .id == $id then (.done |= not) | .done_at = (if .done then $now else null end) else . end)
+  else null end'
+REMOVE_JQ='if any(.items[]; .id == $id) then .items |= map(select(.id != $id)) else null end'
+CLEAR_JQ='.items |= map(select(.done | not))'
+# Open items newest first, then done items latest finished first.
+RENDER_JQ='(.items | map(select(.done | not)) | sort_by(-.id)) as $open
+  | (.items | map(select(.done)) | sort_by(-(.done_at // 0), -.id)) as $done
+  | ($open + $done) as $all | ($all | length) as $total | ($open | length) as $count
+  | {open: $count, done: ($done | length), total: $total,
+     label: ("Tugas" + (if $count > 0 then " \($count)" else "" end)),
+     rows: [$all[$offset:$offset + $rows][] | {id, text, done}],
+     more: ([$total - $offset - $rows, 0] | max), offset: $offset}'
+
+# change FILTER [JQ ARGS...]: apply FILTER to the list under the lock and save it atomically.
+# A corrupt list is kept aside as todo.json.corrupt. FILTER answering null saves nothing (status 1).
+change() {
+  local filter=$1 fd doc='' new tmp rc
+  shift
+  mkdir -p "$DATA_DIR" || return
+  exec {fd}> "$FILE.lock"
+  flock "$fd" || return
+  if [[ -e $FILE ]] && ! doc=$(jq -c "$VALID_JQ" "$FILE" 2>/dev/null); then
+    mv -f -- "$FILE" "$FILE.corrupt"
+    doc=''
+  fi
+  new=$(jq -ce "$@" "$filter" <<< "${doc:-$EMPTY}")
+  rc=$?
+  if (( rc == 0 )) && tmp=$(mktemp "$FILE.XXXXXX"); then
+    if printf '%s\n' "$new" > "$tmp" && mv -f -- "$tmp" "$FILE"; then
+      exec {fd}>&-
+      fifo_signal todo '@refresh'
+      return 0
+    fi
+    rm -f -- "$tmp"
+    rc=1
+  fi
+  exec {fd}>&-
+  return $(( rc == 1 ? 1 : 3 ))
+}
+
+now_us() { printf '%s' "${EPOCHREALTIME/./}"; }
+
+add() {
+  local text
+  text=$(jq -rn --arg t "$1" --argjson max "$MAX_TEXT" "$CLEAN_JQ") || return
+  if [[ -z $text ]]; then printf 'todo: teks kosong\n' >&2; return 1; fi
+  change "$ADD_JQ" --arg text "$text" --argjson now "$(now_us)"
+}
+
+# prompt: close the card (it cannot take keyboard focus), ask rofi and add the answer.
+prompt() {
+  require rofi || { printf 'todo: rofi tidak tersedia\n' >&2; return 127; }
+  local text
+  "$DIR/island" dismiss
+  text=$(rofi -dmenu -p Tugas -l 0 < /dev/null) || return 0
+  [[ -z ${text//[[:space:]]/} ]] || add "$text"
+}
+
+# load: read the list (missing or corrupt = empty) and keep the offset within it.
+load() {
+  doc=$(jq -c "$VALID_JQ" "$FILE" 2>/dev/null) || doc=''
+  [[ -n $doc ]] || doc=$EMPTY
+  total=$(jq '.items | length' <<< "$doc")
+  (( offset <= total - ROWS )) || offset=$(( total > ROWS ? total - ROWS : 0 ))
+}
+
+emit() { if [[ $1 != "$last" ]]; then printf '%s\n' "$1"; last=$1; fi; }
+
+render() {
+  local json
+  json=$(jq -c --argjson offset "$offset" --argjson rows "$ROWS" "$RENDER_JQ" <<< "$doc" 2>/dev/null) || return 0
+  emit "$json"
+}
+
+# scroll STEP: move the shown rows by STEP within the list.
+scroll() {
+  local next=$((offset + $1)) top=$(( total > ROWS ? total - ROWS : 0 ))
+  (( next < 0 )) && next=0
+  (( next > top )) && next=$top
+  if (( next != offset )); then offset=$next; render; fi
+}
+
+cleanup() {
+  # A newer listener may already own the path.
+  if [[ $fifo -ef /proc/$$/fd/$input_fd ]]; then rm -f -- "$fifo"; fi
+}
+
+listen() {
+  local fifo input_fd line last='' doc total=0 offset=0
+  fifo=$STATE/todo.fifo
+  mkdir -p "$STATE"
+  rm -f -- "$fifo"
+  mkfifo -m 600 "$fifo" || return
+  exec {input_fd}<> "$fifo"
+  trap 'exit 0' TERM INT HUP
+  trap cleanup EXIT
+  load; render
+  while true; do
+    IFS= read -r -u "$input_fd" line || continue
+    case $line in
+      '@refresh') load; render ;;
+      '@scroll -1') scroll -1 ;;
+      '@scroll 1') scroll 1 ;;
+      '@expanded 0') if (( offset )); then offset=0; render; fi ;;
+    esac
+  done
+}
+
+usage() { printf 'usage: todo [add TEXT | prompt | toggle ID | remove ID | clear-done | scroll up|down]\n' >&2; return 2; }
+
+main() {
+  case ${1:-} in
+    scroll)
+      case ${2:-} in
+        up) fifo_signal todo '@scroll -1' ;;
+        down) fifo_signal todo '@scroll 1' ;;
+        *) usage; return ;;
+      esac
+      return 0 ;;
+    add|prompt|toggle|remove|clear-done|'') ;;
+    *) usage; return ;;
+  esac
+  require jq || { printf 'todo: jq tidak tersedia\n' >&2; return 127; }
+  case ${1:-} in
+    add) (( $# == 2 )) || { usage; return; }; add "$2" ;;
+    prompt) prompt ;;
+    toggle|remove)
+      [[ ${2:-} =~ ^[0-9]{1,15}$ ]] || { usage; return; }
+      if [[ $1 == toggle ]]; then
+        change "$TOGGLE_JQ" --argjson id "$((10#$2))" --argjson now "$(now_us)"
+      else
+        change "$REMOVE_JQ" --argjson id "$((10#$2))"
+      fi ;;
+    clear-done) change "$CLEAR_JQ" ;;
+    '') listen ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

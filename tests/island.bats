@@ -244,6 +244,23 @@ wait_for_calls() {
   [ "$signal" = '@expanded 0' ]
 }
 
+@test "collapsing tells the to-do list to scroll back to the top" {
+  mkdir -p "$ST"; mkfifo "$ST/todo.fifo"
+  exec {todo_fd}<> "$ST/todo.fifo"
+  expanded
+  run "$SCRIPTS/island" hover
+  [ "$(calls)" = "$CLOSE" ]
+  IFS= read -r -t 1 -u "$todo_fd" signal
+  [ "$signal" = '@expanded 0' ]
+}
+
+@test "hover with nothing else to show opens the to-do tab while its list runs" {
+  mkdir -p "$ST"; mkfifo "$ST/todo.fifo"
+  stub_hover_sleep; on_compact; no_music
+  run "$SCRIPTS/island" hover
+  [ "$(calls)" = $'update island_reveal=false island_tab=tugas\nopen island-expanded\nupdate island_reveal=true' ]
+}
+
 @test "a pointer that comes back while hiding never reports a collapse" {
   mkdir -p "$ST"; mkfifo "$ST/notify.fifo"
   exec {notify_fd}<> "$ST/notify.fifo"
