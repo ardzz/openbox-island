@@ -3,11 +3,11 @@ load helpers
 setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
   export ALERT_FIXTURE="$BATS_TEST_TMPDIR"
+  export ISLAND_HWMON="$BATS_TEST_TMPDIR/hwmon" ISLAND_LEDS="$BATS_TEST_TMPDIR/leds"
   export ISLAND_SCREENSHOT_DIR="$BATS_TEST_TMPDIR/shots"
-  export ISLAND_HWMON="$BATS_TEST_TMPDIR/hwmon"
   unset ISLAND_TEMP_CPU ISLAND_TEMP_GPU
   BIN="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_HWMON"
+  mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_HWMON" "$ISLAND_LEDS"
   export PATH="$BIN:$PATH"
   source "$SCRIPTS/alert"
   CLEAR='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
@@ -134,6 +134,8 @@ make_fakes() {
   printf 'Device F4:93:B1:9A:5C:21 (public)\n\tName: WH-1000XM4\n\tAlias: WH-1000XM4\n\tClass: 0x00240404\n\tIcon: audio-headset\n\tConnected: yes\n\tBattery Percentage: 0x50 (80)\n' \
     > "$ALERT_FIXTURE/bt-info-F4:93:B1:9A:5C:21"
   make_hwmon hwmon3 'CPU Temperature:50000' 'GPU Temperature:50000'
+  mkdir -p "$ISLAND_LEDS/input3::capslock"
+  printf '0\n' > "$ISLAND_LEDS/input3::capslock/brightness"
   cat > "$BIN/pactl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$ALERT_FIXTURE/audio-queries"
@@ -486,22 +488,55 @@ set_temp() {
   [ "$(jq -sc 'map([.text,.value])' "$RESULT")" = '[["CPU panas","97°C"],["CPU panas","98°C"],["CPU panas","96°C"]]' ]
 }
 
-@test "sources without their tools or sensors are skipped with a note" {
+set_led() {
+  mkdir -p "$ISLAND_LEDS/$1"
+  printf '%s\n' "$2" > "$ISLAND_LEDS/$1/brightness"
+}
+
+@test "caps lock is on when any keyboard LED is lit and emits only on change" {
+  set_led input3::capslock 0
+  set_led input7::capslock 0
+  set_led input3::numlock 1
+  {
+    capslock_snapshot
+    set_led input3::numlock 0; capslock_snapshot
+    set_led input7::capslock 1; capslock_snapshot
+    set_led input3::capslock 1; capslock_snapshot
+    set_led input7::capslock 0; capslock_snapshot
+    set_led input3::capslock 0; capslock_snapshot
+    capslock_snapshot
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["capslock","Caps Lock nyala","",-1,""],["capslock","Caps Lock mati","",-1,""]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F0632|\U000F0632' ]
+}
+
+@test "caps lock already on at start is a silent baseline" {
+  set_led input3::capslock 1
+  {
+    capslock_snapshot
+    capslock_snapshot
+    set_led input3::capslock 0; capslock_snapshot
+  } > "$RESULT"
+  [ "$(jq -sc 'map(.text)' "$RESULT")" = '["Caps Lock mati"]' ]
+}
+
+@test "sources without their tools, sensors or LEDs are skipped with a note" {
   local source
-  for source in bluetooth screenshot temperature; do
+  for source in bluetooth screenshot temperature capslock; do
     run bash -c 'source "$2"; PATH=$1; source_worker "$3"' _ "$BIN" "$SCRIPTS/alert" "$source"
     [ "$status" -eq 0 ]
     case $source in
       bluetooth) [ "$output" = 'alert: sumber bluetooth dilewati, gdbus tidak tersedia' ] ;;
       screenshot) [ "$output" = 'alert: sumber screenshot dilewati, inotifywait tidak tersedia' ] ;;
       temperature) [ "$output" = 'alert: sumber temperature dilewati, sensor suhu tidak ditemukan' ] ;;
+      capslock) [ "$output" = 'alert: sumber capslock dilewati, LED Caps Lock tidak ditemukan' ] ;;
     esac
   done
 }
 
 start_listener() {
   make_fakes
-  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_TEMP_INTERVAL=0.05
+  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_CAPS_INTERVAL=0.02 ISLAND_TEMP_INTERVAL=0.05
   mkfifo "$ALERT_FIXTURE/output"
   exec {output_fd}<> "$ALERT_FIXTURE/output"
   "$SCRIPTS/alert" > "$ALERT_FIXTURE/output" 2> "$ALERT_FIXTURE/stderr" &
@@ -561,6 +596,15 @@ start_listener() {
   printf "Event 'change' on sink #65\n" >&"$audio_fd"
   ! IFS= read -r -t 0.15 -u "$output_fd" event
   IFS= read -r -t 1 -u "$output_fd" event
+  [ "$event" = "$CLEAR" ]
+}
+
+@test "caps lock toggles show a HUD that clears after the shorter HUD hold" {
+  start_listener
+  printf '1\n' > "$ISLAND_LEDS/input3::capslock/brightness"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.level]' <<< "$event")" = '["capslock","Caps Lock nyala",-1]' ]
+  IFS= read -r -t 0.35 -u "$output_fd" event
   [ "$event" = "$CLEAR" ]
 }
 

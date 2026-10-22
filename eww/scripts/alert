@@ -26,6 +26,7 @@ ICON_KEYBOARD=$'\U000F030C'
 ICON_PHONE=$'\U000F011C'
 ICON_CAMERA=$'\U000F0100'
 ICON_THERMOMETER=$'\U000F050F'
+ICON_CAPS=$'\U000F0632'
 CLEAR_JSON='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
 BT_CONNECTED_RE="^/org/bluez/hci[0-9]+/dev_([0-9A-Fa-f_]{17}): org\\.freedesktop\\.DBus\\.Properties\\.PropertiesChanged \\('org\\.bluez\\.Device1', \\{.*'Connected': <(true|false)>"
 declare -gA wifi_states=() bt_states=() temp_inputs=() temp_states=()
@@ -300,6 +301,23 @@ temperature_snapshot() {
   done
 }
 
+# capslock_snapshot: Caps Lock is on if any keyboard LED is lit. Fails when no LED exists.
+capslock_snapshot() {
+  local file value state=off found=0 text='Caps Lock mati'
+  for file in "${ISLAND_LEDS:-/sys/class/leds}"/*::capslock/brightness; do
+    [[ -e $file ]] || continue
+    found=1 value=''
+    IFS= read -r value 2>/dev/null < "$file" || :
+    if [[ $value =~ ^[0-9]+$ ]] && (( 10#$value )); then state=on; break; fi
+  done
+  (( found )) || return 1
+  if [[ -n ${caps_state:-} && $state != "$caps_state" ]]; then
+    if [[ $state == on ]]; then text='Caps Lock nyala'; fi
+    alert_json capslock "$ICON_CAPS" "$text" '' -1
+  fi
+  caps_state=$state
+}
+
 # poll_sleep SECONDS: sleep without forking by timing out a read on a pipe nobody writes to.
 poll_sleep() {
   if [[ -z ${sleep_fd:-} ]]; then exec {sleep_fd}<> <(:); fi
@@ -374,6 +392,15 @@ source_worker() {
         temperature_snapshot
         poll_sleep "${ISLAND_TEMP_INTERVAL:-5}"
       done ;;
+    capslock)
+      if ! capslock_snapshot > /dev/null; then
+        printf 'alert: sumber capslock dilewati, LED Caps Lock tidak ditemukan\n' >&2
+        return 0
+      fi
+      while true; do
+        poll_sleep "${ISLAND_CAPS_INTERVAL:-0.25}"
+        capslock_snapshot || :
+      done ;;
   esac
 }
 
@@ -406,7 +433,7 @@ main() {
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
   printf '%s\n' "$CLEAR_JSON"
-  for source in audio brightness battery wifi bluetooth screenshot temperature; do
+  for source in audio brightness battery wifi bluetooth screenshot temperature capslock; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done
@@ -434,7 +461,7 @@ main() {
       if [[ $line != "$last" ]]; then printf '%s\n' "$line"; last=$line; fi
     fi
     case $kind in
-      volume|mic|brightness) hold=$hud_us ;;
+      volume|mic|brightness|capslock) hold=$hud_us ;;
       *) hold=$alert_us ;;
     esac
     now=${EPOCHREALTIME/./}

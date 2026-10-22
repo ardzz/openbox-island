@@ -46,7 +46,7 @@ Urutan prioritas ada di `eww/players` (default `ytermusic,edge,%any`): nama play
 
 ## Aktivitas
 
-Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yang sedang membesar tidak berubah. Alert volume, mikrofon, dan kecerahan bertahan 1,5 detik; alert lain bertahan 3 detik.
+Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yang sedang membesar tidak berubah. Alert volume, mikrofon, kecerahan, dan Caps Lock bertahan 1,5 detik; alert lain bertahan 3 detik.
 
 | Jenis | Teks |
 | --- | --- |
@@ -60,6 +60,7 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 | `bluetooth` | `Bluetooth tersambung` atau `Bluetooth terputus`, dengan nama perangkat (alias) serta persentase baterai saat tersambung jika perangkat melaporkannya; ikon mengikuti jenis perangkat (headphone, gamepad, mouse, keyboard, ponsel) |
 | `screenshot` | `Tangkapan layar` dengan nama berkas dan thumbnail gambar sebagai pengganti ikon, saat berkas `.png`/`.jpg`/`.jpeg` baru selesai ditulis atau dipindahkan ke folder tangkapan layar |
 | `temperature` | `CPU panas` atau `GPU panas` dengan suhunya, sekali saat suhu mencapai batas (CPU 95 °C, GPU 87 °C; ubah dengan `ISLAND_TEMP_CPU`/`ISLAND_TEMP_GPU`); muncul lagi hanya setelah suhu turun di bawah batas − 5 °C. Ikon berwarna merah |
+| `capslock` | `Caps Lock nyala` atau `Caps Lock mati` saat status LED Caps Lock keyboard (`/sys/class/leds/*::capslock`, dibaca setiap 0,25 detik) berubah |
 
 Folder tangkapan layar: `ISLAND_SCREENSHOT_DIR` jika diset, selain itu `Screenshots` di dalam folder Gambar XDG (`xdg-user-dir PICTURES`), atau `~/Pictures/Screenshots`. Folder dibuat jika belum ada.
 
