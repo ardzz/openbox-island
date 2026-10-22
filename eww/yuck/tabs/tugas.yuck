@@ -1,5 +1,5 @@
-; Open items first, newest first; scrolling over the list pages it. The card takes no
-; keyboard focus, so "+ Tambah" closes it and asks in rofi.
+; Open items first, newest first; scrolling pages the list. Deadline chips and an edit
+; button sit beside each task. The card takes no keyboard focus; "+ Tambah" uses rofi.
 (defwidget page-tugas []
   (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/todo scroll {} &"
              :more {todo.more > 0 ? "+${todo.more} lainnya" : ""}
@@ -12,7 +12,11 @@
                   :tooltip {row.done ? "Tandai belum selesai" : "Tandai selesai"}
             {row.done ? "󰄵" : "󰄱"})
           (label :class "todo-text" :text {row.text} :tooltip {row.text} :xalign 0 :hexpand true
-                 :limit-width 54 :show-truncated true :wrap false)
+                 :limit-width {row.due_label == "" ? 50 : 38} :show-truncated true :wrap false)
+          (revealer :transition "none" :reveal {row.due_label != ""} :valign "center"
+            (label :class "todo-due ${row.due_class}" :text {row.due_label}))
+          (button :class "todo-due-edit" :tooltip "Atur deadline" :onclick "${EWW_CONFIG_DIR}/scripts/todo due ${row.id} &"
+            "󰃰")
           (button :class "todo-remove" :tooltip "Hapus" :onclick "${EWW_CONFIG_DIR}/scripts/todo remove ${row.id} &"
             "󰅖"))))
     (box :orientation "h" :space-evenly false :spacing 6

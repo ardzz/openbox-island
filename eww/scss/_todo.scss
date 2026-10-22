@@ -10,6 +10,7 @@
 }
 
 .todo-check,
+.todo-due-edit,
 .todo-remove {
   padding: 0 2px;
   font-size: 16px;
@@ -21,6 +22,26 @@
 }
 
 .todo-remove:hover {
+  color: $red;
+}
+
+.todo-due-edit:hover {
+  color: $island-accent;
+}
+
+.todo-due {
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: $muted;
+  background-color: $island-track;
+}
+
+.todo-due.due-soon {
+  color: $yellow;
+}
+
+.todo-due.due-late {
   color: $red;
 }
 
