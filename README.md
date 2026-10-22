@@ -31,7 +31,7 @@ picom tidak boleh menggambar bayangan untuk window eww: tambahkan `"class_g = 'E
 
 ## Player
 
-Urutan prioritas ada di `eww/players` (default `ytermusic,edge,%any`): nama player MPRIS dipisah koma, `%any` = player lain. Lihat nama player: `playerctl -l`. Setelah mengubah, jalankan ulang `~/.config/openbox/island.sh`.
+Urutan prioritas ada di `eww/players` (default `ytm_player,ytermusic,edge,%any`; `ytm_player` adalah [ytm-player](https://ytm-player.com)): nama player MPRIS dipisah koma, `%any` = player lain. Lihat nama player: `playerctl -l`. Setelah mengubah, jalankan ulang `~/.config/openbox/island.sh`.
 
 ## Perilaku
 

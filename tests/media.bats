@@ -137,7 +137,7 @@ EOF
   [ "$(jq -r .state <<<"${lines[4]}")" = none ]
   [ "$(cat "$STATE/media.json")" = "${lines[4]}" ]
   [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = $'auto 4\nauto 4\nclose' ]
-  [[ "$(cat "$BATS_TEST_TMPDIR/playerctl.args")" == "--player=ytermusic,edge,%any --follow metadata --format "* ]]
+  [[ "$(cat "$BATS_TEST_TMPDIR/playerctl.args")" == "--player=$(tr -d '[:space:]' < "$REPO/eww/players") --follow metadata --format "* ]]
 }
 
 @test "a silent player source still reports no player and clears a stale player" {
