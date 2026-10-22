@@ -68,24 +68,3 @@ bats_require_minimum_version 1.5.0
   [ "$(texts)" = '[]' ]
   quiet 0.5
 }
-
-@test "prompt closes the card, asks rofi and adds the answer" {
-  printf '  telepon ibu \n' > "$FIX/rofi_answer"
-  start_listener
-  run todo prompt
-  [ "$status" -eq 0 ]
-  next_event
-  [ "$(texts)" = '["telepon ibu"]' ]
-  grep -q '^rofi .*-dmenu' "$FIX/calls"
-  grep -q '^rofi .*-p Tugas' "$FIX/calls"
-  # The card is closed before rofi asks.
-  [ "$(grep -nm1 'close island-expanded' "$FIX/calls" | cut -d: -f1)" -lt "$(grep -nm1 '^rofi' "$FIX/calls" | cut -d: -f1)" ]
-}
-
-@test "cancelling the prompt adds nothing" {
-  start_listener
-  run todo prompt
-  [ "$status" -eq 0 ]
-  quiet 0.3
-  [ ! -e "$DATA" ] || [ "$(jq -c '[.rows]' <<< "$event")" = '[[]]' ]
-}

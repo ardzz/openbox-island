@@ -23,14 +23,21 @@ EOF
 [[ $1 == getmouselocation ]] && printf 'X=960\nY=900\nSCREEN=0\nWINDOW=1\n'
 exit 0
 EOF
-  # Fake rofi: logs its arguments and answers $FIX/rofi_answer, or cancels when it is missing.
+  # Fake rofi: logs its arguments and menu, answers the next line of $FIX/rofi_answers, cancels when none is left.
   cat > "$BIN/rofi" <<'EOF'
 #!/usr/bin/env bash
 printf 'rofi %s\n' "$*" >> "$FIX/calls"
-[[ -f $FIX/rofi_answer ]] || exit 1
-cat "$FIX/rofi_answer"
+menu=$(cat)
+[[ -z $menu ]] || printf 'menu %s\n' "${menu//$'\n'/|}" >> "$FIX/calls"
+[[ -s $FIX/rofi_answers ]] || exit 1
+head -n 1 "$FIX/rofi_answers"
+sed -i 1d "$FIX/rofi_answers"
 EOF
-  chmod +x "$BIN/eww" "$BIN/xdotool" "$BIN/rofi"
+  cat > "$BIN/notify-send" <<'EOF'
+#!/usr/bin/env bash
+printf 'notify-send%s\n' "$(printf ' [%s]' "$@")" >> "$FIX/calls"
+EOF
+  chmod +x "$BIN/eww" "$BIN/xdotool" "$BIN/rofi" "$BIN/notify-send"
   export PATH="$BIN:$PATH"
 }
 
