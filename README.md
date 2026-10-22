@@ -157,6 +157,8 @@ python -m unittest discover -s tests -p 'test_*.py'
 for f in tools/samples/*.vars; do tools/preview eww "$f" ~/.cache/island-baseline/"$(basename "$f" .vars)".png; done
 ```
 
+Arsitektur, kontrak area, dan resep menambah tab/alert/listener: [docs/architecture.md](docs/architecture.md).
+
 ## Debug
 
 - `~/.cache/eww-island.log`: log daemon island, termasuk diagnostik `viz:` (dependensi hilang atau worker audio berhenti) dan stderr `lyrics:` (lookup/cache gagal)
