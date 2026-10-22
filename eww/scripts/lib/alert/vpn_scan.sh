@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# VPN detection used by alert. Source it; do not execute.
-# shellcheck disable=SC2034 # results are read by the sourcing scripts
+# VPN interface and Tailscale sampling for the vpn alert source. Source it; do not execute.
+# shellcheck disable=SC2034 # results are read by vpn.sh
 
 declare -ga vpn_ifaces=()
 declare -g ts_state='' ts_host='' ts_exit_id='' ts_exit_name=''
