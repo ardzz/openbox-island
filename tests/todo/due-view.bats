@@ -39,11 +39,13 @@ chips() { jq -c '[.rows[] | [.text,.due_label,.due_class]]' <<< "$event"; }
   [ "$(chips)" = '[["lewat","terlambat","due-late"],["bebas","",""],["beres","",""]]' ]
 }
 
-@test "while a deadline is open the chips refresh on their own as time passes" {
-  export TZ=Asia/Jakarta ISLAND_TODO_TICK=0.2
-  todo add a --due $((EPOCHSECONDS + 2))
+@test "while a deadline is open the listener re-reads the list on its own" {
+  pin_clock
+  export ISLAND_TODO_TICK=0.2
+  todo add a --due 1792576800
   start_listener
-  [ "$(jq -r '.rows[0].due_label' <<< "$event")" != terlambat ]
-  next_event 4
-  [ "$(jq -r '.rows[0].due_label' <<< "$event")" = terlambat ]
+  [ "$(chips)" = '[["a","17:00","due-soon"]]' ]
+  jq -c '.items[0].due = 1792548000' "$DATA" > "$DATA.new" && mv "$DATA.new" "$DATA"
+  next_event 2
+  [ "$(chips)" = '[["a","terlambat","due-late"]]' ]
 }
