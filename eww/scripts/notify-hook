@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# dunst rule script (dunst-osd.conf): hand each notification to the island's listener.
+# dunst runs it asynchronously with DUNST_* variables; it never waits for the listener.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+# field VAR VALUE MAX: VALUE with control characters as spaces, cut to MAX characters.
+field() {
+  local value=${2//[[:cntrl:]]/ }
+  printf -v "$1" '%s' "${value:0:$3}"
+}
+
+main() {
+  [[ -p "${XDG_RUNTIME_DIR:-/tmp}/eww-island/notify.fifo" ]] || return 0
+  local icon=${DUNST_ICON_PATH:-} app summary body urgency entry tag line
+  # Field limits keep the line below PIPE_BUF (4096 bytes), so concurrent hooks never interleave.
+  field app "${DUNST_APP_NAME:-}" 80
+  field summary "${DUNST_SUMMARY:-}" 120
+  field body "${DUNST_BODY:-}" 240
+  field urgency "${DUNST_URGENCY:-}" 16
+  field entry "${DUNST_DESKTOP_ENTRY:-}" 80
+  field tag "${DUNST_STACK_TAG:-}" 80
+  # A path is kept whole or dropped.
+  if [[ $icon == *[[:cntrl:]]* ]] || (( ${#icon} > 255 )); then icon=''; fi
+  line=$(jq -cn --arg id "${DUNST_ID:-}" --arg app "$app" --arg summary "$summary" --arg body "$body" \
+    --arg icon "$icon" --arg urgency "$urgency" --arg entry "$entry" --arg tag "$tag" \
+    '{id:(($id | tonumber?) // 0),app:$app,summary:$summary,body:$body,icon:$icon,urgency:$urgency,entry:$entry,tag:$tag}') || return 0
+  notify_signal "$line"
+}
+
+main "$@"

@@ -997,3 +997,24 @@ start_listener() {
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$(jq -c '[.kind,.text]' <<< "$event")" = '["vpn-error","Tailscale perlu login"]' ]
 }
+
+@test "listener tells the notification listener when an alert run starts and when it clears" {
+  mkdir -p "$XDG_RUNTIME_DIR/eww-island"
+  mkfifo "$XDG_RUNTIME_DIR/eww-island/notify.fifo"
+  exec {notify_fd}<> "$XDG_RUNTIME_DIR/eww-island/notify.fifo"
+  start_listener
+  printf '55\n' > "$ALERT_FIXTURE/volume"
+  printf "Event 'change' on sink #65\n" >&"$audio_fd"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -r .kind <<< "$event")" = volume ]
+  IFS= read -r -t 1 -u "$notify_fd" signal
+  [ "$signal" = '@alert 1' ]
+  printf 'wlan0: connected\n' >&"$wifi_fd"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -r .kind <<< "$event")" = wifi ]
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$event" = "$CLEAR" ]
+  IFS= read -r -t 1 -u "$notify_fd" signal
+  [ "$signal" = '@alert 0' ]
+  if IFS= read -r -t 0.1 -u "$notify_fd" signal; then false; fi
+}

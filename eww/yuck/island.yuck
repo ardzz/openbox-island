@@ -37,10 +37,11 @@
   :monitor 0
   :geometry (geometry :x "0px" :y "8px" :width "480px" :height "36px" :anchor "top center")
   :wm-ignore true
-  (eventbox :onhover {media.state == "none" && !weather.ok ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
+  ; Hovering a shown notification never expands the island: the pointer is on its way to click it.
+  (eventbox :onhover {(media.state == "none" && !weather.ok) || (notify.active && alert.kind == "") ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
     (box :halign "center" :valign "center" :visible {!island_reveal}
       (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/scroll {} &"
-      (stack :selected {alert.kind != "" ? 2 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
+      (stack :selected {alert.kind != "" ? 2 : notify.active ? 3 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
         (box :class "pill pill-idle" :orientation "h" :halign "center" :space-evenly false :spacing 0
           (box :orientation "h" :halign "center" :hexpand true :space-evenly false :spacing 0
             (revealer :transition "none" :reveal {weather.ok}
@@ -77,7 +78,23 @@
             (progress :class "hud" :width 140 :valign "center" :value {alert.level}))
           (revealer :transition "none" :reveal {alert.value != ""}
             (label :class "alert-value" :text {alert.value} :xalign 1 :limit-width 24
-                   :show-truncated true))))))))
+                   :show-truncated true)))
+        (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/notify click ${notify.id} &"
+                  :tooltip "${notify.summary}${notify.body != "" ? " · " + notify.body : ""}"
+          (box :class "pill pill-notify ${notify.critical ? 'notify-critical' : ''}" :orientation "h"
+               :space-evenly false :spacing 10
+            (box :orientation "h" :space-evenly false :spacing 0 :valign "center"
+              (revealer :transition "none" :reveal {notify.image != ""}
+                (box :class "notify-thumb" :valign "center"
+                     :style {notify.image == "" ? "" : "background-image: url('${notify.image}');"}))
+              (revealer :transition "none" :reveal {notify.image == ""}
+                (label :class "notify-icon" :width 24 :text {notify.icon})))
+            (box :orientation "v" :space-evenly false :spacing 0 :valign "center" :hexpand true
+              (label :class "notify-summary" :text {notify.summary} :xalign 0
+                     :limit-width 46 :show-truncated true :wrap false)
+              (revealer :transition "none" :reveal {notify.body != ""}
+                (label :class "notify-body" :text {notify.body} :xalign 0
+                       :limit-width 56 :show-truncated true :wrap false))))))))))
 
 (defwindow island-expanded
   :monitor 0

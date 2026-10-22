@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+# notify: deflisten printing the notification shown in the compact island, one JSON object per line.
+# notify click ID: dismiss the shown notification ID and activate its app.
+# Input is the FIFO $XDG_RUNTIME_DIR/eww-island/notify.fifo: notify-hook lines plus
+# "@alert 0|1" (scripts/alert), "@expanded 0|1" (scripts/island) and "@click ID".
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+
+ICON_BELL=$'\U000F009A'
+CLEAR_JSON='{"active":false,"id":0,"app":"","summary":"","body":"","icon":"","image":"","critical":false}'
+QUEUE_MAX=3
+US=$'\x1f'
+# One notify-hook line -> ID, KEY (app + stack tag), APP, ENTRY, CRITICAL (0/1), ICON, JSON joined by US.
+# eww labels show plain text: markup tags are dropped and entities decoded.
+NORMALIZE='def clean: tostring | gsub("[[:cntrl:]]"; " ") | gsub("<[^>]*>"; "")
+    | gsub("&lt;"; "<") | gsub("&gt;"; ">") | gsub("&quot;"; "\"") | gsub("&(apos|#39);"; "'"'"'")
+    | gsub("&amp;"; "&") | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ");
+  select(type == "object")
+  | ((.id | tonumber?) // 0) as $id | (.app // "" | clean) as $app | (.tag // "" | clean) as $tag
+  | select($id > 0 and $app != "eww-island" and ($tag | IN("obvolume", "obbacklight") | not))
+  | ((.urgency // "") | tostring | ascii_upcase == "CRITICAL") as $critical
+  | [($id | tostring), (if $tag == "" then "" else $app + "\u001e" + $tag end), $app, (.entry // "" | clean),
+     (if $critical then "1" else "0" end), (.icon // "" | tostring | gsub("[[:cntrl:]]"; "")),
+     ({active: true, id: $id, app: $app, summary: (.summary // "" | clean), body: (.body // "" | clean),
+       icon: $bell, image: "", critical: $critical} | tojson)]
+  | join("\u001f")'
+
+# Queue entries are "ID US KEY US APP US ENTRY US CRITICAL US JSON"; the overflow entry has ID 0.
+
+emit() {
+  if [[ $1 != "$last" ]]; then printf '%s\n' "$1"; last=$1; fi
+}
+
+# blocked: an alert covers the compact pill or the island is expanded.
+blocked() { (( alert || expanded )); }
+
+# show ENTRY: display ENTRY with a full hold, counted only while nothing blocks it.
+show() {
+  current=$1 remaining=$hold_us deadline=0
+  emit "${current##*"$US"}"
+  if ! blocked; then deadline=$((${EPOCHREALTIME/./} + remaining)); fi
+}
+
+# next: show the next waiting entry, then the +N entry, else clear.
+next() {
+  local json
+  current='' deadline=0
+  if ! blocked; then
+    if (( ${#queue[@]} )); then
+      show "${queue[0]}"
+      queue=("${queue[@]:1}")
+      return
+    fi
+    if (( extra )); then
+      printf -v json '{"active":true,"id":0,"app":"","summary":"+%d notifikasi","body":"","icon":"%s","image":"","critical":false}' "$extra" "$ICON_BELL"
+      extra=0
+      show "0$US$US$US${US}0$US$json"
+      return
+    fi
+  fi
+  emit "$CLEAR_JSON"
+}
+
+# same CANDIDATE: CANDIDATE has the id, or the app and stack tag, of the entry being added.
+same() {
+  local candidate_id candidate_key
+  IFS=$US read -r candidate_id candidate_key _ <<< "$1"
+  [[ $candidate_id == "$id" || ( -n $key && $candidate_key == "$key" ) ]]
+}
+
+add() {
+  local entry=$1 id key i
+  IFS=$US read -r id key _ <<< "$entry"
+  if [[ -n $current ]] && same "$current"; then show "$entry"; return; fi
+  for i in "${!queue[@]}"; do
+    if same "${queue[i]}"; then queue[i]=$entry; return; fi
+  done
+  if [[ -z $current ]] && ! blocked; then
+    show "$entry"
+  elif (( extra || ${#queue[@]} >= QUEUE_MAX )); then
+    extra=$((extra + 1))
+  else
+    queue+=("$entry")
+  fi
+}
+
+receive() {
+  local out id key app desktop critical icon json paused
+  out=$(jq -r --arg bell "$ICON_BELL" "$NORMALIZE" <<< "$1" 2>/dev/null) || return 0
+  [[ -n $out ]] || return 0
+  IFS=$US read -r id key app desktop critical icon json <<< "$out"
+  # Like dunst, nothing reaches the island while notifications are paused.
+  paused=$(dunstctl is-paused 2>/dev/null) || paused=false
+  [[ $paused != true ]] || return 0
+  if [[ -n $icon && -f $icon ]]; then
+    json=$(jq -c --arg image "$icon" '.image = "file://" + ($image | split("/") | map(@uri) | join("/"))' <<< "$json") || return 0
+  fi
+  add "$id$US$key$US$app$US$desktop$US$critical$US$json"
+}
+
+# set_block alert|expanded 0|1: pause the hold while blocked, resume or show the next one after.
+set_block() {
+  local was=0
+  if blocked; then was=1; fi
+  printf -v "$1" '%d' "$2"
+  if (( was )) && ! blocked; then
+    if [[ -n $current ]]; then deadline=$((${EPOCHREALTIME/./} + remaining)); else next; fi
+  elif (( ! was )) && blocked && (( deadline )); then
+    remaining=$((deadline - ${EPOCHREALTIME/./}))
+    (( remaining > 0 )) || remaining=0
+    deadline=0
+  fi
+}
+
+# regex_quote VAR TEXT: TEXT with POSIX ERE metacharacters escaped.
+regex_quote() {
+  local text=$2 quoted='' char i
+  for ((i = 0; i < ${#text}; i++)); do
+    char=${text:i:1}
+    case $char in
+      [].[\\*+?^\$\{\}\(\)\|]) quoted+="\\$char" ;;
+      *) quoted+=$char ;;
+    esac
+  done
+  printf -v "$1" '%s' "$quoted"
+}
+
+# activate ID APP ENTRY CRITICAL: raise the app's window, else launch its desktop entry.
+# dunst cannot run the real default action: hidden notifications are already closed on D-Bus.
+activate() {
+  local id=$1 app=$2 entry=$3 class='' dir line name flag pattern window
+  local -a dirs
+  # A critical popup is still on screen; the click dismisses it too.
+  if (( $4 )); then dunstctl close "$id"; fi
+  [[ $entry =~ ^[A-Za-z0-9._-]+$ ]] || entry=''
+  if [[ -n $entry ]]; then
+    IFS=: read -ra dirs <<< "${XDG_DATA_HOME:-$HOME/.local/share}:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+    for dir in "${dirs[@]}"; do
+      [[ -f $dir/applications/$entry.desktop ]] || continue
+      while IFS= read -r line; do
+        if [[ $line == StartupWMClass=* ]]; then class=${line#*=}; break; fi
+      done < "$dir/applications/$entry.desktop"
+      break
+    done
+  fi
+  for name in "$class" "$entry" "$app"; do
+    [[ -n $name ]] || continue
+    regex_quote pattern "$name"
+    for flag in --class --classname; do
+      window=$(xdotool search --onlyvisible --limit 1 "$flag" "^$pattern\$") || continue
+      window=${window%%$'\n'*}
+      if [[ -n $window ]]; then xdotool windowactivate "$window"; return; fi
+    done
+  done
+  if [[ -n $entry ]]; then setsid -f gtk-launch "$entry"; fi
+}
+
+# click ID: dismiss the shown entry ID and activate its app in the background.
+click() {
+  local click_id app desktop critical
+  [[ -n $current ]] || return 0
+  IFS=$US read -r click_id _ app desktop critical _ <<< "$current"
+  [[ $click_id == "$1" ]] || return 0
+  if (( click_id )); then
+    activate "$click_id" "$app" "$desktop" "$critical" > /dev/null 2>&1 {input_fd}<&- &
+  fi
+  next
+}
+
+notify_cleanup() {
+  # A newer listener may already own the path.
+  if [[ $fifo -ef /proc/$$/fd/$input_fd ]]; then rm -f -- "$fifo"; fi
+}
+
+main() {
+  if [[ ${1:-} == click ]]; then
+    [[ ${2:-} =~ ^[0-9]+$ ]] || { printf 'usage: notify click ID\n' >&2; return 2; }
+    notify_signal "@click $2"
+    return 0
+  fi
+  require jq || { printf 'notify: jq tidak tersedia\n' >&2; return 127; }
+  local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" fifo input_fd line timeout now hold_us
+  local current='' last='' deadline=0 remaining=0 alert=0 expanded=0 extra=0
+  local -a queue=()
+  hold_us=$(seconds_us "${ISLAND_NOTIFY_SECONDS:-4}")
+  fifo=$state/notify.fifo
+  mkdir -p "$state"
+  rm -f -- "$fifo"
+  mkfifo -m 600 "$fifo" || return
+  exec {input_fd}<> "$fifo"
+  trap 'exit 0' TERM INT HUP
+  trap notify_cleanup EXIT
+  emit "$CLEAR_JSON"
+  while true; do
+    if (( deadline )); then
+      now=${EPOCHREALTIME/./}
+      remaining=$((deadline - now))
+      if (( remaining <= 0 )); then next; continue; fi
+      printf -v timeout '%d.%06d' "$((remaining / 1000000))" "$((remaining % 1000000))"
+      IFS= read -r -t "$timeout" -u "$input_fd" line || continue
+    else
+      IFS= read -r -u "$input_fd" line || continue
+    fi
+    case $line in
+      '@alert '[01]) set_block alert "${line#@alert }" ;;
+      '@expanded '[01]) set_block expanded "${line#@expanded }" ;;
+      '@click '*) click "${line#@click }" ;;
+      '{'*) receive "$line" ;;
+    esac
+  done
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

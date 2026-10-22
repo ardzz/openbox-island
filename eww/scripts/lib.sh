@@ -54,6 +54,22 @@ poll_sleep() {
   read -r -t "$1" -u "$sleep_fd" || :
 }
 
+# seconds_us SECONDS: decimal seconds as integer microseconds.
+seconds_us() {
+  local whole=${1%%.*} fraction=''
+  [[ $1 != *.* ]] || fraction=${1#*.}
+  fraction=${fraction}000000
+  printf '%s' "$((10#$whole * 1000000 + 10#${fraction:0:6}))"
+}
+
+# notify_signal LINE: hand LINE to the notification listener (scripts/notify) if it runs.
+# A read-write open of a FIFO needs no reader, so this never blocks; short lines are atomic.
+notify_signal() {
+  local fifo="${XDG_RUNTIME_DIR:-/tmp}/eww-island/notify.fifo"
+  [[ -p $fifo ]] || return 0
+  printf '%s\n' "$1" 2>/dev/null 1<> "$fifo" || :
+}
+
 # fmt_time SECONDS: m:ss below an hour, h:mm:ss from an hour. Decimals truncated; junk = 0.
 fmt_time() {
   local s=${1%.*}

@@ -561,13 +561,6 @@ source_worker() {
   esac
 }
 
-seconds_us() {
-  local whole=${1%%.*} fraction=''
-  [[ $1 != *.* ]] || fraction=${1#*.}
-  fraction=${fraction}000000
-  printf '%s' "$((10#$whole * 1000000 + 10#${fraction:0:6}))"
-}
-
 listener_cleanup() {
   local pid
   for pid in "${worker_pids[@]}"; do kill "$pid" 2>/dev/null || :; done
@@ -600,7 +593,7 @@ main() {
       now=${EPOCHREALTIME/./}
       remaining=$((deadline - now))
       if (( remaining <= 0 )); then
-        if [[ $last != "$CLEAR_JSON" ]]; then printf '%s\n' "$CLEAR_JSON"; fi
+        if [[ $last != "$CLEAR_JSON" ]]; then printf '%s\n' "$CLEAR_JSON"; notify_signal '@alert 0'; fi
         last=$CLEAR_JSON current='' deadline=0
         continue
       fi
@@ -616,7 +609,12 @@ main() {
       [[ $line =~ \"kind\":\"([^\"]+)\" ]] || continue
       kind=${BASH_REMATCH[1]}
       current=$kind
-      if [[ $line != "$last" ]]; then printf '%s\n' "$line"; last=$line; fi
+      if [[ $line != "$last" ]]; then
+        printf '%s\n' "$line"
+        # The notification listener pauses its hold while an alert covers it.
+        [[ $last != "$CLEAR_JSON" ]] || notify_signal '@alert 1'
+        last=$line
+      fi
     fi
     case $kind in
       volume|mic|brightness|capslock) hold=$hud_us ;;

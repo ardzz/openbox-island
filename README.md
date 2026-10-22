@@ -1,6 +1,6 @@
 # openbox-island
 
-Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), alert volume/kecerahan/baterai/Wi-Fi/Bluetooth/VPN/tangkapan layar/suhu/Caps Lock, indikator mikrofon/kamera/Jangan Ganggu/VPN/perekaman layar, dan cuaca.
+Notch ala Dynamic Island untuk Openbox (eww): now playing YouTube Music atau player MPRIS lain (cover, lirik tersinkron, visualizer audio, kontrol), notifikasi dunst, alert volume/kecerahan/baterai/Wi-Fi/Bluetooth/VPN/tangkapan layar/suhu/Caps Lock, indikator mikrofon/kamera/Jangan Ganggu/VPN/perekaman layar, dan cuaca.
 
 ## Pasang
 
@@ -74,13 +74,17 @@ Mode konservasi baterai Lenovo dibaca dari `ISLAND_CONSERVATION` jika diset, sel
 
 VPN diperiksa setiap 10 detik (`ISLAND_VPN_INTERVAL`). VPN umum dibaca langsung dari `/sys/class/net`: interface tun (bukan tap, agar interface VM seperti `vnet0` tidak terhitung), WireGuard, atau `ppp*` yang tidak berstatus `down`; `tailscale*` dikecualikan. Tailscale dibaca dengan `tailscale status --json` tanpa root; nama exit node dicari hanya saat exit node berganti. Tanpa `tailscale` atau saat daemon mati, Tailscale dianggap tidak tersambung tanpa pesan error. Kondisi saat island dimulai tidak memunculkan alert.
 
+Notifikasi dunst tampil di pill ringkas menggantikan isi idle atau media (musik tetap berjalan): ikon aplikasi (gambar dari path ikon notifikasi, selain itu ikon lonceng), ringkasan tebal, dan satu baris isi yang dipotong dengan elipsis. Markup dibuang dan entitas HTML diubah menjadi teks biasa. Tiap notifikasi bertahan 4 detik (`ISLAND_NOTIFY_SECONDS`), lalu tampilan sebelumnya kembali. Notifikasi berikutnya antre dan tampil bergantian; jika lebih dari tiga menunggu, sisanya digabung menjadi satu entri `+N notifikasi` di akhir antrean. Pembaruan dengan ID yang sama, atau notifikasi dari aplikasi dengan stack tag yang sama, menggantikan entri lama di tempatnya. Alert selalu didahulukan: notifikasi yang sedang tampil berhenti menghitung selama alert tampil lalu melanjutkan sisa waktunya, dan notifikasi baru menunggu sampai alert hilang. Selama island membesar, notifikasi ditunda dengan cara yang sama sampai island menciut; hover di atas notifikasi tidak membesarkan island. Saat Jangan Ganggu dunst aktif, notifikasi tidak tampil di island.
+
+Notifikasi kritis tetap muncul sebagai popup dunst, dan pill-nya diberi aksen merah. Klik pada notifikasi menutupnya dari island (popup notifikasi kritis ikut ditutup) dan membuka aplikasinya: window aplikasi yang terlihat diaktifkan dengan `xdotool`, dicari lewat `StartupWMClass` desktop entry, ID desktop entry, lalu nama aplikasi; jika tidak ada window dan notifikasi membawa desktop entry, aplikasi dijalankan dengan `gtk-launch`. Klik pada `+N notifikasi` hanya menutupnya.
+
 Indikator tampil pada pill idle dan media: titik merah dengan durasi berarti layar sedang direkam, titik kuning berarti mikrofon dipakai, titik hijau berarti kamera dipakai, ikon lonceng dicoret berarti Jangan Ganggu dunst aktif, dan ikon perisai gembok berarti lalu lintas lewat VPN (VPN umum tersambung atau exit node Tailscale aktif; jaringan Tailscale saja tidak menyalakannya). Tooltip mikrofon dan kamera mencantumkan aplikasi yang memakainya; tooltip VPN menyebut interface dan exit node, misalnya `VPN: tekna0, Tailscale via exit-jkt`. Deteksi kamera hanya melihat proses milik pengguna yang sama.
 
 Perekaman layar terdeteksi dari proses milik pengguna yang sama: `ffmpeg` dengan format input `-f x11grab` atau `-f kmsgrab`, atau OBS (`obs` maupun helper `obs-ffmpeg-mux`) yang sedang menulis berkas `.mkv`/`.mp4`/`.mov`/`.flv`/`.ts`/`.webm`. Saat tidak merekam, `/proc` diperiksa setiap 2 detik (`ISLAND_REC_INTERVAL`); selama merekam, durasi sejak rekaman pertama terdeteksi diperbarui setiap detik dan tooltip menyebut aplikasinya.
 
 Scroll ke atas/bawah di atas island ringkas mengubah volume keluaran default sebesar ±5%. Perubahan ini sekaligus membuka bisu (unmute), dengan batas 0–100%.
 
-Jika `dunstctl` tersedia, setelah window island berhasil dibuka launcher memasang aturan penekan OSD volume/kecerahan ke `${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc.d/50-eww-island-osd.conf` lalu memuat ulang dunst. Aturan ini hanya menyembunyikan notifikasi bertag `obvolume` dan `obbacklight`, termasuk dari riwayat, agar OSD tidak muncul dua kali. `island.sh stop` menghapus drop-in tersebut dan memuat ulang dunst; restart juga menghapus aturan lama sebelum memasang ulang. Kegagalan pemasangan atau reload dunst tidak menggagalkan launcher.
+Jika `dunstctl` tersedia, setelah window island berhasil dibuka launcher memasang drop-in `${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc.d/50-eww-island-osd.conf` lalu memuat ulang dunst. Drop-in ini menyembunyikan popup notifikasi normal dan rendah (tetap tersimpan di riwayat dunst) dan menyerahkan setiap notifikasi ke `scripts/notify-hook` lewat opsi `script` dunst; notifikasi kritis dan kegagalan launcher (aplikasi `eww-island`) tetap tampil sebagai popup. Hook memerlukan `always_run_script = true` di dunst (nilai default). Notifikasi bertag `obvolume` dan `obbacklight` disembunyikan termasuk dari riwayat agar OSD tidak muncul dua kali. `island.sh stop` menghapus drop-in tersebut dan memuat ulang dunst; restart juga menghapus aturan lama sebelum memasang ulang. Kegagalan pemasangan atau reload dunst tidak menggagalkan launcher.
 
 Cuaca berasal dari wttr.in. Pill idle menampilkan ikon, suhu, dan kota, rata tengah. Hover di atas island idle selama 0,3 detik membuka kartu detail 480×180 px: kondisi cuaca, suhu, kota dan wilayah, waktu matahari terbit/terbenam, suhu terasa, kelembapan, angin, indeks UV, serta prakiraan 3 hari dengan suhu maksimum/minimum dan peluang hujan. Jika cuaca tidak tersedia, hover idle tidak membuka kartu. Cuaca diperbarui setiap 30 menit, dicoba ulang setelah 5 menit jika gagal, dan cache dapat dipakai selama 3 jam.
 
@@ -101,7 +105,7 @@ Jalankan demo agent saat login, misalnya tambahkan `/usr/lib/geoclue-2.0/demos/a
 
 **Privasi:** wttr.in menerima alamat IP dan lokasi yang diminta, termasuk koordinat penuh dari GeoClue jika digunakan. Nominatim menerima koordinat penuh dari GeoClue atau hasil lokasi wttr.in, bukan koordinat yang dibulatkan untuk kunci cache. Penentuan posisi Wi-Fi GeoClue mengirim data access point Wi-Fi di sekitar ke layanan lokasinya.
 
-Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert dan indikator Tailscale.
+Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `dunst` (`dunstctl`) dan `xdotool` untuk notifikasi; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert dan indikator Tailscale; `gtk-launch` (paket `gtk3`) untuk membuka aplikasi dari klik notifikasi saat window-nya belum ada.
 
 ## Fallback lirik NetEase
 
@@ -114,7 +118,7 @@ Lookup menunggu metadata stabil selama 1 detik; fallback judul/artis tetap berub
 ## Tes
 
 ```bash
-bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/vpn.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll openbox/island.sh
+bats tests/ && shellcheck -x -S warning eww/scripts/lib.sh eww/scripts/vpn.sh eww/scripts/media eww/scripts/position eww/scripts/island eww/scripts/marquee eww/scripts/viz eww/scripts/alert eww/scripts/status eww/scripts/rec eww/scripts/weather eww/scripts/scroll eww/scripts/notify eww/scripts/notify-hook openbox/island.sh
 python -m unittest discover -s tests -p 'test_lyrics.py'
 ```
 
@@ -123,6 +127,7 @@ python -m unittest discover -s tests -p 'test_lyrics.py'
 - `~/.cache/eww-island.log`: log daemon island, termasuk diagnostik `viz:` (dependensi hilang atau worker audio berhenti) dan stderr `lyrics:` (lookup/cache gagal)
 - `eww --config ~/.config/eww-island state`
 - `$XDG_RUNTIME_DIR/eww-island/`: state controller (`auto_until`, `player`, `marquee_at` dalam desidetik, `media.json` berisi metadata terakhir)
+- `$XDG_RUNTIME_DIR/eww-island/notify.fifo`: FIFO listener notifikasi; menerima satu baris JSON per notifikasi dari `notify-hook` serta sinyal `@alert 0|1`, `@expanded 0|1`, dan `@click ID`. Kirim notifikasi uji dengan `notify-send Tes 'isi'`.
 - `$XDG_RUNTIME_DIR/eww-island/viz.XXXXXXXX/`: direktori privat sementara visualizer berisi FIFO `events`, `frames`, dan `pcm`, dibersihkan saat listener berhenti. Jika `XDG_RUNTIME_DIR` tidak tersedia, state dan direktori ini berada di `/tmp/eww-island/`.
 - `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/lyrics/`: cache lirik LRCLIB/NetEase (format versi 2), terpisah dari cache cover.
 
@@ -135,3 +140,5 @@ python -m unittest discover -s tests -p 'test_lyrics.py'
 - Hanya monitor 0.
 - Island hanya jalan saat panel aktif adalah eww (dipanggil dari `eww.sh` openbox-omp).
 - Cover http diunduh sekali (timeout 3 detik) ke `~/.cache/eww-island/art`, tanpa batas ukuran cache.
+- Aksi asli notifikasi yang popup-nya disembunyikan (misalnya membuka chat tertentu) tidak dapat dijalankan: dunst sudah menutup notifikasi tersebut di D-Bus saat menyembunyikannya, sehingga klik hanya mengaktifkan atau menjalankan aplikasinya.
+- Jika daemon island berhenti tanpa `island.sh stop`, drop-in dunst tetap terpasang: popup notifikasi normal tetap tersembunyi (hanya masuk riwayat dunst) sampai island dijalankan ulang atau dihentikan.
