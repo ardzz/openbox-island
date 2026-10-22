@@ -38,13 +38,18 @@ hovered() {
   return 1
 }
 
+# expand [TAB]: open the card on `tab resolve [TAB]`; an explicit TAB also switches an open card.
 expand() {
   if ! is_open; then
     put marquee_at "$(date +%s%1N)"
-    eww update island_reveal=false
+    eww update island_reveal=false "island_tab=$("$DIR/tab" resolve "$@")"
     eww open island-expanded
+    eww update island_reveal=true
+  elif (( $# )); then
+    eww update "island_tab=$("$DIR/tab" resolve "$1")" island_reveal=true
+  else
+    eww update island_reveal=true
   fi
-  eww update island_reveal=true
   # The compact pill is hidden now: notifications wait until it returns.
   notify_signal '@expanded 1'
 }
@@ -77,9 +82,12 @@ main() {
       [[ $2 =~ ^[0-9]+$ ]] || { usage; return; }
       local secs
       secs=$(( 10#$2 ))
-      lock; put auto_until $(( $(date +%s) + secs )); expand; unlock
+      lock; put auto_until $(( $(date +%s) + secs )); expand musik; unlock
       ( sleep "$secs"; lock; collapse_if_idle ) >/dev/null 2>&1 & ;;
-    close) lock; put auto_until 0; collapse_if_idle ;;
+    close)
+      # The player went away: a card kept open by the pointer falls back to another tab.
+      lock; put auto_until 0; collapse_if_idle
+      if is_open; then eww update "island_tab=$("$DIR/tab" resolve)"; fi ;;
     *) usage ;;
   esac
 }

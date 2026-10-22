@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# tab resolve [TAB] | select TAB | next | prev | up | down
+# Tabs of the expanded island card. The shown tab is the eww variable island_tab; the last
+# tab the user picked is saved in $STATE/tab. A tab is offered only while it has content.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+CFG="${DIR%/scripts}"
+STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+# Scroll gestures arrive as bursts of events: one switch per this many deciseconds.
+DEBOUNCE_DS=5
+
+# Header order. A new tab: append its name, add available_NAME, then its chip and page in island.yuck.
+TABS=(musik cuaca)
+# media writes media.json before it calls island, so this never lags behind a stopped player.
+available_musik() { [[ $(jq -r '.state // "none"' "$STATE/media.json" 2>/dev/null) =~ ^(playing|paused)$ ]]; }
+available_cuaca() { [[ $(eww get weather 2>/dev/null | jq -r '.ok // false' 2>/dev/null) == true ]]; }
+
+# Keep any inherited lock fd out of eww: a daemon auto-started by eww would hold it forever.
+eww() { command eww --config "$CFG" "$@" 9>&-; }
+
+known() { local t; for t in "${TABS[@]}"; do [[ $t == "$1" ]] && return 0; done; return 1; }
+
+# available: available tabs in header order, one per line.
+available() { local t; for t in "${TABS[@]}"; do "available_$t" && printf '%s\n' "$t"; done; }
+
+# resolve [TAB]: TAB if available, else the saved tab if available, else the first available
+# tab, else the first tab. Never saves.
+resolve() {
+  local t saved list
+  saved=$(cat "$STATE/tab" 2>/dev/null)
+  list=$(available)
+  for t in "${1:-}" "$saved" "${list%%$'\n'*}"; do
+    if [[ -n $t ]] && grep -qxF -- "$t" <<< "$list"; then printf '%s\n' "$t"; return 0; fi
+  done
+  printf '%s\n' "${TABS[0]}"
+}
+
+select_tab() {
+  mkdir -p "$STATE"
+  printf '%s\n' "$1" > "$STATE/tab"
+  eww update "island_tab=$1"
+}
+
+# step +1|-1: move the shown tab over the available tabs, wrapping around.
+step() {
+  local fd now last list=() current i
+  mkdir -p "$STATE"
+  exec {fd}>"$STATE/tab.lock"
+  flock "$fd" || return
+  now=$(date +%s%1N)
+  last=$(cat "$STATE/tab_at" 2>/dev/null)
+  [[ $last =~ ^[0-9]+$ ]] || last=0
+  (( now - 10#$last >= DEBOUNCE_DS )) || return 0
+  mapfile -t list < <(available)
+  (( ${#list[@]} >= 2 )) || return 0
+  current=$(eww get island_tab 2>/dev/null)
+  for i in "${!list[@]}"; do [[ ${list[i]} == "$current" ]] && break; done
+  [[ ${list[i]} == "$current" ]] || i=$(( $1 > 0 ? -1 : 0 ))
+  printf '%s\n' "$now" > "$STATE/tab_at"
+  select_tab "${list[(i + $1 + ${#list[@]}) % ${#list[@]}]}"
+}
+
+usage() { echo "usage: tab resolve [TAB] | select TAB | next | prev | up | down" >&2; return 2; }
+
+main() {
+  case ${1:-} in
+    resolve) resolve "${2:-}" ;;
+    select) known "${2:-}" || { usage; return; }; select_tab "$2" ;;
+    next|down) step 1 ;;
+    prev|up) step -1 ;;
+    *) usage ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

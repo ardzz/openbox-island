@@ -388,6 +388,28 @@ $ear: 14px;
   border-radius: 0 0 22px 22px;
 }
 
+// With the tab header, the header takes the top padding below the 8px screen-edge strip.
+.pill-expanded.with-tabs {
+  padding-top: 8px;
+}
+
+.tabs {
+  margin-bottom: 6px;
+}
+
+.tab {
+  padding: 2px 10px;
+  border-radius: 9px;
+  color: $muted;
+  font-size: 11px;
+}
+
+.tab-active {
+  background-color: $island-track;
+  color: $fg;
+  font-weight: bold;
+}
+
 .title {
   font-weight: bold;
   font-size: 14px;

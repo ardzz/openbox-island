@@ -102,6 +102,12 @@
                      :limit-width 16 :show-truncated true))))))
       (box :class "ear ear-right" :valign "start"))))
 
+; One header chip per tab (scripts/tab lists the order); revealed only while the tab has content.
+(defwidget tab-chip [id label available]
+  (revealer :transition "none" :reveal available
+    (eventbox :cursor "pointer" :onclick "${EWW_CONFIG_DIR}/scripts/tab select ${id} &"
+      (label :class "tab ${island_tab == id ? 'tab-active' : ''}" :text label))))
+
 (defwindow island-expanded
   :monitor 0
   :geometry (geometry :x "0px" :y "0px" :width "508px" :height "218px" :anchor "top center")
@@ -112,9 +118,17 @@
       (revealer :transition "slidedown" :reveal island_reveal :duration "300ms"
        (box :orientation "h" :space-evenly false
         (box :class "ear ear-left" :valign "start")
-        (box :orientation "v" :space-evenly false
-          (revealer :transition "none" :reveal {media.state != "none"}
-        (box :class "pill pill-expanded" :orientation "v" :space-evenly false :spacing 8
+        ; The header shows once two or more tabs have content (count each tab's condition).
+        (box :class "pill pill-expanded ${(media.state != 'none' ? 1 : 0) + (weather.ok ? 1 : 0) >= 2 ? 'with-tabs' : ''}"
+             :orientation "v" :space-evenly false
+          ; eww's onscroll only reports vertical scrolling: up/down over the header switches tabs.
+          (revealer :transition "none" :reveal {(media.state != "none" ? 1 : 0) + (weather.ok ? 1 : 0) >= 2}
+            (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/tab {} &"
+              (box :class "tabs" :orientation "h" :halign "center" :space-evenly false :spacing 4
+                (tab-chip :id "musik" :label "Musik" :available {media.state != "none"})
+                (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok}))))
+          (revealer :transition "none" :reveal {island_tab == "musik"}
+        (box :class "page" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 14
             (cover :size "large")
             (box :orientation "v" :space-evenly false :valign "center" :spacing 4
@@ -146,8 +160,8 @@
               (button :class "ctl ctl-ytm ${ytm.like == 'LIKE' ? 'on' : ''}" :tooltip "Suka"
                       :onclick "${EWW_CONFIG_DIR}/scripts/ytm toggle-like &"
                 {ytm.like == "LIKE" ? "󰔓" : "󰔔"})))))
-          (revealer :transition "none" :reveal {media.state == "none"}
-        (box :class "pill pill-expanded weather-card" :orientation "v" :space-evenly false :spacing 8
+          (revealer :transition "none" :reveal {island_tab == "cuaca"}
+        (box :class "page weather-card" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 12
             (label :class "weather-big-icon tone-${weather.tone}" :text {weather.icon})
             (box :orientation "v" :space-evenly false :valign "center" :spacing 2

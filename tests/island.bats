@@ -4,13 +4,14 @@ setup() {
   BIN="$BATS_TEST_TMPDIR/bin"; mkdir -p "$BIN"
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" EXPECTED_CFG="$REPO/eww"
   export FAKE_EWW_LOG="$BATS_TEST_TMPDIR/eww.log" FAKE_EWW_ACTIVE="$BATS_TEST_TMPDIR/active"
-  export FAKE_POINTER="$BATS_TEST_TMPDIR/pointer"
+  export FAKE_POINTER="$BATS_TEST_TMPDIR/pointer" FAKE_WEATHER="$BATS_TEST_TMPDIR/weather"
   ST="$XDG_RUNTIME_DIR/eww-island"
   : > "$FAKE_EWW_LOG"; printf 'island: island\n' > "$FAKE_EWW_ACTIVE"; away
   cat > "$BIN/eww" <<'EOF'
 #!/usr/bin/env bash
 if [[ $1 == --config && $2 == "$EXPECTED_CFG" ]]; then shift 2; else echo "bad config: $*" >> "$FAKE_EWW_LOG"; exit 1; fi
 case $1 in
+  get) [[ $2 == weather ]] && cat "$FAKE_WEATHER" 2>/dev/null; exit 0 ;;
   active-windows) cat "$FAKE_EWW_ACTIVE"; exit 0 ;;
   open) sleep "${FAKE_EWW_OPEN_DELAY:-0}"; printf '%s: %s\n' "$2" "$2" >> "$FAKE_EWW_ACTIVE"
         if [[ -n $FAKE_POINTER_AFTER_OPEN ]]; then echo "$FAKE_POINTER_AFTER_OPEN" > "$FAKE_POINTER"; fi ;;
@@ -34,7 +35,7 @@ esac
 EOF
   chmod +x "$BIN/eww" "$BIN/xdotool"
   PATH="$BIN:$PATH"
-  OPEN=$'update island_reveal=false\nopen island-expanded\nupdate island_reveal=true'
+  OPEN=$'update island_reveal=false island_tab=musik\nopen island-expanded\nupdate island_reveal=true'
   CLOSE=$'update island_reveal=false\nclose island-expanded'
 }
 calls() { cat "$FAKE_EWW_LOG"; }
@@ -43,6 +44,11 @@ on_compact() { echo '960 26' > "$FAKE_POINTER"; }
 on_expanded_only() { echo '1160 150' > "$FAKE_POINTER"; }
 away() { echo '960 700' > "$FAKE_POINTER"; }
 auto_running() { mkdir -p "$ST"; echo $(( $(date +%s) + 60 )) > "$ST/auto_until"; }
+# Tab availability: music from the media state file, weather from eww's weather variable.
+music() { mkdir -p "$ST"; echo '{"state":"playing","title":"Lagu"}' > "$ST/media.json"; }
+no_music() { mkdir -p "$ST"; echo '{"state":"none","title":""}' > "$ST/media.json"; }
+weather() { echo '{"ok":true}' > "$FAKE_WEATHER"; }
+saved() { mkdir -p "$ST"; echo "$1" > "$ST/tab"; }
 stub_hover_sleep() {
   export FAKE_SLEEP_LOG="$BATS_TEST_TMPDIR/sleep.log"
   : > "$FAKE_SLEEP_LOG"
@@ -161,7 +167,7 @@ wait_for_calls() {
   run "$SCRIPTS/island" auto 0
   [ "$status" -eq 0 ]
   [ "$(cat "$ST/marquee_at")" = 123 ]
-  [ "$(calls)" = 'update island_reveal=true' ]
+  [ "$(calls)" = 'update island_tab=musik island_reveal=true' ]
 }
 
 @test "close collapses an open island the pointer is not on" {
@@ -170,11 +176,11 @@ wait_for_calls() {
   [ "$(calls)" = "$CLOSE" ]
 }
 
-@test "close keeps an island the pointer is on open (track change while hovering)" {
+@test "close keeps an island the pointer is on open (player gone while hovering)" {
   expanded; on_expanded_only
   run "$SCRIPTS/island" close
   [ "$status" -eq 0 ]
-  [ "$(calls)" = "" ]
+  [ "$(calls)" = 'update island_tab=musik' ]
 }
 
 @test "close cancels a running auto-expand" {
@@ -235,4 +241,41 @@ wait_for_calls() {
   wait "$pid"
   [ "$(calls)" = $'update island_reveal=false\nupdate island_reveal=true' ]
   if IFS= read -r -t 0.2 -u "$notify_fd" signal; then false; fi
+}
+
+@test "hover opens the card on the saved tab" {
+  stub_hover_sleep; on_compact; music; weather; saved cuaca
+  run "$SCRIPTS/island" hover
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = $'update island_reveal=false island_tab=cuaca\nopen island-expanded\nupdate island_reveal=true' ]
+}
+
+@test "hover opens the first available tab when the saved one is unavailable" {
+  stub_hover_sleep; on_compact; no_music; weather; saved musik
+  run "$SCRIPTS/island" hover
+  [ "$(calls)" = $'update island_reveal=false island_tab=cuaca\nopen island-expanded\nupdate island_reveal=true' ]
+  [ "$(cat "$ST/tab")" = musik ]
+}
+
+@test "auto opens the card on music without overwriting the saved tab" {
+  on_compact; music; weather; saved cuaca
+  run "$SCRIPTS/island" auto 0
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = "$OPEN" ]
+  [ "$(cat "$ST/tab")" = cuaca ]
+}
+
+@test "auto on an open card switches it to music" {
+  expanded; on_expanded_only; music; weather; saved cuaca
+  run "$SCRIPTS/island" auto 0
+  [ "$(calls)" = 'update island_tab=musik island_reveal=true' ]
+  [ "$(cat "$ST/tab")" = cuaca ]
+}
+
+@test "close on a hovered card whose music stopped falls back to weather" {
+  expanded; on_expanded_only; no_music; weather; saved musik
+  run "$SCRIPTS/island" close
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = 'update island_tab=cuaca' ]
+  [ "$(cat "$ST/tab")" = musik ]
 }
