@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck source-path=SCRIPTDIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 # shellcheck source=vpn.sh
 source "$DIR/vpn.sh"
 
@@ -568,14 +568,14 @@ listener_cleanup() {
 
 main() {
   require jq || { printf 'alert: jq tidak tersedia\n' >&2; return 127; }
-  local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" workdir source input_fd
+  local workdir source input_fd
   local line current='' last=$CLEAR_JSON deadline=0 now remaining timeout kind hold
   local hud_us alert_us
   local -a worker_pids=()
   hud_us=$(seconds_us "${ISLAND_HUD_SECONDS:-1.5}")
   alert_us=$(seconds_us "${ISLAND_ALERT_SECONDS:-3}")
-  mkdir -p "$state"
-  workdir=$(mktemp -d "$state/alert.XXXXXX") || return
+  mkdir -p "$ISLAND_STATE"
+  workdir=$(mktemp -d "$ISLAND_STATE/alert.XXXXXX") || return
   trap 'exit 0' TERM INT HUP
   trap listener_cleanup EXIT
   mkfifo "$workdir/events"

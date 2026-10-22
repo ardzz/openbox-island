@@ -2,9 +2,8 @@
 # shellcheck source-path=SCRIPTDIR
 declare -g DIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
-declare -g CFG="${DIR%/scripts}"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 declare -g CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/weather.json"
 declare -g GEOCODE_CACHE="${CACHE%/*}/geocode"
 declare -g WEATHER_LOCATION='' WEATHER_LAT='' WEATHER_LON=''
@@ -53,8 +52,8 @@ weather_json() {
 weather_location() {
   local location='' helper=${ISLAND_GEOCLUE_WHEREAMI:-/usr/lib/geoclue-2.0/demos/where-am-i} response line
   WEATHER_LAT='' WEATHER_LON=''
-  if [[ -r $CFG/weather-location ]]; then
-    location=$(< "$CFG/weather-location")
+  if [[ -r $ISLAND_CFG/weather-location ]]; then
+    location=$(< "$ISLAND_CFG/weather-location")
     location="${location#"${location%%[![:space:]]*}"}"
     location="${location%"${location##*[![:space:]]}"}"
   fi

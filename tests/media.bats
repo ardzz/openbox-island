@@ -2,6 +2,7 @@
 setup() {
   load helpers
   export XDG_CACHE_HOME="$BATS_TEST_TMPDIR/cache" XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
+  STATE="$XDG_RUNTIME_DIR/eww-island"
   BIN="$BATS_TEST_TMPDIR/bin"; mkdir -p "$BIN"
   PATH="$BIN:$PATH"
   source "$SCRIPTS/media"

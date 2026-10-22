@@ -2,8 +2,8 @@
 # dunst rule script (dunst-osd.conf): hand each notification to the island's listeners.
 # dunst runs it asynchronously with DUNST_* variables; it never waits for the listener.
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
 # field VAR VALUE MAX: VALUE with control characters as spaces, cut to MAX characters.
 field() {
@@ -12,10 +12,10 @@ field() {
 }
 
 # remember_entry ID APP ENTRY: dunst history has no desktop entry, so scripts/notif click reads
-# it from $STATE/notif_entries ("ID TAB APP TAB ENTRY", newest last, at most ENTRIES_MAX lines).
+# it from $ISLAND_STATE/notif_entries ("ID TAB APP TAB ENTRY", newest last, at most ENTRIES_MAX lines).
 ENTRIES_MAX=64
 remember_entry() {
-  local file="${XDG_RUNTIME_DIR:-/tmp}/eww-island/notif_entries" fd lines
+  local file="$ISLAND_STATE/notif_entries" fd lines
   [[ $1 =~ ^[0-9]+$ && -n $3 && -d ${file%/*} ]] || return 0
   exec {fd}>> "$file" || return 0
   flock "$fd" || return 0
@@ -35,7 +35,7 @@ main() {
   remember_entry "${DUNST_ID:-}" "$app" "$entry"
   # The notification center rereads dunst history once dunst has stored this one.
   notif_signal '@refresh'
-  [[ -p "${XDG_RUNTIME_DIR:-/tmp}/eww-island/notify.fifo" ]] || return 0
+  [[ -p $ISLAND_STATE/notify.fifo ]] || return 0
   field summary "${DUNST_SUMMARY:-}" 120
   field body "${DUNST_BODY:-}" 240
   field urgency "${DUNST_URGENCY:-}" 16

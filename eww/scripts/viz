@@ -2,9 +2,8 @@
 # viz: six audio-reactive levels from the active MPRIS owner's playback stream.
 # shellcheck source-path=SCRIPTDIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
-STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
 viz_frame() {
   [[ $1 =~ ^((1[0-2]|[0-9])\;){6}$ ]] || return 1
@@ -186,8 +185,8 @@ main() {
     printf 'viz: missing dependency %s\n' "$MISSING_DEP" >&2
     return 0
   fi
-  mkdir -p "$STATE" || return 0
-  work=$(mktemp -d "$STATE/viz.XXXXXXXX") || return 0
+  mkdir -p "$ISLAND_STATE" || return 0
+  work=$(mktemp -d "$ISLAND_STATE/viz.XXXXXXXX") || return 0
   if ! mkfifo "$work/events" "$work/frames" "$work/pcm"; then
     rm -rf -- "$work"
     return 0
@@ -206,7 +205,7 @@ main() {
       fi
       if [[ -z $state_watch ]] || ! kill -0 "$state_watch" 2>/dev/null; then
         [[ -z $state_watch ]] || wait "$state_watch" 2>/dev/null || :
-        inotifywait -m -q -e close_write --format 'state:%f' "$STATE" > "$work/events" 2>/dev/null &
+        inotifywait -m -q -e close_write --format 'state:%f' "$ISLAND_STATE" > "$work/events" 2>/dev/null &
         state_watch=$!
       fi
     fi
@@ -219,7 +218,7 @@ main() {
     if (( dirty )); then
       dirty=0
       instance=''
-      [[ ! -r $STATE/player ]] || IFS= read -r instance < "$STATE/player" || :
+      [[ ! -r $ISLAND_STATE/player ]] || IFS= read -r instance < "$ISLAND_STATE/player" || :
       target=$(viz_target "$instance")
       if [[ $target != "$current" ]]; then
         viz_stop_capture

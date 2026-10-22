@@ -7,8 +7,8 @@
 # _NET_WM_STATE on the active window; every event re-reads the active window. The watcher exits
 # with DAEMON_PID and takes its spies along.
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
 MONITOR_RE='^ *0: [^ ]+ ([0-9]+)/[0-9]+x([0-9]+)/[0-9]+\+(-?[0-9]+)\+(-?[0-9]+)'
 ISLAND_RE='WM_NAME\([A-Z_]+\) = "Eww - island(-expanded)?"'

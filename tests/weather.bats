@@ -18,7 +18,7 @@ setup() {
     ln -s "$(command -v "$tool")" "$BIN/$tool"
   done
   SETSID=$(command -v setsid)
-  cp "$SCRIPTS/lib.sh" "$CFG/scripts/lib.sh"
+  cp -r "$SCRIPTS/lib" "$CFG/scripts/lib"
   if [[ -f $SCRIPTS/weather ]]; then cp "$SCRIPTS/weather" "$CFG/scripts/weather"; fi
   printf '100000\n' > "$WEATHER_FIXTURE/epoch"
   printf '12\n' > "$WEATHER_FIXTURE/hour"

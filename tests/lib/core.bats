@@ -1,5 +1,5 @@
-# tests/lib.bats
-setup() { load helpers; source "$SCRIPTS/lib.sh"; }
+# tests/lib/core.bats
+setup() { load ../helpers; source "$SCRIPTS/lib/core.sh"; }
 
 @test "fmt_time uses m:ss below an hour and h:mm:ss from an hour" {
   run fmt_time 0;    [ "$output" = 0:00 ]
@@ -36,14 +36,37 @@ setup() { load helpers; source "$SCRIPTS/lib.sh"; }
 }
 
 @test "run_forever logs a missing dependency once per outage" {
-  run timeout 1 bash -c 'source "$1"; s(){ MISSING_DEP=fake; return 127; }; OB_RETRY_MISSING=0.1 run_forever s' _ "$SCRIPTS/lib.sh"
+  run timeout 1 bash -c 'source "$1"; s(){ MISSING_DEP=fake; return 127; }; OB_RETRY_MISSING=0.1 run_forever s' _ "$SCRIPTS/lib/core.sh"
   [ "$status" -eq 124 ]
   [ "${#lines[@]}" -eq 1 ]
   [[ "${lines[0]}" == *"missing dependency fake"* ]]
 }
 
 @test "run_forever reconnects after the source exits" {
-  run timeout 1 bash -c 'source "$1"; s(){ echo tick; }; OB_RETRY_RECONNECT=0.1 run_forever s' _ "$SCRIPTS/lib.sh"
+  run timeout 1 bash -c 'source "$1"; s(){ echo tick; }; OB_RETRY_RECONNECT=0.1 run_forever s' _ "$SCRIPTS/lib/core.sh"
   [ "$status" -eq 124 ]
   [ "${#lines[@]}" -ge 5 ]
+}
+
+@test "ISLAND_STATE follows XDG_RUNTIME_DIR and falls back to /tmp" {
+  run env XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" bash -c 'source "$1"; printf %s "$ISLAND_STATE"' _ "$SCRIPTS/lib/core.sh"
+  [ "$output" = "$BATS_TEST_TMPDIR/run/eww-island" ]
+  run env -u XDG_RUNTIME_DIR bash -c 'source "$1"; printf %s "$ISLAND_STATE"' _ "$SCRIPTS/lib/core.sh"
+  [ "$output" = /tmp/eww-island ]
+}
+
+@test "island_eww passes --config with the eww dir and does not leak fd 9" {
+  local bin="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$bin"
+  cat > "$bin/eww" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*"
+if [[ -e /proc/self/fd/9 ]]; then echo fd9-open; else echo fd9-closed; fi
+EOF
+  chmod +x "$bin/eww"
+  exec 9> "$BATS_TEST_TMPDIR/lock"
+  PATH="$bin:$PATH" run island_eww update a=1
+  exec 9>&-
+  [ "${lines[0]}" = "--config $REPO/eww update a=1" ]
+  [ "${lines[1]}" = fd9-closed ]
 }

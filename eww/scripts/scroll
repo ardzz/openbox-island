@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck source-path=SCRIPTDIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
 main() {
   if [[ $# != 1 || ( $1 != up && $1 != down ) ]]; then
@@ -10,10 +10,10 @@ main() {
     return 2
   fi
   require pactl || return 127
-  local raw volume step=5 state="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+  local raw volume step=5
   [[ $1 == down ]] && step=-5
-  mkdir -p "$state" || return
-  exec 9>"$state/scroll.lock"
+  mkdir -p "$ISLAND_STATE" || return
+  exec 9>"$ISLAND_STATE/scroll.lock"
   flock 9 || return
   raw=$(pactl get-sink-volume @DEFAULT_SINK@) || return
   [[ $raw =~ ([0-9]+)% ]] || return 1

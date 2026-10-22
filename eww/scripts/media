@@ -2,10 +2,9 @@
 # media: now-playing JSON for the island from the highest-priority MPRIS player (playerctl).
 # shellcheck source-path=SCRIPTDIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
-STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
 ART_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art"
 AUTO_SECONDS=4
 SEP=$'\x1f'
@@ -117,8 +116,8 @@ media_action() {
 
 # publish JSON: hand JSON to eww and to the scripts that read media.json.
 publish() {
-  printf '%s\n' "$1" > "$STATE/media.json.tmp"
-  mv "$STATE/media.json.tmp" "$STATE/media.json"
+  printf '%s\n' "$1" > "$ISLAND_STATE/media.json.tmp"
+  mv "$ISLAND_STATE/media.json.tmp" "$ISLAND_STATE/media.json"
   printf '%s\n' "$1"
 }
 
@@ -127,8 +126,8 @@ stream() {
   local line rc key prev="" first=1 status player="" json grace deadline=0 left timeout settle
   local buf="" partial="" record pending=""
   grace=$(grace_us)
-  mkdir -p "$STATE"
-  printf '\n' > "$STATE/player"
+  mkdir -p "$ISLAND_STATE"
+  printf '\n' > "$ISLAND_STATE/player"
   publish "$NONE_JSON"
   while :; do
     settle=0
@@ -170,8 +169,8 @@ stream() {
     key=$(track_key "$record")
     [[ -n $key ]] || player=""
     json=$(media_json "$record")
-    printf '%s\n' "$player" > "$STATE/player"
-    if [[ -n $key && $key != "$prev" ]]; then date +%s%1N > "$STATE/marquee_at"; fi
+    printf '%s\n' "$player" > "$ISLAND_STATE/player"
+    if [[ -n $key && $key != "$prev" ]]; then date +%s%1N > "$ISLAND_STATE/marquee_at"; fi
     publish "$json"
     case $(media_action "$first" "$prev" "$key" "$status") in
       auto) "$DIR/island" auto "$AUTO_SECONDS" >/dev/null ;;

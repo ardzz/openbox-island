@@ -3,13 +3,11 @@
 # notif click ID | clear | scroll up|down
 # The list is dunst's history: every notification skips its popup (dunst-osd.conf), so dunst keeps
 # them all there with their ids; it outlives island restarts and history-rm/history-clear act on it.
-# Input is the FIFO $XDG_RUNTIME_DIR/eww-island/notif.fifo: "@refresh" (notify-hook, click, clear),
+# Input is the FIFO $ISLAND_STATE/notif.fifo: "@refresh" (notify-hook, click, clear),
 # "@expanded 0|1" (scripts/island), "@tab NAME" (scripts/tab) and "@scroll -1|1".
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=notify
 source "$DIR/notify"
-CFG="${DIR%/scripts}"
-STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
 ROWS=4
 
 # dunstctl history -> its entries the island shows, newest first. dunst stores a copy per update of the
@@ -46,8 +44,6 @@ CLICK_JQ="$ITEMS_JQ"'
   | "\($hit.rawapp)\u0000\($hit.app)\u0000"
     + ([.[] | select(.id == $id or ($hit.tag != "" and .app == $hit.app and .tag == $hit.tag)) | .id | tostring] | join(" "))'
 
-eww() { command eww --config "$CFG" "$@"; }
-
 # uptime_us: now on dunst's timestamp clock (CLOCK_BOOTTIME, as /proc/uptime), in microseconds.
 uptime_us() {
   local up=''
@@ -71,11 +67,11 @@ load() {
 render() {
   local now seen json
   now=$(uptime_us)
-  if (( expanded )) && [[ $(eww get island_tab 2>/dev/null) == notif ]]; then
+  if (( expanded )) && [[ $(island_eww get island_tab 2>/dev/null) == notif ]]; then
     seen=$now
-    printf '%s\n' "$now" > "$STATE/notif_seen"
+    printf '%s\n' "$now" > "$ISLAND_STATE/notif_seen"
   else
-    seen=$(cat "$STATE/notif_seen" 2>/dev/null)
+    seen=$(cat "$ISLAND_STATE/notif_seen" 2>/dev/null)
     [[ $seen =~ ^[0-9]+$ ]] || seen=0
   fi
   if (( expanded )); then tick_at=$((${EPOCHREALTIME/./} + tick_us)); fi
@@ -103,7 +99,7 @@ click() {
   app=${app:0:80}
   while IFS=$'\t' read -r line_id line_app line_entry; do
     if [[ $line_id == "$1" && $line_app == "$app" ]]; then entry=$line_entry; fi
-  done < "$STATE/notif_entries" 2>/dev/null
+  done < "$ISLAND_STATE/notif_entries" 2>/dev/null
   for id in ${parts[2]}; do dunstctl history-rm "$id" > /dev/null 2>&1; done
   activate "${parts[1]}" "$entry" > /dev/null 2>&1 &
   notif_signal '@refresh'
@@ -111,7 +107,7 @@ click() {
 
 clear_all() {
   dunstctl history-clear > /dev/null 2>&1
-  if [[ -f $STATE/notif_entries ]]; then : > "$STATE/notif_entries"; fi
+  if [[ -f $ISLAND_STATE/notif_entries ]]; then : > "$ISLAND_STATE/notif_entries"; fi
   notif_signal '@refresh'
 }
 
@@ -139,8 +135,8 @@ main() {
   local -a icons=()
   settle_us=$(seconds_us "${ISLAND_NOTIF_SETTLE_SECONDS:-0.15}")
   tick_us=$(seconds_us "${ISLAND_NOTIF_TICK_SECONDS:-60}")
-  fifo=$STATE/notif.fifo
-  mkdir -p "$STATE"
+  fifo=$ISLAND_STATE/notif.fifo
+  mkdir -p "$ISLAND_STATE"
   rm -f -- "$fifo"
   mkfifo -m 600 "$fifo" || return
   exec {input_fd}<> "$fifo"

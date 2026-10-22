@@ -1,3 +1,3 @@
 # tests/helpers.bash
-REPO="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS="$REPO/eww/scripts"

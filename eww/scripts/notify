@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # notify: deflisten printing the notification shown in the compact island, one JSON object per line.
 # notify click ID: dismiss the shown notification ID and activate its app.
-# Input is the FIFO $XDG_RUNTIME_DIR/eww-island/notify.fifo: notify-hook lines plus
+# Input is the FIFO $ISLAND_STATE/notify.fifo: notify-hook lines plus
 # "@alert 0|1" (scripts/alert), "@expanded 0|1" (scripts/island) and "@click ID".
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
 ICON_BELL=$'\U000F009A'
 CLEAR_JSON='{"active":false,"id":0,"app":"","summary":"","body":"","icon":"","image":"","critical":false}'
@@ -179,12 +179,12 @@ main() {
     return 0
   fi
   require jq || { printf 'notify: jq tidak tersedia\n' >&2; return 127; }
-  local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" fifo input_fd line timeout now hold_us
+  local fifo input_fd line timeout now hold_us
   local current='' last='' deadline=0 remaining=0 alert=0 expanded=0 extra=0
   local -a queue=()
   hold_us=$(seconds_us "${ISLAND_NOTIFY_SECONDS:-4}")
-  fifo=$state/notify.fifo
-  mkdir -p "$state"
+  fifo=$ISLAND_STATE/notify.fifo
+  mkdir -p "$ISLAND_STATE"
   rm -f -- "$fifo"
   mkfifo -m 600 "$fifo" || return
   exec {input_fd}<> "$fifo"

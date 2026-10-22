@@ -3,11 +3,10 @@
 # todo add TEXT | prompt | toggle ID | remove ID | clear-done | scroll up|down
 # The list lives in $XDG_DATA_HOME/eww-island/todo.json so it survives reboots. Commands change it
 # under a lock, replace it atomically and send "@refresh" to the FIFO
-# $XDG_RUNTIME_DIR/eww-island/todo.fifo; the listener also takes "@scroll -1|1" and "@expanded 0".
+# $ISLAND_STATE/todo.fifo; the listener also takes "@scroll -1|1" and "@expanded 0".
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
-STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/eww-island"
 FILE="$DATA_DIR/todo.json"
 ROWS=4
@@ -114,8 +113,8 @@ cleanup() {
 
 listen() {
   local fifo input_fd line last='' doc total=0 offset=0
-  fifo=$STATE/todo.fifo
-  mkdir -p "$STATE"
+  fifo=$ISLAND_STATE/todo.fifo
+  mkdir -p "$ISLAND_STATE"
   rm -f -- "$fifo"
   mkfifo -m 600 "$fifo" || return
   exec {input_fd}<> "$fifo"

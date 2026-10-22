@@ -3,9 +3,9 @@
 # Shortcut buttons of the expanded card's "pintasan" tab, read from eww/shortcuts
 # (ISLAND_SHORTCUTS overrides the path). Line format: ICON | LABEL | COMMAND [| STATE].
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
-FILE="${ISLAND_SHORTCUTS:-${DIR%/scripts}/shortcuts}"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
+FILE="${ISLAND_SHORTCUTS:-$ISLAND_CFG/shortcuts}"
 PER_ROW=3
 # A STATE names a boolean of the eww status variable the button lights up with.
 STATES=(dnd)

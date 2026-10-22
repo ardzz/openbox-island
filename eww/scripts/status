@@ -2,8 +2,8 @@
 # shellcheck source-path=SCRIPTDIR
 declare -g DIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
 mic_snapshot() {
   local outputs sources report
@@ -201,13 +201,13 @@ listener_cleanup() {
 
 main() {
   require jq || { printf 'status: jq tidak tersedia\n' >&2; return 127; }
-  local state="${XDG_RUNTIME_DIR:-/tmp}/eww-island" workdir source input_fd
+  local workdir source input_fd
   local line active apps headphone=$HEADPHONE_NONE json last='' initialized=0
   local mic=false mic_apps='' camera=false camera_apps='' dnd=false
   local -A seen=()
   local -a worker_pids=()
-  mkdir -p "$state"
-  workdir=$(mktemp -d "$state/status.XXXXXX") || return
+  mkdir -p "$ISLAND_STATE"
+  workdir=$(mktemp -d "$ISLAND_STATE/status.XXXXXX") || return
   trap 'exit 0' TERM INT HUP
   trap listener_cleanup EXIT
   mkfifo "$workdir/events"

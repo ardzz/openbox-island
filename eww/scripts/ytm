@@ -6,10 +6,9 @@
 #   ytm toggle-dislike   dislike the current track, or undo the dislike
 # shellcheck source-path=SCRIPTDIR
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 
-STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
 YTM=${OB_YTM_CLI:-ytm}
 HELPER=${OB_YTM_HELPER:-$DIR/ytm_like.py}
 RETRY=${OB_YTM_RETRY:-0.5}
@@ -27,13 +26,13 @@ toggle() {
   local kind=$1 active vid like cmd new
   command -v "$YTM" >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
   { IFS= read -r active; IFS= read -r vid; IFS= read -r like; } < <(
-    jq -r '.active, .video_id, .like' "$STATE/ytm.json" 2>/dev/null)
+    jq -r '.active, .video_id, .like' "$ISLAND_STATE/ytm.json" 2>/dev/null)
   [[ $active == true ]] || return 0
   read -r cmd new < <(toggle_action "$kind" "$like")
   "$YTM" "$cmd" >/dev/null 2>&1 || return 1
   [[ -n $vid ]] || return 0
-  printf '%s\t%s\n' "$vid" "$new" > "$STATE/ytm_set.tmp"
-  mv "$STATE/ytm_set.tmp" "$STATE/ytm_set"
+  printf '%s\t%s\n' "$vid" "$new" > "$ISLAND_STATE/ytm_set.tmp"
+  mv "$ISLAND_STATE/ytm_set.tmp" "$ISLAND_STATE/ytm_set"
 }
 
 # resolve_job GEN TITLE_JSON: video id of the playing track; retried while `ytm status` still names another title.
@@ -106,8 +105,8 @@ listen() {
     fi
     [[ $json == "$last" ]] && return
     last=$json
-    printf '%s\n' "$json" > "$STATE/ytm.json.tmp"
-    mv "$STATE/ytm.json.tmp" "$STATE/ytm.json"
+    printf '%s\n' "$json" > "$ISLAND_STATE/ytm.json.tmp"
+    mv "$ISLAND_STATE/ytm.json.tmp" "$ISLAND_STATE/ytm.json"
     printf '%s\n' "$json"
   }
   fetch() {
@@ -117,9 +116,9 @@ listen() {
   }
   refresh() {
     player='' media_key='' title='' state=''
-    [[ ! -r $STATE/player ]] || IFS= read -r player < "$STATE/player" || :
+    [[ ! -r $ISLAND_STATE/player ]] || IFS= read -r player < "$ISLAND_STATE/player" || :
     { IFS= read -r state; IFS= read -r media_key; IFS= read -r title; } < <(
-      jq -r '.state, ([.player, .title, .artist] | tojson), (.title | tojson)' "$STATE/media.json" 2>/dev/null)
+      jq -r '.state, ([.player, .title, .artist] | tojson), (.title | tojson)' "$ISLAND_STATE/media.json" 2>/dev/null)
     if ! ytm_is_player "$player" || [[ $state != playing && $state != paused ]]; then
       key='' vid='' next_title='""' next_artist='""'
     elif [[ $media_key != "$key" ]]; then
@@ -130,15 +129,15 @@ listen() {
     emit
   }
 
-  mkdir -p "$STATE"
-  rm -f "$STATE/ytm_set"
+  mkdir -p "$ISLAND_STATE"
+  rm -f "$ISLAND_STATE/ytm_set"
   emit
   command -v "$YTM" >/dev/null 2>&1 || return 0
   if ! require jq inotifywait; then
     printf 'ytm: %s tidak tersedia, tombol suka dinonaktifkan\n' "$MISSING_DEP" >&2
     return 0
   fi
-  work=$(mktemp -d "$STATE/ytm.XXXXXX") || return 0
+  work=$(mktemp -d "$ISLAND_STATE/ytm.XXXXXX") || return 0
   trap 'exit 0' TERM INT HUP
   trap listener_cleanup EXIT
   mkfifo "$work/events"
@@ -147,14 +146,14 @@ listen() {
     if [[ -z $watch ]] || ! kill -0 "$watch" 2>/dev/null; then
       [[ -z $watch ]] || wait "$watch" 2>/dev/null
       # stderr joins the FIFO: "Watches established." triggers the snapshot without a race.
-      inotifywait -m -e close_write,moved_to --format 'state:%f' "$STATE" > "$work/events" 2>&1 &
+      inotifywait -m -e close_write,moved_to --format 'state:%f' "$ISLAND_STATE" > "$work/events" 2>&1 &
       watch=$!
     fi
     IFS=$'\t' read -r -t 5 -u "$events" kind a b c || continue
     case $kind in
       'Watches established.'|state:media.json) refresh ;;
       state:ytm_set)
-        IFS=$'\t' read -r a b < "$STATE/ytm_set" 2>/dev/null || continue
+        IFS=$'\t' read -r a b < "$ISLAND_STATE/ytm_set" 2>/dev/null || continue
         cache[$a]=$b
         emit ;;
       vid)

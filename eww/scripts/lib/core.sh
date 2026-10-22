@@ -2,6 +2,13 @@
 # Shared helpers for island scripts. Source it; do not execute.
 export LC_ALL=C.UTF-8
 
+# Runtime state (FIFOs, locks, caches between scripts) and the eww config dir this file lives in.
+ISLAND_STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+ISLAND_CFG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# island_eww ARGS...: eww on the island config. Keeps a lock fd 9 out of a daemon eww may auto-start.
+island_eww() { command eww --config "$ISLAND_CFG" "$@" 9>&-; }
+
 # shellcheck disable=SC2034 # read by alert and status
 ICON_HEADPHONES=$'\U000F02CB' ICON_HEADPHONES_BT=$'\U000F0970'
 
@@ -65,10 +72,10 @@ seconds_us() {
   printf '%s' "$((10#$whole * 1000000 + 10#${fraction:0:6}))"
 }
 
-# fifo_signal NAME LINE: hand LINE to the listener reading $XDG_RUNTIME_DIR/eww-island/NAME.fifo if it runs.
+# fifo_signal NAME LINE: hand LINE to the listener reading $ISLAND_STATE/NAME.fifo if it runs.
 # A read-write open of a FIFO needs no reader, so this never blocks; short lines are atomic.
 fifo_signal() {
-  local fifo="${XDG_RUNTIME_DIR:-/tmp}/eww-island/$1.fifo"
+  local fifo="$ISLAND_STATE/$1.fifo"
   [[ -p $fifo ]] || return 0
   printf '%s\n' "$2" 2>/dev/null 1<> "$fifo" || :
 }

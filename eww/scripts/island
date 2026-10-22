@@ -6,20 +6,16 @@
 # the pointer itself: eww's onhover/onhoverlost also fire on pointer grabs and reach this
 # script in no reliable order, so they only trigger a re-check.
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib.sh
-source "$DIR/lib.sh"
-CFG="${DIR%/scripts}"
-STATE="${XDG_RUNTIME_DIR:-/tmp}/eww-island"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
 REVEAL_SECONDS=0.3
 HOVER_SECONDS=0.3
 
-# Keep the lock fd out of eww: a daemon auto-started by `eww open` would hold it forever.
-eww() { command eww --config "$CFG" "$@" 9>&-; }
-lock() { mkdir -p "$STATE"; exec 9>"$STATE/lock"; flock 9; }
+lock() { mkdir -p "$ISLAND_STATE"; exec 9>"$ISLAND_STATE/lock"; flock 9; }
 unlock() { exec 9>&-; }
-get() { local v; v=$(cat "$STATE/$1" 2>/dev/null); printf '%s\n' "${v:-0}"; }
-put() { printf '%s\n' "$2" > "$STATE/$1"; }
-is_open() { eww active-windows 2>/dev/null | sed -n 's/^[^:]*: *//p' | grep -qx island-expanded; }
+get() { local v; v=$(cat "$ISLAND_STATE/$1" 2>/dev/null); printf '%s\n' "${v:-0}"; }
+put() { printf '%s\n' "$2" > "$ISLAND_STATE/$1"; }
+is_open() { island_eww active-windows 2>/dev/null | sed -n 's/^[^:]*: *//p' | grep -qx island-expanded; }
 
 # hovered: the pointer is inside a visible island window (compact or expanded) right now.
 hovered() {
@@ -41,16 +37,16 @@ hovered() {
 
 # expand [TAB]: open the card on `tab resolve [TAB]`; an explicit TAB also switches an open card.
 expand() {
-  [[ ! -e $STATE/fullscreen ]] || return 0
+  [[ ! -e $ISLAND_STATE/fullscreen ]] || return 0
   if ! is_open; then
     put marquee_at "$(date +%s%1N)"
-    eww update island_reveal=false "island_tab=$("$DIR/tab" resolve "$@")"
-    eww open island-expanded
-    eww update island_reveal=true
+    island_eww update island_reveal=false "island_tab=$("$DIR/tab" resolve "$@")"
+    island_eww open island-expanded
+    island_eww update island_reveal=true
   elif (( $# )); then
-    eww update "island_tab=$("$DIR/tab" resolve "$1")" island_reveal=true
+    island_eww update "island_tab=$("$DIR/tab" resolve "$1")" island_reveal=true
   else
-    eww update island_reveal=true
+    island_eww update island_reveal=true
   fi
   # The compact pill is hidden now: notifications wait until it returns.
   notify_signal '@expanded 1'
@@ -59,11 +55,11 @@ expand() {
 
 collapse() {
   is_open || return 0
-  eww update island_reveal=false
+  island_eww update island_reveal=false
   sleep "$REVEAL_SECONDS"
   # The window is still mapped while hiding: a pointer that came back gets no new enter event.
-  if hovered; then eww update island_reveal=true; return 0; fi
-  eww close island-expanded
+  if hovered; then island_eww update island_reveal=true; return 0; fi
+  island_eww close island-expanded
   notify_signal '@expanded 0'
   notif_signal '@expanded 0'
   fifo_signal todo '@expanded 0'
@@ -78,9 +74,9 @@ collapse_if_idle() {
 dismiss() {
   put auto_until 0
   is_open || return 0
-  eww update island_reveal=false
+  island_eww update island_reveal=false
   sleep "$REVEAL_SECONDS"
-  eww close island-expanded
+  island_eww close island-expanded
   notify_signal '@expanded 0'
   notif_signal '@expanded 0'
   fifo_signal todo '@expanded 0'
@@ -88,24 +84,24 @@ dismiss() {
 
 # hide: close both windows until show. eww stops every listener only these windows use.
 hide() {
-  [[ ! -e $STATE/fullscreen ]] || return 0
-  : > "$STATE/fullscreen"
+  [[ ! -e $ISLAND_STATE/fullscreen ]] || return 0
+  : > "$ISLAND_STATE/fullscreen"
   put auto_until 0
   if is_open; then
-    eww update island_reveal=false
-    eww close island-expanded
+    island_eww update island_reveal=false
+    island_eww close island-expanded
     notify_signal '@expanded 0'
     notif_signal '@expanded 0'
     fifo_signal todo '@expanded 0'
   fi
-  eww close island
+  island_eww close island
 }
 
 # show: bring the compact island back after hide. Never auto-starts a stopped daemon.
 show() {
-  [[ -e $STATE/fullscreen ]] || return 0
-  rm -f "$STATE/fullscreen"
-  if eww ping >/dev/null 2>&1; then eww open island; fi
+  [[ -e $ISLAND_STATE/fullscreen ]] || return 0
+  rm -f "$ISLAND_STATE/fullscreen"
+  if island_eww ping >/dev/null 2>&1; then island_eww open island; fi
 }
 
 usage() { echo "usage: island hover | auto SECONDS | close | dismiss | hide | show" >&2; return 2; }
@@ -126,7 +122,7 @@ main() {
     close)
       # The player went away: a card kept open by the pointer falls back to another tab.
       lock; put auto_until 0; collapse_if_idle
-      if is_open; then eww update "island_tab=$("$DIR/tab" resolve)"; fi ;;
+      if is_open; then island_eww update "island_tab=$("$DIR/tab" resolve)"; fi ;;
     dismiss) lock; dismiss ;;
     hide) lock; hide ;;
     show) lock; show ;;
