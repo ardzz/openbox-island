@@ -98,7 +98,7 @@
 
 (defwindow island-expanded
   :monitor 0
-  :geometry (geometry :x "0px" :y "8px" :width "480px" :height "180px" :anchor "top center")
+  :geometry (geometry :x "0px" :y "8px" :width "480px" :height "210px" :anchor "top center")
   :wm-ignore true
   (eventbox :onhover "${EWW_CONFIG_DIR}/scripts/island hover &"
             :onhoverlost "${EWW_CONFIG_DIR}/scripts/island hover &"
