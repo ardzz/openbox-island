@@ -1,0 +1,25 @@
+// Shortcuts: two rows of three 140px buttons fill the 438px card body.
+.shortcut {
+  min-height: 60px;
+  border-radius: 12px;
+  background-color: mix($fg, $island-bg, 10%);
+  color: $fg;
+}
+
+.shortcut:hover {
+  background-color: $island-track;
+  color: $island-accent;
+}
+
+.shortcut.on {
+  background-color: mix($island-accent, $island-bg, 22%);
+  color: $island-accent;
+}
+
+.shortcut-icon {
+  font-size: 22px;
+}
+
+.shortcut-label {
+  font-size: 11px;
+}

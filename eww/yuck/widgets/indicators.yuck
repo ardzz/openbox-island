@@ -1,0 +1,17 @@
+; Screen recording, microphone, camera and do-not-disturb dots at the right end of the pill.
+(defwidget indicators []
+  (box :orientation "h" :space-evenly false :spacing 0 :valign "center"
+    (revealer :transition "none" :reveal {rec.active}
+      (box :class "indicator" :width 56 :tooltip "Merekam layar: ${rec.app}"
+        (box :orientation "h" :space-evenly false :spacing 4 :halign "end" :hexpand true
+          (box :class "dot dot-rec" :valign "center")
+          (label :class "rec-time" :text {rec.time}))))
+    (revealer :transition "none" :reveal {status.mic}
+      (box :class "indicator" :width 16 :tooltip "Mikrofon dipakai: ${status.mic_apps}"
+        (box :class "dot dot-mic" :halign "end" :valign "center")))
+    (revealer :transition "none" :reveal {status.camera}
+      (box :class "indicator" :width 16 :tooltip "Kamera dipakai: ${status.camera_apps}"
+        (box :class "dot dot-camera" :halign "end" :valign "center")))
+    (revealer :transition "none" :reveal {status.dnd}
+      (label :class "dnd" :width 16 :xalign 1
+             :text "󰂛" :tooltip "Jangan Ganggu aktif"))))

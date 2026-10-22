@@ -1,0 +1,92 @@
+// Weather in the idle pill and on the Cuaca tab.
+.weather-icon {
+  font-size: 15px;
+}
+
+.weather-temp,
+.forecast-temp {
+  font-size: 13px;
+}
+
+.weather-city-small {
+  font-weight: normal;
+}
+
+.weather-separator,
+.weather-desc,
+.weather-region,
+.weather-sun,
+.weather-details,
+.forecast-day {
+  color: $muted;
+}
+
+.weather-big-icon {
+  font-size: 32px;
+}
+
+.weather-big-temp {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.weather-city {
+  font-weight: bold;
+}
+
+.weather-region,
+.weather-sun,
+.weather-details {
+  font-size: 12px;
+}
+
+.forecast-day,
+.forecast-rain {
+  font-size: 11px;
+}
+
+.forecast-icon {
+  font-size: 15px;
+}
+
+.forecast-rain {
+  color: $island-accent;
+}
+
+// Weather icon colour follows the condition and heat (tone from scripts/weather).
+.tone-hot {
+  color: $red;
+}
+
+.tone-warm {
+  color: mix($red, $yellow, 45%);
+}
+
+.tone-sunny {
+  color: $yellow;
+}
+
+.tone-night {
+  color: mix($blue, $fg, 45%);
+}
+
+.tone-cold {
+  color: $cyan;
+}
+
+.tone-rain {
+  color: $blue;
+}
+
+.tone-storm {
+  color: $magenta;
+}
+
+.tone-snow {
+  color: $alt-white;
+}
+
+.tone-cloud,
+.tone-fog {
+  color: $muted;
+}

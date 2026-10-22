@@ -1,0 +1,10 @@
+; Header chip of one tab (scripts/lib/tabs sets the order); revealed only while the tab has content.
+(defwidget tab-chip [id label available]
+  (revealer :transition "none" :reveal available
+    (eventbox :cursor "pointer" :onclick "${EWW_CONFIG_DIR}/scripts/tab select ${id} &"
+      (label :class "tab ${island_tab == id ? 'tab-active' : ''}" :text label))))
+
+; Body of one tab, shown while it is the selected tab.
+(defwidget tab-page [id]
+  (revealer :transition "none" :reveal {island_tab == id}
+    (children)))

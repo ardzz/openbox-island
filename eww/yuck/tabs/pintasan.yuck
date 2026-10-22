@@ -1,0 +1,11 @@
+; Shortcut buttons, three per row; a click closes the card first, then launches.
+(defwidget page-pintasan []
+  (box :class "page shortcuts" :orientation "v" :space-evenly false :spacing 8
+    (for row in {shortcuts}
+      (box :orientation "h" :halign "center" :space-evenly false :spacing 8
+        (for s in {row}
+          (button :class "shortcut ${s.state == 'dnd' && status.dnd ? 'on' : ''}" :width 140
+                  :tooltip {s.label} :onclick "${EWW_CONFIG_DIR}/scripts/shortcuts run ${s.id} &"
+            (box :orientation "v" :valign "center" :space-evenly false :spacing 2
+              (label :class "shortcut-icon" :text {s.icon})
+              (label :class "shortcut-label" :text {s.label} :limit-width 18 :show-truncated true))))))))

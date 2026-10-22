@@ -1,0 +1,22 @@
+; Newest first; scrolling over the list moves through older ones. A click acts like the pill's.
+(defwidget page-notif []
+  (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/notif scroll {} &"
+             :more {notif_center.more > 0 ? "+${notif_center.more} lainnya" : notif_center.total == 0 ? "Tidak ada notifikasi" : ""}
+    (box :orientation "v" :space-evenly false :spacing 2
+      (for row in {notif_center.rows}
+        (eventbox :cursor "pointer" :onclick "${EWW_CONFIG_DIR}/scripts/notif click ${row.id} &"
+                  :tooltip "${row.summary}${row.body != "" ? " · " + row.body : ""}"
+          (box :class "notif-row ${row.critical ? 'notify-critical' : ''}" :orientation "h"
+               :space-evenly false :spacing 10
+            (thumb :kind "notify" :image {row.image} :icon {row.icon})
+            (box :orientation "v" :space-evenly false :spacing 0 :valign "center" :hexpand true
+              (box :orientation "h" :space-evenly false :spacing 8
+                (label :class "notif-summary" :text {row.summary} :xalign 0 :hexpand true
+                       :limit-width 46 :show-truncated true :wrap false)
+                (label :class "notif-meta" :text {row.time} :xalign 1))
+              (box :orientation "h" :space-evenly false :spacing 8
+                (label :class "notif-body" :text {row.body} :xalign 0 :hexpand true
+                       :limit-width 50 :show-truncated true :wrap false)
+                (label :class "notif-meta" :text {row.app} :xalign 1
+                       :limit-width 16 :show-truncated true)))))))
+    (button :class "list-action" :onclick "${EWW_CONFIG_DIR}/scripts/notif clear &" "Hapus semua")))

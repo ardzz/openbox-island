@@ -1,0 +1,149 @@
+// Music: equalizer and headphone in the pill, the Musik tab below.
+.eqbar {
+  background-color: $island-accent;
+  min-width: 3px;
+  min-height: 4px;
+  border-radius: 2px;
+}
+
+.eqbar.lvl0 {
+  min-height: 4px;
+}
+
+.eqbar.lvl1 {
+  min-height: 5px;
+}
+
+.eqbar.lvl2 {
+  min-height: 6px;
+}
+
+.eqbar.lvl3 {
+  min-height: 7px;
+}
+
+.eqbar.lvl4 {
+  min-height: 8px;
+}
+
+.eqbar.lvl5 {
+  min-height: 9px;
+}
+
+.eqbar.lvl6 {
+  min-height: 10px;
+}
+
+.eqbar.lvl7 {
+  min-height: 11px;
+}
+
+.eqbar.lvl8 {
+  min-height: 12px;
+}
+
+.eqbar.lvl9 {
+  min-height: 13px;
+}
+
+.eqbar.lvl10 {
+  min-height: 14px;
+}
+
+.eqbar.lvl11 {
+  min-height: 15px;
+}
+
+.eqbar.lvl12 {
+  min-height: 16px;
+}
+
+.paused .eqbar {
+  min-height: 4px;
+}
+
+.headphone {
+  color: $island-accent;
+  font-size: 18px;
+}
+
+.title {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.artist,
+.time,
+.up-next {
+  color: $muted;
+}
+
+.lyrics {
+  color: $fg;
+  font-style: italic;
+}
+
+.lyrics.fallback {
+  color: $muted;
+}
+
+.time {
+  font-size: 11px;
+}
+
+.up-next {
+  font-size: 12px;
+}
+
+// The margin sits inside the device revealer so a hidden device leaves no gap.
+.device {
+  color: $muted;
+  margin-left: 8px;
+}
+
+.device-name {
+  font-size: 12px;
+}
+
+.device-icon {
+  font-size: 16px;
+}
+
+// After .headphone and .device so a low battery wins in both places.
+.headphone-low {
+  color: $red;
+}
+
+.progress trough {
+  background-color: $island-track;
+  border-radius: 2px;
+  min-height: 4px;
+  min-width: 200px;
+}
+
+.progress progress {
+  background-color: $island-accent;
+  border-radius: 2px;
+  min-height: 4px;
+}
+
+.ctl {
+  font-size: 18px;
+  color: $fg;
+}
+
+.ctl:hover {
+  color: $island-accent;
+}
+
+.ctl-main {
+  font-size: 22px;
+}
+
+.ctl-ytm {
+  font-size: 16px;
+}
+
+.ctl-ytm.on {
+  color: $island-accent;
+}

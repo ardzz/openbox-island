@@ -1,0 +1,23 @@
+// The expanded card: the tab header sits below the 8px screen-edge strip.
+.pill-expanded {
+  min-width: 440px;
+  padding: 8px 20px 14px;
+  border-radius: 0 0 22px 22px;
+}
+
+.tabs {
+  margin-bottom: 6px;
+}
+
+.tab {
+  padding: 2px 10px;
+  border-radius: 9px;
+  color: $muted;
+  font-size: 11px;
+}
+
+.tab-active {
+  background-color: $island-track;
+  color: $fg;
+  font-weight: bold;
+}

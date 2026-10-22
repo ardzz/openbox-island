@@ -1,0 +1,18 @@
+; The compact island: the pill hangs from the top edge; the ears beside it curve into the screen
+; edge like a notch. Its page: an alert, else a new notification, else media, else idle.
+(defwindow island
+  :monitor 0
+  :geometry (geometry :x "0px" :y "0px" :width "508px" :height "44px" :anchor "top center")
+  :wm-ignore true
+  ; Hovering a shown notification never expands the island: the pointer is on its way to click it.
+  ; Otherwise the card always has a tab to open: at least the to-do list.
+  (eventbox :onhover {notify.active && alert.kind == "" ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
+    (box :halign "center" :valign "start" :visible {!island_reveal} :orientation "h" :space-evenly false
+      (box :class "ear ear-left" :valign "start")
+      (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/scroll {} &"
+        (stack :selected {alert.kind != "" ? 2 : notify.active ? 3 : media.state == "none" ? 0 : 1} :transition "crossfade" :same-size false
+          (pill-idle)
+          (pill-media)
+          (pill-alert)
+          (pill-notify)))
+      (box :class "ear ear-right" :valign "start"))))

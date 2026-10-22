@@ -1,0 +1,11 @@
+; A short-lived alert (volume, brightness, battery, screenshot…) with an optional level bar and value.
+(defwidget pill-alert []
+  (box :class "pill pill-alert alert-${alert.kind}" :orientation "h" :space-evenly false :spacing 10
+    (thumb :kind "alert" :image {alert.image} :icon {alert.icon})
+    (label :class "alert-text" :text {alert.text} :xalign 0 :hexpand true
+           :limit-width 28 :show-truncated true)
+    (revealer :transition "none" :reveal {alert.level >= 0}
+      (progress :class "hud" :width 140 :valign "center" :value {alert.level}))
+    (revealer :transition "none" :reveal {alert.value != ""}
+      (label :class "alert-value" :text {alert.value} :xalign 1 :limit-width 24
+             :show-truncated true))))

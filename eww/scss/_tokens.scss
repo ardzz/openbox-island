@@ -1,0 +1,9 @@
+// The island keeps a fixed black notch and green accent; text and font follow the theme palette.
+$island-bg: #000000;
+$island-accent: #3ee6c4;
+$island-track: mix($fg, $island-bg, 18%);
+// Bar palettes usually define $red; the generated default palette does not.
+$red: #ff453a !default;
+$muted: mix($fg, $island-bg, 60%);
+// Concave ears beside the notch.
+$ear: 14px;

@@ -9,7 +9,7 @@ source "$DIR/lib/core.sh"
 DEBOUNCE_DS=5
 
 # Header order = lib/tabs/NN-<id>.sh in numeric order; each defines tab_<id>_available.
-# A new tab: add its file there, then its chip and page in yuck/island.yuck.
+# A new tab: add its file there, its page in yuck/tabs/<id>.yuck, and its chip and page in yuck/tabs.yuck.
 TABS=()
 for f in "$DIR"/lib/tabs/*.sh; do
   # shellcheck source=/dev/null

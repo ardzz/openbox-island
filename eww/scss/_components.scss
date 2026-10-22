@@ -1,0 +1,90 @@
+// Shared widgets: cover art, loading skeletons, paged list footer.
+.cover {
+  background-color: $island-track;
+  background-size: cover;
+  background-position: center;
+}
+
+.cover-small {
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 8px;
+}
+
+.cover-large {
+  min-width: 64px;
+  min-height: 64px;
+  border-radius: 12px;
+}
+
+.cover-fallback {
+  color: $muted;
+}
+
+.cover-small .cover-fallback {
+  font-size: 12px;
+}
+
+.cover-large .cover-fallback {
+  font-size: 28px;
+}
+
+// Loading skeleton between tracks: grey rounded blocks where the text will be.
+@keyframes skeleton-pulse {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.5;
+  }
+}
+
+.skeleton {
+  background-color: $island-track;
+  border-radius: 6px;
+  animation: skeleton-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.skeleton-title {
+  min-height: 14px;
+  margin: 2px 0;
+}
+
+.skeleton-artist {
+  min-height: 11px;
+  margin: 3px 0;
+}
+
+// Rows keep the height of the text they stand in for: lyrics 18px, progress row 16px.
+.skeleton-lyrics {
+  min-height: 12px;
+  margin: 3px 0;
+}
+
+.skeleton-progress {
+  min-height: 4px;
+  border-radius: 2px;
+}
+
+.skeleton-row {
+  min-height: 16px;
+}
+
+// Paged lists (widgets/list-page.yuck): muted "+N lainnya" footer text and its action buttons.
+.list-more {
+  font-size: 11px;
+  color: $muted;
+}
+
+.list-action {
+  padding: 1px 10px;
+  border-radius: 9px;
+  font-size: 11px;
+  color: $muted;
+  background-color: $island-track;
+}
+
+.list-action:hover {
+  color: $island-accent;
+}

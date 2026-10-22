@@ -1,0 +1,26 @@
+; Today's weather on the left, the place and sun times on the right, then the forecast days.
+(defwidget page-cuaca []
+  (box :class "page weather-card" :orientation "v" :space-evenly false :spacing 8
+    (box :orientation "h" :space-evenly false :spacing 12
+      (label :class "weather-big-icon tone-${weather.tone}" :text {weather.icon})
+      (box :orientation "v" :space-evenly false :valign "center" :spacing 2
+        (label :class "weather-big-temp" :text {weather.temp} :xalign 0)
+        (label :class "weather-desc" :text {weather.desc} :xalign 0))
+      (box :hexpand true)
+      (box :orientation "v" :space-evenly false :halign "end" :valign "center" :spacing 2
+        (label :class "weather-city" :text {weather.city} :xalign 1
+               :limit-width 24 :show-truncated true :tooltip "Lokasi: © kontributor OpenStreetMap")
+        (label :class "weather-region" :text {weather.region} :xalign 1
+               :limit-width 28 :show-truncated true)
+        (label :class "weather-sun" :xalign 1
+               :text "󰖜 ${weather.sunrise}   󰖛 ${weather.sunset}")))
+    (label :class "weather-details" :xalign 0
+           :text "Terasa ${weather.feels} · Lembap ${weather.humidity} · Angin ${weather.wind} · UV ${weather.uv}")
+    (box :orientation "h" :space-evenly true :spacing 8
+      (for day in {weather.days}
+        (box :orientation "v" :space-evenly false :halign "center" :spacing 2
+          (label :class "forecast-day" :text {day.day})
+          (box :orientation "h" :space-evenly false :halign "center" :spacing 6
+            (label :class "forecast-icon tone-${day.tone}" :text {day.icon})
+            (label :class "forecast-temp" :text "${day.max} / ${day.min}"))
+          (label :class "forecast-rain" :text "󰖌 ${day.rain}"))))))

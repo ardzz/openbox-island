@@ -1,0 +1,6 @@
+; Album art of the current track. Between tracks (media.state "loading") it stays an empty
+; grey block: a skeleton.
+(defwidget cover [size]
+  (box :class "cover cover-${size}" :valign "center"
+       :style {media.art == "" ? "" : "background-image: url('${media.art}');"}
+    (label :class "cover-fallback" :visible {media.art == "" && media.state != "loading"} :text "󰎈")))

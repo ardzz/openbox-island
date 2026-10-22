@@ -1,0 +1,75 @@
+// The notch hangs from the top screen edge: square top, rounded bottom.
+.pill {
+  background-color: $island-bg;
+  color: $fg;
+  border-radius: 0 0 16px 16px;
+}
+
+// Concave ears beside the notch blend its top corners into the screen edge.
+.ear {
+  min-width: $ear;
+  min-height: $ear;
+}
+
+.ear-left {
+  background-image: radial-gradient(circle $ear at 0% 100%, transparent 13.4px, $island-bg $ear);
+}
+
+.ear-right {
+  background-image: radial-gradient(circle $ear at 100% 100%, transparent 13.4px, $island-bg $ear);
+}
+
+// Single-row pages keep their 36px row below an 8px strip at the screen edge (44px notch).
+.pill-media {
+  min-height: 36px;
+  min-width: 465px;
+  padding: 8px 10px 0 5px;
+}
+
+.pill-idle {
+  min-height: 36px;
+  min-width: 64px;
+  padding: 8px 14px 0;
+}
+
+.pill-alert {
+  min-height: 36px;
+  min-width: 452px;
+  padding: 8px 14px 0;
+}
+
+// Two text lines use the full 44px height so they get room above and below.
+.pill-notify {
+  min-height: 44px;
+  min-width: 452px;
+  padding: 0 14px;
+}
+
+// Indicators: recording, microphone, camera, do not disturb.
+.dot {
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 3px;
+}
+
+.dot-mic {
+  background-color: $yellow;
+}
+
+.dot-camera {
+  background-color: $green;
+}
+
+.dot-rec {
+  background-color: $red;
+}
+
+.rec-time {
+  color: $red;
+  font-size: 11px;
+}
+
+.dnd {
+  color: $muted;
+  font-size: 12px;
+}

@@ -1,0 +1,44 @@
+// To-do list: four one-line rows; done rows are struck through and muted.
+.todo-row {
+  min-height: 28px;
+  padding: 0 4px;
+  border-radius: 8px;
+}
+
+.todo-row:hover {
+  background-color: $island-track;
+}
+
+.todo-check,
+.todo-remove {
+  padding: 0 2px;
+  font-size: 16px;
+  color: $muted;
+}
+
+.todo-check:hover {
+  color: $island-accent;
+}
+
+.todo-remove:hover {
+  color: $red;
+}
+
+.todo-text {
+  font-size: 12px;
+}
+
+.todo-done .todo-text {
+  color: $muted;
+  text-decoration-line: line-through;
+}
+
+.todo-done .todo-check {
+  color: $island-accent;
+}
+
+.todo-empty {
+  padding: 24px 0;
+  font-size: 12px;
+  color: $muted;
+}

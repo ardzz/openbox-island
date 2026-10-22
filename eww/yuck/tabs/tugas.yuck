@@ -1,0 +1,21 @@
+; Open items first, newest first; scrolling over the list pages it. The card takes no
+; keyboard focus, so "+ Tambah" closes it and asks in rofi.
+(defwidget page-tugas []
+  (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/todo scroll {} &"
+             :more {todo.more > 0 ? "+${todo.more} lainnya" : ""}
+    (box :orientation "v" :space-evenly false :spacing 2
+      (revealer :transition "none" :reveal {todo.total == 0}
+        (label :class "todo-empty" :text "Belum ada tugas"))
+      (for row in {todo.rows}
+        (box :class "todo-row ${row.done ? 'todo-done' : ''}" :orientation "h" :space-evenly false :spacing 8
+          (button :class "todo-check" :onclick "${EWW_CONFIG_DIR}/scripts/todo toggle ${row.id} &"
+                  :tooltip {row.done ? "Tandai belum selesai" : "Tandai selesai"}
+            {row.done ? "󰄵" : "󰄱"})
+          (label :class "todo-text" :text {row.text} :tooltip {row.text} :xalign 0 :hexpand true
+                 :limit-width 54 :show-truncated true :wrap false)
+          (button :class "todo-remove" :tooltip "Hapus" :onclick "${EWW_CONFIG_DIR}/scripts/todo remove ${row.id} &"
+            "󰅖"))))
+    (box :orientation "h" :space-evenly false :spacing 6
+      (revealer :transition "none" :reveal {todo.done > 0}
+        (button :class "list-action" :onclick "${EWW_CONFIG_DIR}/scripts/todo clear-done &" "Bersihkan selesai"))
+      (button :class "list-action" :onclick "${EWW_CONFIG_DIR}/scripts/todo prompt &" "+ Tambah"))))

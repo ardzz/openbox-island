@@ -1,0 +1,10 @@
+; Six bars following the audio levels in viz (scripts/viz).
+(defwidget equalizer []
+  (box :class "eq" :orientation "h" :space-evenly false :spacing 3 :valign "center"
+       :width 33 :height 16 :hexpand false
+    (box :class "eqbar lvl${viz[0]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[1]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[2]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[3]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[4]}" :width 3 :hexpand false :valign "center")
+    (box :class "eqbar lvl${viz[5]}" :width 3 :hexpand false :valign "center")))

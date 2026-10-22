@@ -1,0 +1,15 @@
+; Nothing playing: the weather (once fetched) and the indicators.
+(defwidget pill-idle []
+  (box :class "pill pill-idle" :orientation "h" :halign "center" :space-evenly false :spacing 0
+    (box :orientation "h" :halign "center" :hexpand true :space-evenly false :spacing 0
+      (revealer :transition "none" :reveal {weather.ok}
+        (box :orientation "h" :space-evenly false :spacing 6
+             :tooltip "${weather.desc}${weather.region != "" ? " · " + weather.region : ""}"
+          (label :class "weather-icon tone-${weather.tone}" :text {weather.icon})
+          (label :class "weather-temp" :text {weather.temp})
+          (revealer :transition "none" :reveal {weather.city != ""}
+            (box :orientation "h" :space-evenly false :spacing 6
+              (label :class "weather-separator" :text "·")
+              (label :class "weather-city-small" :text {weather.city}
+                     :limit-width 18 :show-truncated true)))))
+      (indicators))))

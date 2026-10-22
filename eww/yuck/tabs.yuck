@@ -1,0 +1,20 @@
+; The tabs of the expanded card, in the order of scripts/lib/tabs: one header chip and one page each.
+; eww's onscroll only reports vertical scrolling: up/down over the header switches tabs.
+(defwidget tab-header []
+  (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/tab {} &"
+    (box :class "tabs" :orientation "h" :halign "center" :space-evenly false :spacing 4
+      (tab-chip :id "musik" :label "Musik" :available {media.state != "none"})
+      (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok})
+      (tab-chip :id "notif" :label {notif_center.label} :available {notif_center.total > 0})
+      (tab-chip :id "tugas" :label {todo.label} :available true)
+      (tab-chip :id "pintasan" :label "Pintasan" :available {shortcuts != "[]"}))))
+
+; The expanded card: header, then the pages; only the selected page is revealed.
+(defwidget tab-card []
+  (box :class "pill pill-expanded" :orientation "v" :space-evenly false
+    (tab-header)
+    (tab-page :id "musik" (page-musik))
+    (tab-page :id "cuaca" (page-cuaca))
+    (tab-page :id "notif" (page-notif))
+    (tab-page :id "tugas" (page-tugas))
+    (tab-page :id "pintasan" (page-pintasan))))

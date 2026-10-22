@@ -1,0 +1,3 @@
+; A grey placeholder for text that is still loading.
+(defwidget skeleton [class width]
+  (box :class "skeleton ${class}" :width width :hexpand false :halign "start" :valign "center"))

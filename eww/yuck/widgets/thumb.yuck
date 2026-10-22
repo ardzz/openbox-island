@@ -1,0 +1,9 @@
+; One slot for a thumbnail image or, without one, an icon; classes KIND-thumb and KIND-icon.
+; Revealers because :visible stays hidden in never-shown stack pages.
+(defwidget thumb [kind image icon]
+  (box :orientation "h" :space-evenly false :spacing 0 :valign "center"
+    (revealer :transition "none" :reveal {image != ""}
+      (box :class "${kind}-thumb" :valign "center"
+           :style {image == "" ? "" : "background-image: url('${image}');"}))
+    (revealer :transition "none" :reveal {image == ""}
+      (label :class "${kind}-icon" :width 24 :text icon))))
