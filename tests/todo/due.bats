@@ -51,10 +51,18 @@ pin_clock() { export ISLAND_NOW=1792551600 TZ=Asia/Jakarta; } # Wed 2026-10-21 1
 }
 
 @test "a deadline that is not a number makes the stored list corrupt" {
+  local bad failed=0
   mkdir -p "${DATA%/*}"
-  printf '{"next_id":2,"items":[{"id":1,"text":"x","done":false,"due":"besok"}]}\n' > "$DATA"
-  start_listener
-  [ "$(jq -c '.rows' <<< "$event")" = '[]' ]
+  for bad in '"due":"besok"' '"due":false' '"reminded":false'; do
+    printf '{"next_id":2,"items":[{"id":1,"text":"x","done":false,%s}]}\n' "$bad" > "$DATA"
+    start_listener
+    [ "$(jq -c '.rows' <<< "$event")" = '[]' ] || {
+      printf 'accepted corrupt field: %s\n' "$bad"
+      failed=1
+    }
+    stop_listener
+  done
+  [ "$failed" -eq 0 ]
 }
 
 @test "lists saved before deadlines existed still load" {

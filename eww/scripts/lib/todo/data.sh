@@ -8,8 +8,8 @@ TODO_EMPTY='{"next_id":1,"items":[]}'
 # shellcheck disable=SC2034 # read by lib/store.sh
 STORE_VALID_JQ='type == "object" and (.items | type) == "array"
   and all(.items[]; type == "object" and (.id | type) == "number" and (.text | type) == "string"
-    and (.done | type) == "boolean" and ((.due // 0) | type) == "number"
-    and ((.reminded // []) | type) == "array")'
+    and (.done | type) == "boolean" and (.due == null or (.due | type) == "number")
+    and (.reminded == null or (.reminded | type) == "array"))'
 # A stored list -> the list with next_id past every id.
 TODO_NORMALIZE_JQ='{next_id: ([(.next_id | numbers) // 0, ((.items | map(.id) | max) // 0) + 1] | max), items}'
 
