@@ -78,9 +78,20 @@ run_dir() { awk -F'|' 'NR == 1 { print $2 }' "$LOG"; }
   grep -qF "(defvar pos '{\"pos\":0}')" "$SEEN/yuck/vars.yuck"
   grep -q 'animation: none' "$SEEN/eww.scss"
   grep -q 'defwindow preview-backdrop' "$SEEN/eww.yuck"
+  grep -qF '.preview-backdrop { background-color: #808080; }' "$SEEN/eww.scss"
   grep -qF '(defvar bare "")' "$SEEN/yuck/vars.yuck"
   [ "$(grep -c ':y "300px"' "$SEEN/yuck/win.yuck")" -eq 2 ]
   ! grep -q ':y "0px"' "$SEEN/yuck/win.yuck"
+}
+
+@test "PREVIEW_BACKDROP sets a colour or, as background-image, a gradient" {
+  PREVIEW_BACKDROP='#1e2127' run "$PREVIEW" "$CFG" "$T/samples/pill.vars" "$T/out.png"
+  [ "$status" -eq 0 ]
+  grep -qF '.preview-backdrop { background-color: #1e2127; }' "$SEEN/eww.scss"
+  rm -rf "$SEEN" "$SEEN.mode"
+  PREVIEW_BACKDROP='linear-gradient(#333, #111)' run "$PREVIEW" "$CFG" "$T/samples/pill.vars" "$T/out.png"
+  [ "$status" -eq 0 ]
+  grep -qF '.preview-backdrop { background-image: linear-gradient(#333, #111); }' "$SEEN/eww.scss"
 }
 
 @test "the expanded card reveals the sample's tab after opening and crops the card" {

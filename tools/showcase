@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# showcase OUT_DIR: the README pictures. Every tools/samples/*.vars becomes
+# OUT_DIR/screenshots/NAME.png through tools/preview; then a scripted run of the island, with its
+# animations on, is recorded from the current DISPLAY into OUT_DIR/demo.gif: the music pill with a
+# moving equalizer, the card opening and stepping through its tabs, a volume alert, a notification.
+# The demo reuses the samples' values. SHOWCASE_CONFIG, SHOWCASE_SAMPLES, SHOWCASE_PACE (sleep
+# factor, 0 in tests) and PREVIEW_BACKDROP (a dark desktop-like gradient here) override the defaults.
+set -euo pipefail
+TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/preview.sh
+source "$TOOLS/lib/preview.sh"
+
+CONFIG=${SHOWCASE_CONFIG:-$TOOLS/../eww}
+SAMPLES=${SHOWCASE_SAMPLES:-$TOOLS/samples}
+PACE=${SHOWCASE_PACE:-1}
+export PREVIEW_BACKDROP=${PREVIEW_BACKDROP:-'linear-gradient(to bottom, #353b48, #1e2127)'}
+FPS=20
+WORK='' RECORDER='' STEP_US=100000 TICK=0 DEADLINE=''
+# Equalizer frames, cycled while the music pill shows.
+VIZ=('[4,9,6,12,7,3]' '[6,12,9,8,10,5]' '[9,7,12,5,6,8]' '[12,5,8,3,9,11]' '[7,3,10,6,12,9]'
+  '[5,8,6,11,8,12]' '[3,11,4,9,5,7]' '[8,6,9,12,3,5]' '[10,9,7,6,11,4]' '[6,4,11,8,7,10]')
+
+usage() {
+  if [[ -n ${1:-} ]]; then printf 'showcase: %s\n' "$1" >&2; fi
+  printf 'pemakaian: showcase OUT_DIR\n' >&2
+  exit 2
+}
+
+cleanup() {
+  if [[ -n $RECORDER ]]; then kill "$RECORDER" 2>/dev/null || :; wait "$RECORDER" 2>/dev/null || :; fi
+  preview_cleanup
+  if [[ -n $WORK ]]; then rm -rf "$WORK"; fi
+}
+
+# stills OUT_DIR: one PNG per sample; PNGs of samples that no longer exist are dropped.
+stills() {
+  local dir=$1/screenshots sample name
+  mkdir -p "$dir"
+  rm -f "$dir"/*.png
+  for sample in "$SAMPLES"/*.vars; do
+    [[ -f $sample ]] || continue
+    name=${sample##*/}
+    "$TOOLS/preview" "$CONFIG" "$sample" "$dir/${name%.vars}.png"
+  done
+}
+
+# sample NAME VAR...: the update lines of these variables in sample NAME (none when it is missing).
+sample() {
+  local file="$SAMPLES/$1.vars" line var
+  shift
+  [[ -f $file ]] || return 0
+  preview_sample "$file"
+  for line in "${SAMPLE_UPDATES[@]}"; do
+    for var in "$@"; do
+      if [[ ${line%%=*} == "$var" ]]; then printf '%s\n' "$line"; fi
+    done
+  done
+}
+
+# up LINE...: update the daemon with the given var=json lines, if any.
+up() { if (( $# )); then ew update "$@"; fi; }
+# ticks N: N tenths of a second against a running deadline, so slow eww calls do not stretch
+# the demo; the equalizer moves every tick.
+ticks() {
+  local i now left pause
+  for (( i = 0; i < $1; i++ )); do
+    ew update "viz=${VIZ[TICK % ${#VIZ[@]}]}"
+    TICK=$(( TICK + 1 ))
+    now=${EPOCHREALTIME/[.,]/}
+    DEADLINE=$(( ${DEADLINE:-$now} + STEP_US ))
+    left=$(( DEADLINE - now ))
+    if (( left > 0 )); then
+      printf -v pause '%d.%06d' $(( left / 1000000 )) $(( left % 1000000 ))
+      sleep "$pause"
+    fi
+  done
+}
+
+# scenario: the demo, about 11 s at PACE 1.
+scenario() {
+  local tab level
+  local -a lines
+  ticks 14
+  # Hovered: the card slides down over the pill on the music tab (scripts/island expand).
+  up island_reveal=false island_tab=musik
+  ew open island-expanded >/dev/null
+  up island_reveal=true
+  ticks 13
+  for tab in cuaca notif tugas pintasan; do
+    up "island_tab=$tab"
+    ticks 9
+  done
+  up island_reveal=false
+  ticks 3
+  ew close island-expanded >/dev/null
+  ticks 3
+  for level in 45 50 55 60 65; do
+    up "alert={\"kind\":\"volume\",\"icon\":\"$(printf '\uF028')\",\"text\":\"Volume\",\"value\":\"$level%\",\"level\":$level,\"image\":\"\"}"
+    ticks 2
+  done
+  ticks 8
+  up 'alert={"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
+  ticks 4
+  mapfile -t lines < <(sample pill-notify notify)
+  up "${lines[@]}"
+  ticks 16
+  up 'notify={"active":false,"id":0,"app":"","summary":"","body":"","icon":"","image":"","critical":false}'
+  ticks 6
+}
+
+demo() {
+  local out=$1 raw
+  local -a lines
+  preview_prepare "$CONFIG"
+  preview_start
+  ew open island >/dev/null
+  mapfile -t lines < <(sample card-music-ytm media lyrics status ytm marquee pos weather
+    sample card-notif notif_center; sample card-todo todo; sample card-shortcuts-dnd shortcuts)
+  up "${lines[@]}"
+  ticks 10
+  WORK=$(mktemp -d /tmp/island-showcase.XXXX)
+  raw=$WORK/demo.mkv
+  ffmpeg -nostdin -loglevel error -f x11grab -framerate "$FPS" -video_size 520x230 -draw_mouse 0 \
+    -i "${DISPLAY:-:0}+700,300" -c:v ffv1 "$raw" &
+  RECORDER=$!
+  ticks 3
+  scenario
+  # ffmpeg finishes the file on TERM.
+  kill -TERM "$RECORDER"
+  wait "$RECORDER" || :
+  RECORDER=''
+  [[ -s $raw ]] || { printf 'showcase: rekaman kosong\n' >&2; return 1; }
+  ffmpeg -nostdin -loglevel error -y -i "$raw" -vf "fps=$FPS,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
+    -loop 0 "$out"
+}
+
+main() {
+  (( $# == 1 )) || usage
+  local out=$1 tool
+  for tool in eww import ffmpeg; do
+    command -v "$tool" >/dev/null 2>&1 || usage "$tool tidak tersedia"
+  done
+  [[ -d $CONFIG ]] || usage "config tidak ada: $CONFIG"
+  STEP_US=$(awk -v p="$PACE" 'BEGIN { printf "%d", 100000 * p }')
+  trap cleanup EXIT
+  mkdir -p "$out"
+  stills "$out"
+  demo "$out/demo.gif"
+}
+
+main "$@"

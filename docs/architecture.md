@@ -56,6 +56,8 @@ eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sour
 eww/{players,shortcuts}    konfigurasi pengguna; cava.conf, dunst-osd.conf, _colors.scss
 tools/check                gerbang ukuran file, shellcheck, py_compile
 tools/preview              render satu jendela dari sampel ke PNG; sampel di tools/samples/*.vars
+tools/showcase             semua sampel ke docs/assets/screenshots/*.png plus demo.gif (ffmpeg x11grab)
+tools/lib/preview.sh       salinan config beku + daemon privat, dipakai preview dan showcase
 tests/<area>/              tes bats per area (common.bash bersama); tests/lib/ untuk framework; tests/lyrics/ Python
 ```
 
@@ -288,6 +290,7 @@ Nama `jadwal`, `fan`, dan `catatan` di bawah hanya contoh.
   # ...ubah kode, lalu render ulang ke /tmp/island-new dengan loop yang sama...
   compare -metric AE ~/.cache/island-baseline/card-todo.png /tmp/island-new/card-todo.png /tmp/diff.png
   ```
+- **Aset README**: `tools/showcase docs/assets` merender setiap sampel ke `docs/assets/screenshots/<nama>.png` (PNG sampel yang sudah tidak ada dihapus), lalu menjalankan satu daemon dengan animasi menyala dan merekam skenario ±12 detik (pill musik, kartu terbuka dan berpindah tab, alert volume, notifikasi) dari wilayah 520×230 di y=300 dengan `ffmpeg -f x11grab` menjadi `docs/assets/demo.gif`. Nilai demo diambil dari sampel (`card-music-ytm`, `card-notif`, `card-todo`, `card-shortcuts-dnd`, `pill-notify`). Latar belakang render diatur `PREVIEW_BACKDROP` (warna atau `linear-gradient(...)` CSS): `tools/preview` memakai `#808080` agar baseline perbandingan piksel tetap sama, `tools/showcase` memakai gradien gelap mirip desktop. Jangan gerakkan mouse selama perekaman; tooltip disembunyikan dan `scripts/island` di salinan diganti no-op agar pointer di atas wilayah itu tidak mengubah gambar.
 
 ### Quirk eww 0.5
 | Quirk | Akibat di proyek |
