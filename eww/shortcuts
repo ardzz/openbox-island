@@ -1,0 +1,11 @@
+# Pintasan: tombol di tab "Pintasan" kartu island, urut kiri ke kanan, tiga per baris.
+# Format per baris:  IKON | LABEL | PERINTAH [| STATUS]
+# PERINTAH dijalankan lewat sh setelah kartu tertutup, terlepas dari eww; tanpa karakter |
+# (bungkus pipeline dalam skrip). STATUS opsional: dnd = tombol menyala saat Jangan Ganggu aktif.
+# Baris kosong dan baris berawalan # diabaikan; perubahan langsung terbaca.
+󰩭 | Screenshot    | ob-screenshot --area
+󰈋 | Color picker  | ob-colorpicker
+󰍁 | Kunci layar   | betterlockscreen --lock
+󰂛 | Jangan ganggu | dunstctl set-paused toggle | dnd
+󰂯 | Bluetooth     | rofi-bluetooth
+󰐥 | Daya          | rofi-powermenu

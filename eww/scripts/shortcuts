@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# shortcuts list | watch | run ID
+# Shortcut buttons of the expanded card's "pintasan" tab, read from eww/shortcuts
+# (ISLAND_SHORTCUTS overrides the path). Line format: ICON | LABEL | COMMAND [| STATE].
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$DIR/lib.sh"
+FILE="${ISLAND_SHORTCUTS:-${DIR%/scripts}/shortcuts}"
+PER_ROW=3
+# A STATE names a boolean of the eww status variable the button lights up with.
+STATES=(dnd)
+
+# trim VAR: strip leading and trailing whitespace from VAR in place.
+trim() {
+  local -n v=$1
+  v=${v#"${v%%[![:space:]]*}"}
+  v=${v%"${v##*[![:space:]]}"}
+}
+
+# parse: valid lines into icons, labels, commands and states; bad lines are reported on stderr.
+parse() {
+  local line n=0 seps icon label cmd state
+  icons=() labels=() commands=() states=()
+  [[ -r $FILE ]] || return 0
+  while IFS= read -r line || [[ -n $line ]]; do
+    n=$(( n + 1 ))
+    line=${line%$'\r'}
+    [[ $line =~ ^[[:space:]]*(#|$) ]] && continue
+    seps=${line//[^|]/}
+    IFS='|' read -r icon label cmd state <<< "$line"
+    trim icon; trim label; trim cmd; trim state
+    if (( ${#seps} < 2 || ${#seps} > 3 )) || [[ -z $icon || -z $label || -z $cmd ]] \
+      || [[ -n $state && " ${STATES[*]} " != *" $state "* ]]; then
+      printf 'shortcuts: baris %d diabaikan: %s\n' "$n" "$line" >&2
+      continue
+    fi
+    icons+=("$icon") labels+=("$label") commands+=("$cmd") states+=("$state")
+  done < "$FILE"
+}
+
+# list: the shortcuts as JSON rows of PER_ROW buttons, [[{id,icon,label,state},...],...].
+list() {
+  local i icons labels commands states
+  parse
+  for i in "${!icons[@]}"; do
+    printf '%s\x1f%s\x1f%s\n' "${icons[i]}" "${labels[i]}" "${states[i]}"
+  done | jq -Rnc --argjson per "$PER_ROW" '[inputs | split("\u001f")]
+    | [to_entries[] | {id: .key, icon: .value[0], label: .value[1], state: .value[2]}]
+    | [range(0; length; $per) as $i | .[$i:$i + $per]]'
+}
+
+# watch: print the list, then again whenever a file next to the config changes it.
+watch() {
+  local dir json last='' waiter=''
+  dir=$(dirname -- "$FILE")
+  trap '[[ -z $waiter ]] || kill "$waiter" 2>/dev/null; exit 0' TERM INT HUP
+  while true; do
+    json=$(list)
+    if [[ $json != "$last" ]]; then printf '%s\n' "$json"; last=$json; fi
+    require inotifywait || return 0
+    # In the background so a stop signal is handled at once and takes the waiter along.
+    inotifywait -qq -e close_write,moved_to,create,delete -- "$dir" 2>/dev/null & waiter=$!
+    wait "$waiter" || poll_sleep 5
+    waiter=''
+  done
+}
+
+# detach CMD...: run CMD in its own session, outside eww's pipes.
+detach() { setsid -f "$@" < /dev/null > /dev/null 2>&1; }
+
+# run ID: close the card first (a screenshot must not catch it), then launch shortcut ID.
+run() {
+  local id=$1 cmd words prog icons labels commands states
+  [[ $id =~ ^[0-9]+$ ]] || { usage; return; }
+  parse 2>/dev/null
+  (( 10#$id < ${#commands[@]} )) || { usage; return; }
+  cmd=${commands[10#$id]}
+  "$DIR/island" dismiss
+  read -r -a words <<< "$cmd"
+  for prog in "${words[@]}"; do [[ $prog =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || break; done
+  if ! command -v -- "$prog" > /dev/null 2>&1; then
+    printf 'shortcuts: perintah %s tidak ditemukan\n' "$prog" >&2
+    detach notify-send -a Pintasan "Perintah tidak ditemukan" "$prog"
+    return 127
+  fi
+  detach sh -c "$cmd"
+}
+
+usage() { echo "usage: shortcuts list | watch | run ID" >&2; return 2; }
+
+main() {
+  case ${1:-} in
+    list) list ;;
+    watch) watch ;;
+    run) run "${2:-}" ;;
+    *) usage ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

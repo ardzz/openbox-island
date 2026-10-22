@@ -5,6 +5,8 @@ setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" EXPECTED_CFG="$REPO/eww"
   export FAKE_EWW_LOG="$BATS_TEST_TMPDIR/eww.log" FAKE_EWW_ACTIVE="$BATS_TEST_TMPDIR/active"
   export FAKE_POINTER="$BATS_TEST_TMPDIR/pointer" FAKE_WEATHER="$BATS_TEST_TMPDIR/weather"
+  # No shortcuts config unless a test writes one.
+  export ISLAND_SHORTCUTS="$BATS_TEST_TMPDIR/shortcuts"
   ST="$XDG_RUNTIME_DIR/eww-island"
   : > "$FAKE_EWW_LOG"; printf 'island: island\n' > "$FAKE_EWW_ACTIVE"; away
   cat > "$BIN/eww" <<'EOF'
@@ -49,6 +51,7 @@ music() { mkdir -p "$ST"; echo '{"state":"playing","title":"Lagu"}' > "$ST/media
 no_music() { mkdir -p "$ST"; echo '{"state":"none","title":""}' > "$ST/media.json"; }
 weather() { echo '{"ok":true}' > "$FAKE_WEATHER"; }
 saved() { mkdir -p "$ST"; echo "$1" > "$ST/tab"; }
+shortcuts() { printf 'x | Kunci | true\n' > "$ISLAND_SHORTCUTS"; }
 stub_hover_sleep() {
   export FAKE_SLEEP_LOG="$BATS_TEST_TMPDIR/sleep.log"
   : > "$FAKE_SLEEP_LOG"
@@ -319,4 +322,63 @@ wait_for_calls() {
   [ "$status" -eq 0 ]
   sleep 0.2
   [ "$(calls)" = "" ]
+}
+
+@test "hover over the idle pill opens the shortcuts when nothing else has content" {
+  stub_hover_sleep; on_compact; no_music; shortcuts
+  run "$SCRIPTS/island" hover
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = $'update island_reveal=false island_tab=pintasan\nopen island-expanded\nupdate island_reveal=true' ]
+}
+
+@test "hover prefers music over shortcuts when no tab is saved" {
+  stub_hover_sleep; on_compact; music; shortcuts
+  run "$SCRIPTS/island" hover
+  [ "$(calls)" = "$OPEN" ]
+}
+
+@test "dismiss hides and closes the card even with the pointer on it" {
+  expanded; on_expanded_only; auto_running
+  run "$SCRIPTS/island" dismiss
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = "$CLOSE" ]
+  [ "$(cat "$ST/auto_until")" = 0 ]
+}
+
+@test "dismiss tells the notification listeners the pill is back" {
+  mkdir -p "$ST"; mkfifo "$ST/notify.fifo" "$ST/notif.fifo"
+  exec {notify_fd}<> "$ST/notify.fifo" {notif_fd}<> "$ST/notif.fifo"
+  expanded; on_expanded_only
+  run "$SCRIPTS/island" dismiss
+  IFS= read -r -t 1 -u "$notify_fd" signal
+  [ "$signal" = '@expanded 0' ]
+  IFS= read -r -t 1 -u "$notif_fd" signal
+  [ "$signal" = '@expanded 0' ]
+}
+
+@test "dismiss on a collapsed island touches nothing" {
+  run "$SCRIPTS/island" dismiss
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = "" ]
+}
+
+@test "dismiss and hide tell the to-do list to scroll back to the top" {
+  mkdir -p "$ST"; mkfifo "$ST/todo.fifo"
+  exec {todo_fd}<> "$ST/todo.fifo"
+  expanded; on_expanded_only
+  run "$SCRIPTS/island" dismiss
+  IFS= read -r -t 1 -u "$todo_fd" signal
+  [ "$signal" = '@expanded 0' ]
+  expanded
+  run "$SCRIPTS/island" hide
+  IFS= read -r -t 1 -u "$todo_fd" signal
+  [ "$signal" = '@expanded 0' ]
+}
+
+@test "dismiss while a fullscreen window hides the island keeps it hidden" {
+  mkdir -p "$ST"; : > "$ST/fullscreen"; : > "$FAKE_EWW_ACTIVE"
+  run "$SCRIPTS/island" dismiss
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = "" ]
+  [ -e "$ST/fullscreen" ]
 }

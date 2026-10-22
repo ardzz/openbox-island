@@ -40,7 +40,7 @@
   :geometry (geometry :x "0px" :y "0px" :width "508px" :height "44px" :anchor "top center")
   :wm-ignore true
   ; Hovering a shown notification never expands the island: the pointer is on its way to click it.
-  ; Otherwise the card always has a tab to show: the to-do list.
+  ; Otherwise the card always has a tab to open: at least the to-do list.
   (eventbox :onhover {notify.active && alert.kind == "" ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
     ; The pill hangs from the top edge; the ears beside it curve into the screen edge like a notch.
     (box :halign "center" :valign "start" :visible {!island_reveal} :orientation "h" :space-evenly false
@@ -130,16 +130,17 @@
        (box :orientation "h" :space-evenly false
         (box :class "ear ear-left" :valign "start")
         ; The header shows once two or more tabs have content (count each tab's condition; the to-do list always counts).
-        (box :class "pill pill-expanded ${(media.state != 'none' ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) + 1 >= 2 ? 'with-tabs' : ''}"
+        (box :class "pill pill-expanded ${(media.state != 'none' ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) + 1 + (shortcuts == '[]' ? 0 : 1) >= 2 ? 'with-tabs' : ''}"
              :orientation "v" :space-evenly false
           ; eww's onscroll only reports vertical scrolling: up/down over the header switches tabs.
-          (revealer :transition "none" :reveal {(media.state != "none" ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) + 1 >= 2}
+          (revealer :transition "none" :reveal {(media.state != "none" ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) + 1 + (shortcuts == "[]" ? 0 : 1) >= 2}
             (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/tab {} &"
               (box :class "tabs" :orientation "h" :halign "center" :space-evenly false :spacing 4
                 (tab-chip :id "musik" :label "Musik" :available {media.state != "none"})
                 (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok})
                 (tab-chip :id "notif" :label {notif_center.label} :available {notif_center.total > 0})
-                (tab-chip :id "tugas" :label {todo.label} :available true))))
+                (tab-chip :id "tugas" :label {todo.label} :available true)
+                (tab-chip :id "pintasan" :label "Pintasan" :available {shortcuts != "[]"}))))
           (revealer :transition "none" :reveal {island_tab == "musik"}
         (box :class "page" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 14
@@ -274,5 +275,16 @@
                    :text {todo.more > 0 ? "+${todo.more} lainnya" : ""})
             (revealer :transition "none" :reveal {todo.done > 0}
               (button :class "notif-clear" :onclick "${EWW_CONFIG_DIR}/scripts/todo clear-done &" "Bersihkan selesai"))
-            (button :class "notif-clear todo-add" :onclick "${EWW_CONFIG_DIR}/scripts/todo prompt &" "+ Tambah")))))
+            (button :class "notif-clear todo-add" :onclick "${EWW_CONFIG_DIR}/scripts/todo prompt &" "+ Tambah"))))
+          ; Shortcut buttons, three per row; a click closes the card first, then launches.
+          (revealer :transition "none" :reveal {island_tab == "pintasan"}
+        (box :class "page shortcuts" :orientation "v" :space-evenly false :spacing 8
+          (for row in {shortcuts}
+            (box :orientation "h" :halign "center" :space-evenly false :spacing 8
+              (for s in {row}
+                (button :class "shortcut ${s.state == 'dnd' && status.dnd ? 'on' : ''}" :width 140
+                        :tooltip {s.label} :onclick "${EWW_CONFIG_DIR}/scripts/shortcuts run ${s.id} &"
+                  (box :orientation "v" :valign "center" :space-evenly false :spacing 2
+                    (label :class "shortcut-icon" :text {s.icon})
+                    (label :class "shortcut-label" :text {s.label} :limit-width 18 :show-truncated true)))))))))
         (box :class "ear ear-right" :valign "start"))))))

@@ -5,6 +5,8 @@ setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" EXPECTED_CFG="$REPO/eww"
   export FAKE_EWW_LOG="$BATS_TEST_TMPDIR/eww.log" FAKE_WEATHER="$BATS_TEST_TMPDIR/weather"
   export FAKE_TAB="$BATS_TEST_TMPDIR/island_tab" FAKE_NOTIF="$BATS_TEST_TMPDIR/notif_center"
+  # No shortcuts config unless a test writes one.
+  export ISLAND_SHORTCUTS="$BATS_TEST_TMPDIR/shortcuts"
   ST="$XDG_RUNTIME_DIR/eww-island"; mkdir -p "$ST"
   : > "$FAKE_EWW_LOG"
   # Fake eww: `get` answers weather and island_tab without logging; other calls are logged.
@@ -37,6 +39,7 @@ shown() { printf '%s\n' "$1" > "$FAKE_TAB"; }
 both() { music; weather; }
 notif() { printf '{"total":%s,"unread":0,"rows":[]}\n' "${1:-2}" > "$FAKE_NOTIF"; }
 no_notif() { notif 0; }
+shortcuts() { printf 'x | Kunci | true\n' > "$ISLAND_SHORTCUTS"; }
 
 @test "resolve picks the first tab in order when nothing is saved" {
   both
@@ -246,4 +249,60 @@ no_notif() { notif 0; }
   rm -f "$ST/tab_at"
   run "$SCRIPTS/tab" next
   [ "$(cat "$FAKE_TAB")" = musik ]
+}
+
+@test "the shortcuts tab is offered while its config has a shortcut" {
+  no_music; no_weather; no_notif; shortcuts
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = pintasan ]
+  printf '# kosong\n\nrusak tanpa kolom\n' > "$ISLAND_SHORTCUTS"
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = musik ]
+}
+
+@test "music, weather and notifications come before shortcuts when nothing is saved" {
+  no_weather; no_notif; shortcuts; music
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = musik ]
+  no_music; weather
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = cuaca ]
+  no_weather; notif
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = notif ]
+}
+
+@test "a saved shortcuts tab reopens" {
+  both; notif; shortcuts; saved pintasan
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = pintasan ]
+}
+
+@test "the shortcuts tab comes last and wraps to the first" {
+  both; notif; shortcuts; shown notif
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = pintasan ]
+  rm -f "$ST/tab_at"
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = musik ]
+  rm -f "$ST/tab_at"
+  run "$SCRIPTS/tab" prev
+  [ "$(cat "$FAKE_TAB")" = pintasan ]
+}
+
+@test "select accepts the shortcuts tab" {
+  shortcuts
+  run "$SCRIPTS/tab" select pintasan
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ST/tab")" = pintasan ]
+  [ "$(calls)" = 'update island_tab=pintasan' ]
+}
+
+@test "the to-do tab sits between notifications and shortcuts" {
+  both; notif; shortcuts; shown notif; mkfifo "$ST/todo.fifo"
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = tugas ]
+  rm -f "$ST/tab_at"
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = pintasan ]
 }
