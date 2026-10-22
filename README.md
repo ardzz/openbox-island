@@ -62,6 +62,7 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 | `screenshot` | `Tangkapan layar` dengan nama berkas dan thumbnail gambar sebagai pengganti ikon, saat berkas `.png`/`.jpg`/`.jpeg` baru selesai ditulis atau dipindahkan ke folder tangkapan layar |
 | `temperature` | `CPU panas` atau `GPU panas` dengan suhunya, sekali saat suhu mencapai batas (CPU 95 °C, GPU 87 °C; ubah dengan `ISLAND_TEMP_CPU`/`ISLAND_TEMP_GPU`); muncul lagi hanya setelah suhu turun di bawah batas − 5 °C. Ikon berwarna merah |
 | `capslock` | `Caps Lock nyala` atau `Caps Lock mati` saat status LED Caps Lock keyboard (`/sys/class/leds/*::capslock`, dibaca setiap 0,25 detik) berubah |
+| `power` | `Mode daya` dengan nama mode (`Hemat daya`, `Seimbang`, `Performa`, `Daya maksimum`, `Kustom`; nilai lain apa adanya) dan ikon per mode, saat profil daya ACPI (`/sys/firmware/acpi/platform_profile`, misalnya lewat Fn+Q di Lenovo Legion; dibaca setiap 2 detik, ubah dengan `ISLAND_POWER_INTERVAL`) berubah |
 
 Folder tangkapan layar: `ISLAND_SCREENSHOT_DIR` jika diset, selain itu `$(xdg-user-dir PICTURES)/Screenshots`, sama dengan `ob-screenshot`/Satty. Jika folder Gambar XDG belum diatur, `xdg-user-dir` menjawab `$HOME`, sehingga folder yang dipantau adalah `~/Screenshots`. Folder dibuat jika belum ada.
 

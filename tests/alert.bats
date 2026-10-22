@@ -5,6 +5,7 @@ setup() {
   export ALERT_FIXTURE="$BATS_TEST_TMPDIR"
   export ISLAND_HWMON="$BATS_TEST_TMPDIR/hwmon" ISLAND_LEDS="$BATS_TEST_TMPDIR/leds"
   export ISLAND_SCREENSHOT_DIR="$BATS_TEST_TMPDIR/shots"
+  export ISLAND_PLATFORM_PROFILE="$BATS_TEST_TMPDIR/platform_profile"
   unset ISLAND_TEMP_CPU ISLAND_TEMP_GPU
   BIN="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$BIN" "$XDG_RUNTIME_DIR" "$ISLAND_HWMON" "$ISLAND_LEDS"
@@ -137,6 +138,7 @@ make_fakes() {
   make_hwmon hwmon3 'CPU Temperature:50000' 'GPU Temperature:50000'
   mkdir -p "$ISLAND_LEDS/input3::capslock"
   printf '0\n' > "$ISLAND_LEDS/input3::capslock/brightness"
+  printf 'performance\n' > "$ISLAND_PLATFORM_PROFILE"
   cat > "$BIN/pactl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$ALERT_FIXTURE/audio-queries"
@@ -607,9 +609,36 @@ set_led() {
   [ "$(jq -sc 'map(.text)' "$RESULT")" = '["Caps Lock mati"]' ]
 }
 
+set_profile() {
+  printf '%s\n' "$1" > "$ISLAND_PLATFORM_PROFILE"
+}
+
+@test "power profile changes emit the mode name with a per-mode icon after a silent baseline" {
+  set_profile performance
+  {
+    power_snapshot
+    power_snapshot
+    set_profile low-power; power_snapshot
+    set_profile balanced; power_snapshot
+    power_snapshot
+    set_profile performance; power_snapshot
+    set_profile max-power; power_snapshot
+    set_profile custom; power_snapshot
+    set_profile quiet; power_snapshot
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["power","Mode daya","Hemat daya",-1,""],["power","Mode daya","Seimbang",-1,""],["power","Mode daya","Performa",-1,""],["power","Mode daya","Daya maksimum",-1,""],["power","Mode daya","Kustom",-1,""],["power","Mode daya","quiet",-1,""]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F032A|\U000F05D1|\U000F04C5|\U000F0463|\U000F062E|\U000F062E' ]
+}
+
+@test "power profile snapshot fails without emitting when the file is unreadable" {
+  run power_snapshot
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+}
+
 @test "sources without their tools, sensors or LEDs are skipped with a note" {
   local source
-  for source in bluetooth screenshot temperature capslock; do
+  for source in bluetooth screenshot temperature capslock power; do
     run bash -c 'source "$2"; PATH=$1; source_worker "$3"' _ "$BIN" "$SCRIPTS/alert" "$source"
     [ "$status" -eq 0 ]
     case $source in
@@ -617,13 +646,14 @@ set_led() {
       screenshot) [ "$output" = 'alert: sumber screenshot dilewati, inotifywait tidak tersedia' ] ;;
       temperature) [ "$output" = 'alert: sumber temperature dilewati, sensor suhu tidak ditemukan' ] ;;
       capslock) [ "$output" = 'alert: sumber capslock dilewati, LED Caps Lock tidak ditemukan' ] ;;
+      power) [ "$output" = 'alert: sumber power dilewati, platform_profile tidak ditemukan' ] ;;
     esac
   done
 }
 
 start_listener() {
   make_fakes
-  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_CAPS_INTERVAL=0.02 ISLAND_TEMP_INTERVAL=0.05
+  export ISLAND_HUD_SECONDS=0.25 ISLAND_ALERT_SECONDS=0.4 ISLAND_CAPS_INTERVAL=0.02 ISLAND_TEMP_INTERVAL=0.05 ISLAND_POWER_INTERVAL=0.02
   mkfifo "$ALERT_FIXTURE/output"
   exec {output_fd}<> "$ALERT_FIXTURE/output"
   "$SCRIPTS/alert" > "$ALERT_FIXTURE/output" 2> "$ALERT_FIXTURE/stderr" &
@@ -703,6 +733,17 @@ start_listener() {
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$(jq -c '[.kind,.text,.level]' <<< "$event")" = '["capslock","Caps Lock nyala",-1]' ]
   IFS= read -r -t 0.35 -u "$output_fd" event
+  [ "$event" = "$CLEAR" ]
+}
+
+@test "power profile changes reach the listener with the alert hold" {
+  start_listener
+  ! IFS= read -r -t 0.1 -u "$output_fd" event
+  printf 'balanced\n' > "$ISLAND_PLATFORM_PROFILE"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.value,.level]' <<< "$event")" = '["power","Mode daya","Seimbang",-1]' ]
+  ! IFS= read -r -t 0.29 -u "$output_fd" event
+  IFS= read -r -t 1 -u "$output_fd" event
   [ "$event" = "$CLEAR" ]
 }
 

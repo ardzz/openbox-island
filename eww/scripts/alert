@@ -30,6 +30,11 @@ ICON_PHONE=$'\U000F011C'
 ICON_CAMERA=$'\U000F0100'
 ICON_THERMOMETER=$'\U000F050F'
 ICON_CAPS=$'\U000F0632'
+ICON_POWER_SAVER=$'\U000F032A'
+ICON_POWER_BALANCED=$'\U000F05D1'
+ICON_POWER_PERFORMANCE=$'\U000F04C5'
+ICON_POWER_MAX=$'\U000F0463'
+ICON_POWER_CUSTOM=$'\U000F062E'
 CLEAR_JSON='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
 BT_CONNECTED_RE="^/org/bluez/hci[0-9]+/dev_([0-9A-Fa-f_]{17}): org\\.freedesktop\\.DBus\\.Properties\\.PropertiesChanged \\('org\\.bluez\\.Device1', \\{.*'Connected': <(true|false)>"
 declare -gA wifi_states=() bt_states=() temp_inputs=() temp_states=()
@@ -346,6 +351,24 @@ capslock_snapshot() {
   caps_state=$state
 }
 
+# power_snapshot: alert on ACPI platform profile changes (Fn+Q). Fails when the file is unreadable.
+power_snapshot() {
+  local profile='' icon=$ICON_POWER_CUSTOM value
+  IFS= read -r profile 2>/dev/null < "${ISLAND_PLATFORM_PROFILE:-/sys/firmware/acpi/platform_profile}" || [[ -n $profile ]] || return 1
+  if [[ -n ${power_profile:-} && $profile != "$power_profile" ]]; then
+    value=$profile
+    case $profile in
+      low-power) icon=$ICON_POWER_SAVER value='Hemat daya' ;;
+      balanced) icon=$ICON_POWER_BALANCED value=Seimbang ;;
+      performance) icon=$ICON_POWER_PERFORMANCE value=Performa ;;
+      max-power) icon=$ICON_POWER_MAX value='Daya maksimum' ;;
+      custom) value=Kustom ;;
+    esac
+    alert_json power "$icon" 'Mode daya' "$value" -1
+  fi
+  power_profile=$profile
+}
+
 stop_children() {
   local pid
   if [[ -n ${monitor_pid:-} ]]; then kill "$monitor_pid" 2>/dev/null || :; fi
@@ -423,6 +446,15 @@ source_worker() {
         poll_sleep "${ISLAND_CAPS_INTERVAL:-0.25}"
         capslock_snapshot || :
       done ;;
+    power)
+      if ! power_snapshot > /dev/null; then
+        printf 'alert: sumber power dilewati, platform_profile tidak ditemukan\n' >&2
+        return 0
+      fi
+      while true; do
+        poll_sleep "${ISLAND_POWER_INTERVAL:-2}"
+        power_snapshot || :
+      done ;;
   esac
 }
 
@@ -455,7 +487,7 @@ main() {
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
   printf '%s\n' "$CLEAR_JSON"
-  for source in audio brightness battery wifi bluetooth screenshot temperature capslock; do
+  for source in audio brightness battery wifi bluetooth screenshot temperature capslock power; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done
