@@ -39,8 +39,11 @@ CREDIT = re.compile(
 )
 ARTIST_PART = re.compile(r"[()\[\]]|, | & | x | × | / | feat\. | ft\. | featuring | with ")
 ARTIST_ALIAS = re.compile(r"^(.*?)\s*(?:\(([^()]*)\)|\[([^\[\]]*)\])$")
-CacheEntry = namedtuple("CacheEntry", "lines fresh")
-LookupResult = namedtuple("LookupResult", "lines retry_at", defaults=(None,))
+VIDEO_ID = re.compile(r"[A-Za-z0-9_-]{11}")
+SOURCES = ["lrclib", "netease"]
+YTM_SOURCES = ["ytmusic", "lrclib", "netease"]
+CacheEntry = namedtuple("CacheEntry", "lines fresh plain", defaults=(None,))
+LookupResult = namedtuple("LookupResult", "lines retry_at plain", defaults=(None, None))
 _next_request = 0.0
 _cooldowns = {"lrclib": 0.0, "netease": 0.0}
 
@@ -98,6 +101,11 @@ def identity(track):
             normalize_artist(track.get("artist", "")), duration_of(track.get("length"))]
 
 
+def is_ytm(track):
+    player = track.get("player", "")
+    return player == "ytm_player" or player.startswith("ytm_player.")
+
+
 def parse_lrc(text):
     if not isinstance(text, str) or len(text) > MAX_BYTES:
         return []
@@ -131,6 +139,14 @@ def line_at(lines, position_ms):
         return None
     index = bisect_right(lines, position_ms, key=lambda row: row[0]) - 1
     return lines[index][1] if index >= 0 else None
+
+
+def plain_line_at(lines, position_ms, duration):
+    # Plain lyrics carry no timing; spread the lines evenly over the track as an estimate.
+    if not lines or position_ms is None or duration is None:
+        return None
+    index = int(max(0, position_ms) * len(lines) // (duration * 1000))
+    return lines[min(index, len(lines) - 1)]
 
 
 def choose_candidate(track, candidates):
@@ -177,6 +193,12 @@ def valid_lines(value):
     return nonempty
 
 
+def valid_plain(value):
+    return (isinstance(value, list) and 0 < len(value) <= 20000
+            and all(isinstance(line, str) and line and len(line) <= 16000
+                    and single_line(line) == line for line in value))
+
+
 class LyricsCache:
     def __init__(self, directory):
         self.directory = Path(directory)
@@ -201,22 +223,33 @@ class LyricsCache:
             lines = data.get("lines")
             if "lines" not in data or (lines is not None and not valid_lines(lines)):
                 return None
-            if lines is None and data.get("negative") != ["lrclib", "netease"]:
-                return None
+            plain = None
+            if lines is None:
+                # Negative entries name the sources that confirmed the miss; one written without
+                # YouTube Music must not hide it from ytm_player.
+                negative = data.get("negative")
+                if negative not in (SOURCES, YTM_SOURCES) or (is_ytm(track) and negative != YTM_SOURCES):
+                    return None
+                plain = data.get("plain")
+                if plain is not None and (negative != YTM_SOURCES or not valid_plain(plain)):
+                    return None
             ttl = 30 * DAY if lines is not None else DAY
-            return CacheEntry(None if lines is None else [tuple(row) for row in lines], now - saved < ttl)
+            return CacheEntry(None if lines is None else [tuple(row) for row in lines],
+                              now - saved < ttl, plain)
         except (OSError, ValueError, TypeError, RecursionError):
             return None
 
-    def write(self, track, lines, now):
-        if lines is not None and not valid_lines(lines):
+    def write(self, track, lines, now, negative=SOURCES, plain=None):
+        if (lines is not None and not valid_lines(lines)) or (plain is not None and not valid_plain(plain)):
             return
         temporary = None
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
             data = {"version": CACHE_VERSION, "identity": identity(track), "saved_at": now, "lines": lines}
             if lines is None:
-                data["negative"] = ["lrclib", "netease"]
+                data["negative"] = list(negative)
+                if plain is not None:
+                    data["plain"] = plain
             with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.directory,
                                              prefix=".lyrics-", delete=False) as handle:
                 temporary = Path(handle.name)
@@ -350,19 +383,82 @@ def netease_lyrics(track):
     return lines if any(content for _, content in lines) else None
 
 
+def ytm_video_id(track):
+    # ytm_player's MPRIS trackid is a constant path, so ask its CLI for the video id.
+    try:
+        result = subprocess.run(["ytm", "status"], capture_output=True, text=True, timeout=2, check=True)
+        status = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError, RecursionError) as error:
+        raise OSError("ytm status failed: " + str(error)) from error
+    current = status.get("track") if isinstance(status, dict) else None
+    if not isinstance(current, dict):
+        raise OSError("ytm status has no current track")
+    video_id = current.get("video_id")
+    title = current.get("title")
+    if (not isinstance(video_id, str) or not VIDEO_ID.fullmatch(video_id)
+            or not isinstance(title, str) or normalize_title(title) != identity(track)[0]):
+        raise OSError("ytm status does not describe the current track")
+    return video_id
+
+
+def ytmusic_lyrics(track):
+    """Return (synced lines, plain lines) from YouTube Music; (None, None) when it has none."""
+    auth = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "ytm-player" / "auth.json"
+    if not auth.is_file():
+        return None, None
+    try:
+        from ytmusicapi import YTMusic
+    except ImportError:
+        return None, None
+    video_id = ytm_video_id(track)
+    try:
+        client = YTMusic(str(auth))
+        browse_id = client.get_watch_playlist(videoId=video_id, limit=1).get("lyrics")
+        if not browse_id:
+            return None, None
+        try:
+            found = client.get_lyrics(browse_id, timestamps=True)
+        except Exception:
+            # The timed (mobile client) request can fail with HTTP 400 where the plain one works.
+            found = client.get_lyrics(browse_id, timestamps=False)
+    except Exception as error:
+        # ytmusicapi raises its own, requests and parsing errors; all are worth a later retry.
+        raise OSError("ytmusic request failed: " + str(error)) from error
+    body = found.get("lyrics") if isinstance(found, dict) else None
+    if isinstance(body, list) and found.get("hasTimestamps") is True:
+        try:
+            lines = sorted(((row.start_time, single_line(row.text)) for row in body), key=lambda row: row[0])
+        except (AttributeError, TypeError):
+            lines = None
+        return (lines if valid_lines(lines) else None), None
+    if isinstance(body, str) and len(body) <= MAX_BYTES:
+        plain = [line for line in map(single_line, body.splitlines()) if line]
+        return None, (plain if valid_plain(plain) else None)
+    return None, None
+
+
+
 def lookup_lyrics(track, cache):
     entry = cache.read(track, time.time())
     if entry is not None and entry.fresh:
-        return LookupResult(entry.lines)
+        return LookupResult(entry.lines, None, entry.plain)
     stale = entry.lines if entry is not None else None
+    stale_plain = entry.plain if entry is not None else None
     title, artist, duration = identity(track)
     if not title or not artist or duration is None:
-        return LookupResult(stale)
+        return LookupResult(stale, None, stale_plain)
     failed = False
     due = None
-    for source, lookup in (("lrclib", lrclib_lyrics), ("netease", netease_lyrics)):
+    plain = None
+    # YouTube Music timed lyrics win; its plain lyrics only beat the title fallback.
+    sources = [("lrclib", lambda current: (lrclib_lyrics(current), None)),
+               ("netease", lambda current: (netease_lyrics(current), None))]
+    if is_ytm(track):
+        sources.insert(0, ("ytmusic", ytmusic_lyrics))
+    for source, lookup in sources:
         try:
-            lines = lookup(track)
+            lines, found_plain = lookup(track)
+            plain = plain or found_plain
             if lines is not None:
                 cache.write(track, lines, time.time())
                 return LookupResult(lines)
@@ -374,12 +470,12 @@ def lookup_lyrics(track, cache):
                 or error.code in (408, 429) or 500 <= error.code < 600
             )
             if transient:
-                eligible = max(time.monotonic() + 15, _cooldowns[source])
+                eligible = max(time.monotonic() + 15, _cooldowns.get(source, 0.0))
                 due = min(due, eligible) if due is not None else eligible
     if not failed:
-        cache.write(track, None, time.time())
-        return LookupResult(None)
-    return LookupResult(stale, due)
+        cache.write(track, None, time.time(), YTM_SOURCES if is_ytm(track) else SOURCES, plain)
+        return LookupResult(None, None, plain)
+    return LookupResult(stale, due, plain or stale_plain)
 
 
 class LyricsState:
@@ -388,6 +484,7 @@ class LyricsState:
         self.key = None
         self.generation = 0
         self.lines = None
+        self.plain = None
         self.lookup_at = None
         self.retry_at = None
         self.retries = 0
@@ -401,17 +498,20 @@ class LyricsState:
             self.generation += 1
             self.key = (self.generation, raw) if raw is not None else None
             self.lines = None
+            self.plain = None
             self.lookup_at = time.monotonic() + 1.0 if raw is not None else None
             self.retry_at = None
             self.retries = 0
         self.track = track if active else {}
         return self.key
 
-    def accept_lookup(self, key, lines, retry_at=None):
+    def accept_lookup(self, key, lines, retry_at=None, plain=None):
         if key is not None and key == self.key:
             self.lookup_at = None
             if lines is not None or retry_at is None:
                 self.lines = lines
+            if plain is not None or retry_at is None:
+                self.plain = plain
             self.retry_at = (
                 max(retry_at, time.monotonic() + 15 * 2 ** self.retries)
                 if retry_at is not None and self.retries < 3 else None
@@ -431,6 +531,10 @@ class LyricsState:
         content = line_at(self.lines, position_ms)
         if content:
             return {"text": content, "synced": True}
+        if self.lines is None:
+            content = plain_line_at(self.plain, position_ms, duration_of(self.track.get("length")))
+            if content:
+                return {"text": content, "synced": False}
         title = single_line(self.track.get("title", ""))
         artist = single_line(self.track.get("artist", ""))
         fallback = " — ".join(part for part in (title, artist) if part)
@@ -477,7 +581,7 @@ class LookupWorker:
                 print("lyrics: worker failed: " + str(error), file=sys.stderr)
                 result = LookupResult(None)
             with self.condition:
-                self.completed = (key, result.lines, result.retry_at)
+                self.completed = (key, result.lines, result.retry_at, result.plain)
 
 
 def read_track(path):
@@ -544,7 +648,7 @@ def main():
                 lookup_key, lookup_track = due
                 cached = cache.read(lookup_track, time.time())
                 if cached is not None:
-                    state.accept_lookup(lookup_key, cached.lines)
+                    state.accept_lookup(lookup_key, cached.lines, plain=cached.plain)
                 if cached is None or not cached.fresh:
                     worker.submit(lookup_key, lookup_track)
             position = player_position(track.get("player", "")) if key is not None else None

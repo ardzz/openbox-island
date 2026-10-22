@@ -41,8 +41,8 @@ Urutan prioritas ada di `eww/players` (default `ytm_player,ytermusic,edge,%any`;
 - Hover dibaca dari posisi pointer (`xdotool`), bukan dari urutan event enter/leave eww: event itu juga muncul saat aplikasi lain meng-grab pointer dan bisa diproses tidak berurutan.
 - Visualizer hanya mengambil stream keluaran milik PID player MPRIS aktif atau proses turunannya, bukan mikrofon, monitor audio sistem, atau sumber audio default sebagai fallback. Metadata dan kontrol MPRIS tetap bekerja jika visualizer tidak mendapat audio.
 - Audio visualizer hanya lewat memori/FIFO lokal, tidak disimpan atau diunggah. Unduhan cover tetap menggunakan jaringan.
-- Lirik tersinkron dari LRCLIB, dengan NetEase Cloud Music sebagai fallback, tampil miring dan rata tengah pada kedua ukuran island. Baris panjang dipotong dengan elipsis, tanpa bergulir atau mengecilkan font; tooltip menampilkan teks lengkap. Posisi MPRIS dibaca setiap 250 ms saat player aktif; listener hanya mengirim perubahan teks/status sinkron, bukan frame berulang. Saat belum ada baris lirik, intro, instrumental, hasil tidak tersedia, atau lookup gagal/timeout tanpa cache positif, judul dan artis asli tampil dengan warna redup.
-- LRCLIB tidak memerlukan API key. Pencarian mengirim metadata judul, artis, dan durasi, bukan audio. Cache hasil positif berlaku 30 hari; hasil positif kedaluwarsa masih dipakai jika layanan gagal diakses. Cache negatif berlaku 24 jam hanya jika kedua sumber memastikan tidak ada lirik tersinkron. Error jaringan/timeout tidak disimpan sebagai hasil negatif.
+- Lirik tersinkron dari LRCLIB, dengan NetEase Cloud Music sebagai fallback, tampil miring dan rata tengah pada kedua ukuran island. Untuk `ytm_player`, lirik YouTube Music dicoba lebih dulu (lihat [Lirik YouTube Music](#lirik-youtube-music)). Baris panjang dipotong dengan elipsis, tanpa bergulir atau mengecilkan font; tooltip menampilkan teks lengkap. Posisi MPRIS dibaca setiap 250 ms saat player aktif; listener hanya mengirim perubahan teks/status sinkron, bukan frame berulang. Saat belum ada baris lirik, intro, instrumental, hasil tidak tersedia, atau lookup gagal/timeout tanpa cache positif, judul dan artis asli tampil dengan warna redup.
+- LRCLIB tidak memerlukan API key. Pencarian mengirim metadata judul, artis, dan durasi, bukan audio. Cache hasil positif berlaku 30 hari; hasil positif kedaluwarsa masih dipakai jika layanan gagal diakses. Cache negatif berlaku 24 jam hanya jika semua sumber yang dicoba memastikan tidak ada lirik tersinkron; cache negatif yang dibuat tanpa YouTube Music tidak berlaku untuk `ytm_player`. Error jaringan/timeout tidak disimpan sebagai hasil negatif.
 
 ## Aktivitas
 
@@ -107,6 +107,14 @@ Jalankan demo agent saat login, misalnya tambahkan `/usr/lib/geoclue-2.0/demos/a
 
 Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `dunst` (`dunstctl`) dan `xdotool` untuk notifikasi; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert dan indikator Tailscale; `gtk-launch` (paket `gtk3`) untuk membuka aplikasi dari klik notifikasi saat window-nya belum ada.
 
+## Lirik YouTube Music
+
+Saat player aktif adalah `ytm_player`, listener mengambil video id dari `ytm status` (MPRIS ytm-player tidak membawanya), lalu meminta lirik lewat `ytmusicapi` dengan login ytm-player (`${XDG_CONFIG_HOME:-$HOME/.config}/ytm-player/auth.json`). Lookup berjalan di thread terpisah sehingga pembacaan posisi 250 ms tidak tertahan. Jika `ytmusicapi` tidak terpasang atau `auth.json` tidak ada, sumber ini dilewati tanpa pesan dan LRCLIB/NetEase tetap dipakai.
+
+Urutan prioritas: lirik YouTube Music bertimestamp, lalu lirik tersinkron LRCLIB, NetEase, kemudian lirik YouTube Music biasa (tanpa timestamp), dan terakhir judul/artis. Permintaan bertimestamp yang gagal (misalnya HTTP 400) diulang tanpa timestamp; pada akun yang diuji, YouTube Music hanya memberi lirik biasa.
+
+Lirik biasa tidak tersinkron: baris yang tampil hanya **perkiraan**, yaitu baris lirik dibagi rata sepanjang durasi lagu menurut posisi putar, sehingga bisa mendahului atau tertinggal dari lagu. Baris perkiraan ini tampil dengan warna redup seperti fallback, bukan gaya lirik tersinkron. Lirik biasa disimpan bersama cache negatif selama 24 jam agar sumber tersinkron dicek ulang setelahnya. Kegagalan `ytm status` atau request YouTube Music dianggap gangguan sementara dan mengikuti jadwal retry yang sama.
+
 ## Fallback lirik NetEase
 
 Listener mencoba NetEase Cloud Music jika LRCLIB tidak menghasilkan lirik tersinkron yang cocok, termasuk saat LRCLIB gagal sementara. Endpoint NetEase ini tidak resmi dan dapat berubah atau berhenti tersedia. Listener mengirim judul dan artis ke server NetEase untuk pencarian, lalu membandingkan durasi dari hasilnya dengan durasi lagu aktif secara lokal. Audio tidak dikirim; akses tidak memakai login atau cookie.
@@ -129,14 +137,14 @@ python -m unittest discover -s tests -p 'test_lyrics.py'
 - `$XDG_RUNTIME_DIR/eww-island/`: state controller (`auto_until`, `player`, `marquee_at` dalam desidetik, `media.json` berisi metadata terakhir)
 - `$XDG_RUNTIME_DIR/eww-island/notify.fifo`: FIFO listener notifikasi; menerima satu baris JSON per notifikasi dari `notify-hook` serta sinyal `@alert 0|1`, `@expanded 0|1`, dan `@click ID`. Kirim notifikasi uji dengan `notify-send Tes 'isi'`.
 - `$XDG_RUNTIME_DIR/eww-island/viz.XXXXXXXX/`: direktori privat sementara visualizer berisi FIFO `events`, `frames`, dan `pcm`, dibersihkan saat listener berhenti. Jika `XDG_RUNTIME_DIR` tidak tersedia, state dan direktori ini berada di `/tmp/eww-island/`.
-- `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/lyrics/`: cache lirik LRCLIB/NetEase (format versi 2), terpisah dari cache cover.
+- `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/lyrics/`: cache lirik YouTube Music/LRCLIB/NetEase (format versi 2), terpisah dari cache cover.
 
 ## Batasan
 
 - MPRIS Edge/Chromium tidak memberi URL tab: YouTube biasa atau media web lain dari Edge juga tampil.
 - Tab Edge dapat berbagi stream audio dalam proses yang sama; visualizer tidak dapat menjamin isolasi audio per tab. Aplikasi yang stream-nya tidak cocok dengan PID player aktif atau turunannya menampilkan bar rata.
 - Progress hanya tampilan (tanpa seek); tidak ada like/dislike atau slider volume. Volume diubah lewat scroll pada island ringkas.
-- Cakupan lirik bergantung pada LRCLIB/NetEase dan kecocokan versi rekaman; aturan pencocokan NetEase dijelaskan di atas. LRCLIB mensyaratkan judul/artis cocok dengan durasi dalam toleransi ±2 detik; pencocokan artis menerima alias dalam tanda kurung dan nama kolaborator. Sinkronisasi per baris, bukan per kata; intro tambahan pada video YouTube dapat menggeser waktu lirik meskipun metadata cocok.
+- Cakupan lirik bergantung pada YouTube Music (khusus `ytm_player`), LRCLIB/NetEase, dan kecocokan versi rekaman; aturan pencocokan NetEase dijelaskan di atas. LRCLIB mensyaratkan judul/artis cocok dengan durasi dalam toleransi ±2 detik; pencocokan artis menerima alias dalam tanda kurung dan nama kolaborator. Sinkronisasi per baris, bukan per kata; intro tambahan pada video YouTube dapat menggeser waktu lirik meskipun metadata cocok. Lirik YouTube Music tanpa timestamp hanya perkiraan posisi, bukan sinkron.
 - Hanya monitor 0.
 - Island hanya jalan saat panel aktif adalah eww (dipanggil dari `eww.sh` openbox-omp).
 - Cover http diunduh sekali (timeout 3 detik) ke `~/.cache/eww-island/art`, tanpa batas ukuran cache.

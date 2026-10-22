@@ -1,12 +1,15 @@
-"""Consumer contracts for the standalone, stdlib-only lyrics listener."""
+"""Consumer contracts for the standalone lyrics listener (stdlib plus optional ytmusicapi)."""
 
 from contextlib import contextmanager, redirect_stderr
+from dataclasses import dataclass
 import importlib.util
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
+import types
 import unittest
 from unittest import mock
 from urllib.error import HTTPError, URLError
@@ -41,6 +44,77 @@ def netease_song(song_id=101, title="Firasat", artist="Marcell", duration=248000
 
 def netease_search(*songs):
     return {"code": 200, "result": {"songs": list(songs)}}
+
+
+# Shapes probed read-only on the real account with ytmusicapi 1.12.3 (2026-10-22): every queued
+# track returned HTTP 400 for timestamps=True and a plain string for timestamps=False.
+YTM_STATUS = {
+    "track": {"video_id": "k9CTIUM9RmA", "title": "Sun Shower", "artist": "The Poles",
+              "artists": [{"name": "The Poles", "id": "UCAodJxXWk1WS9Ko57bRF-ug"}],
+              "album": "Sun Shower", "album_id": "MPREb_sFZ3WK0rGCU", "duration": 283,
+              "is_video": False, "likeStatus": None, "setVideoId": None},
+    "is_playing": True, "is_paused": False, "volume": 80, "position": 11.4,
+    "duration": 282.261, "repeat": "off", "shuffle": False, "queue_length": 25,
+}
+YTM_WATCH = {
+    "tracks": [{"videoId": "k9CTIUM9RmA", "title": "Sun Shower", "length": "4:43",
+                "likeStatus": "INDIFFERENT"}],
+    "playlistId": "RDAMVMk9CTIUM9RmA", "lyrics": "MPLYt_sFZ3WK0rGCU-1",
+    "related": "MPTRt_sFZ3WK0rGCU-1",
+}
+YTM_PLAIN = {"lyrics": "비가 와요\n기다린 만큼 흘러 넘치게\n\n오, 오오오오\n아직도 넌 끝이 없고",
+             "source": None, "hasTimestamps": False}
+
+
+class YTMusicServerError(Exception):
+    pass
+
+
+@dataclass
+class LyricLine:
+    text: str
+    start_time: int
+    end_time: int
+    id: int
+
+
+# Timed shape from the ytmusicapi 1.12.3 get_lyrics contract (the account never produced one).
+YTM_TIMED = {"lyrics": [LyricLine("I gave in to the fire", 10680, 12540, 2),
+                        LyricLine("I was a liar", 9200, 10630, 1)],
+             "source": "Source: LyricFind", "hasTimestamps": True}
+YTM_400 = YTMusicServerError("Server returned HTTP 400: Bad Request.\nRequest contains an invalid argument.")
+
+
+def ytm_track(title="Sun Shower", artist="The Poles", length=282, player="ytm_player"):
+    return track(title=title, artist=artist, length=length, player=player)
+
+
+def fake_ytmusicapi(watch=YTM_WATCH, timed=YTM_400, plain=YTM_PLAIN):
+    calls = []
+
+    def reply(value):
+        if isinstance(value, BaseException):
+            raise value
+        return value
+
+    class YTMusic:
+        def __init__(self, auth=None, *args, **kwargs):
+            calls.append(("init", str(auth)))
+
+        def get_watch_playlist(self, videoId=None, limit=25, **kwargs):
+            calls.append(("watch", videoId, limit))
+            return reply(watch)
+
+        def get_lyrics(self, browseId, timestamps=False):
+            calls.append(("lyrics", browseId, timestamps))
+            return reply(timed if timestamps else plain)
+
+    module = types.ModuleType("ytmusicapi")
+    module.YTMusic = YTMusic
+    return module, calls
+
+
+ALL_MISSES = (None, [], {"code": 200, "result": {"songs": []}})
 
 
 class LyricsTests(unittest.TestCase):
@@ -293,6 +367,7 @@ class LyricsTests(unittest.TestCase):
         def advance(seconds):
             clock[0] += seconds
 
+        self.stderr = io.StringIO()
         with tempfile.TemporaryDirectory() as root, \
                 mock.patch.object(self.lyrics, "_next_request", 0.0), \
                 mock.patch.object(self.lyrics, "_cooldowns", {"lrclib": 0.0, "netease": 0.0}), \
@@ -300,7 +375,7 @@ class LyricsTests(unittest.TestCase):
                 mock.patch.object(self.lyrics.time, "time", return_value=NOW), \
                 mock.patch.object(self.lyrics.time, "sleep", side_effect=advance), \
                 mock.patch.object(self.lyrics.urllib.request, "urlopen", side_effect=replies) as requests, \
-                redirect_stderr(io.StringIO()):
+                redirect_stderr(self.stderr):
             yield self.lyrics.LyricsCache(root), self.lyrics.LyricsState(), clock, requests
 
     def lookup_into_state(self, cache, state, key, current):
@@ -731,6 +806,222 @@ class LyricsTests(unittest.TestCase):
         state.update_track({"state": "none"})
         state.accept_lookup(key, [(0, "Late")])
         self.assertEqual(state.output(0), {"text": "", "synced": False})
+
+    @contextmanager
+    def ytm_environment(self, replies=(), ytmusicapi=None, status=YTM_STATUS, auth=True):
+        module, calls = ytmusicapi if ytmusicapi is not None else fake_ytmusicapi()
+        status_calls = []
+
+        def run(args, **kwargs):
+            status_calls.append(list(args))
+            self.assertEqual(list(args), ["ytm", "status"])
+            self.assertIsNotNone(kwargs.get("timeout"))
+            if isinstance(status, BaseException):
+                raise status
+            stdout = status if isinstance(status, str) else json.dumps(status)
+            return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
+
+        with tempfile.TemporaryDirectory() as config, \
+                mock.patch.dict(sys.modules, {"ytmusicapi": module}), \
+                mock.patch.dict(self.lyrics.os.environ, {"XDG_CONFIG_HOME": config}), \
+                mock.patch.object(self.lyrics.subprocess, "run", side_effect=run), \
+                self.retry_environment([item if isinstance(item, BaseException) else response(item)
+                                        for item in replies]) as (cache, state, clock, requests):
+            auth_path = Path(config) / "ytm-player" / "auth.json"
+            if auth:
+                auth_path.parent.mkdir()
+                auth_path.write_text("{}", encoding="utf-8")
+            yield types.SimpleNamespace(cache=cache, state=state, clock=clock, requests=requests,
+                                        calls=calls, status_calls=status_calls, auth=auth_path,
+                                        stderr=self.stderr)
+
+    def ytm_lookup(self, env, current):
+        key = env.state.update_track(current)
+        result = self.lyrics.lookup_lyrics(current, env.cache)
+        env.state.accept_lookup(key, *result)
+        return result
+
+    def test_module_loads_without_ytmusicapi(self):
+        with mock.patch.dict(sys.modules, {"ytmusicapi": None}):
+            spec = importlib.util.spec_from_file_location("island_lyrics_no_ytm", SCRIPT)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        self.assertTrue(callable(module.lookup_lyrics))
+
+    def test_ytm_timed_lyrics_are_first_and_skip_other_sources(self):
+        with self.ytm_environment(ytmusicapi=fake_ytmusicapi(timed=YTM_TIMED)) as env:
+            current = ytm_track()
+            self.ytm_lookup(env, current)
+            self.assertEqual(env.state.output(9199), {"text": "Sun Shower — The Poles", "synced": False})
+            self.assertEqual(env.state.output(9200), {"text": "I was a liar", "synced": True})
+            self.assertEqual(env.state.output(11000), {"text": "I gave in to the fire", "synced": True})
+            self.assertEqual(env.requests.call_count, 0)
+            self.assertEqual(env.status_calls, [["ytm", "status"]])
+            self.assertEqual(env.calls, [("init", str(env.auth)), ("watch", "k9CTIUM9RmA", 1),
+                                         ("lyrics", "MPLYt_sFZ3WK0rGCU-1", True)])
+            self.assertEqual(env.cache.read(current, NOW).lines,
+                             [(9200, "I was a liar"), (10680, "I gave in to the fire")])
+            self.assertEqual(env.stderr.getvalue(), "")
+
+    def test_ytm_timestamp_400_retries_plain_which_loses_to_lrclib_synced(self):
+        lrclib = candidate(title="Sun Shower", artist="The Poles", duration=282, synced="[00:01]From LRCLIB")
+        with self.ytm_environment([lrclib]) as env:
+            result = self.ytm_lookup(env, ytm_track())
+            self.assertEqual(result.lines, [(1000, "From LRCLIB")])
+            self.assertEqual(env.state.output(1000), {"text": "From LRCLIB", "synced": True})
+            self.assertEqual(env.calls[-2:], [("lyrics", "MPLYt_sFZ3WK0rGCU-1", True),
+                                              ("lyrics", "MPLYt_sFZ3WK0rGCU-1", False)])
+            self.assertEqual(env.requests.call_count, 1)
+            self.assertEqual(env.cache.read(ytm_track(), NOW).lines, [(1000, "From LRCLIB")])
+
+    def test_netease_synced_beats_ytm_plain(self):
+        with self.ytm_environment([
+            None, [], netease_search(netease_song(title="Sun Shower", artist="The Poles", duration=282000)),
+            {"code": 200, "lrc": {"lyric": "[00:01]From NetEase"}},
+        ]) as env:
+            result = self.ytm_lookup(env, ytm_track())
+            self.assertEqual(result.lines, [(1000, "From NetEase")])
+            self.assertEqual(env.state.output(1000), {"text": "From NetEase", "synced": True})
+            self.assertEqual(env.requests.call_count, 4)
+
+    def test_ytm_plain_is_unsynced_estimated_by_position_and_negative_cached_for_a_day(self):
+        plain = ["비가 와요", "기다린 만큼 흘러 넘치게", "오, 오오오오", "아직도 넌 끝이 없고"]
+        with self.ytm_environment(ALL_MISSES) as env:
+            current = ytm_track(length=240)
+            result = self.ytm_lookup(env, current)
+            self.assertIsNone(result.lines)
+            self.assertIsNone(result.retry_at)
+            self.assertEqual(env.requests.call_count, 3)
+            self.assertEqual(env.state.output(None), {"text": "Sun Shower — The Poles", "synced": False})
+            for position, index in [(0, 0), (59999, 0), (60000, 1), (179999, 2),
+                                    (180000, 3), (239999, 3), (500000, 3)]:
+                with self.subTest(position=position):
+                    self.assertEqual(env.state.output(position), {"text": plain[index], "synced": False})
+            entry = env.cache.read(current, NOW + DAY - 1)
+            self.assertTrue(entry.fresh)
+            self.assertIsNone(entry.lines)
+            self.assertEqual(entry.plain, plain)
+            self.assertFalse(env.cache.read(current, NOW + DAY).fresh)
+            self.assertEqual(env.stderr.getvalue(), "")
+
+    def test_plain_lyrics_from_timestamped_request_need_no_second_request(self):
+        with self.ytm_environment(ALL_MISSES, ytmusicapi=fake_ytmusicapi(timed=YTM_PLAIN)) as env:
+            self.ytm_lookup(env, ytm_track(length=240))
+            self.assertEqual(env.state.output(0), {"text": "비가 와요", "synced": False})
+            self.assertEqual([call for call in env.calls if call[0] == "lyrics"],
+                             [("lyrics", "MPLYt_sFZ3WK0rGCU-1", True)])
+
+    def test_negative_cache_without_ytm_does_not_hide_ytm_lyrics(self):
+        with self.ytm_environment(ALL_MISSES) as env:
+            current = ytm_track(length=240)
+            env.cache.path(current).write_text(json.dumps({
+                "version": 2, "identity": ["sun shower", "the poles", 240.0],
+                "saved_at": NOW - 60, "lines": None, "negative": ["lrclib", "netease"],
+            }), encoding="utf-8")
+            self.assertTrue(env.cache.read(ytm_track(length=240, player="spotify"), NOW).fresh)
+            self.assertIsNone(env.cache.read(current, NOW))
+            self.ytm_lookup(env, current)
+            self.assertEqual(env.state.output(0), {"text": "비가 와요", "synced": False})
+            self.assertIn(("watch", "k9CTIUM9RmA", 1), env.calls)
+
+    def test_other_players_never_consult_ytm(self):
+        with self.ytm_environment([candidate()]) as env:
+            result = self.ytm_lookup(env, track(player="spotify"))
+            self.assertEqual(result.lines, [(1000, "A line")])
+            self.assertEqual(env.status_calls, [])
+            self.assertEqual(env.calls, [])
+
+    def test_missing_ytmusicapi_or_auth_skips_ytm_silently(self):
+        lrclib = candidate(title="Sun Shower", artist="The Poles", duration=282)
+        for name, options in [("module", {"ytmusicapi": (None, [])}), ("auth", {"auth": False})]:
+            with self.subTest(missing=name), self.ytm_environment([lrclib], **options) as env:
+                result = self.ytm_lookup(env, ytm_track())
+                self.assertEqual(result.lines, [(1000, "A line")])
+                self.assertEqual(env.status_calls, [])
+                self.assertEqual(env.calls, [])
+                self.assertEqual(env.stderr.getvalue(), "")
+
+    def test_unavailable_ytm_still_negative_caches_definitive_misses(self):
+        with self.ytm_environment(ALL_MISSES, ytmusicapi=(None, [])) as env:
+            result = self.ytm_lookup(env, ytm_track())
+            self.assertIsNone(result.lines)
+            self.assertIsNone(result.retry_at)
+            self.assertTrue(env.cache.read(ytm_track(), NOW).fresh)
+
+    def test_unknown_video_id_skips_ytm_and_schedules_retry(self):
+        cases = [
+            FileNotFoundError("ytm"),
+            subprocess.TimeoutExpired(["ytm", "status"], 2),
+            "not json",
+            {"track": None, "is_playing": False},
+            dict(YTM_STATUS, track=dict(YTM_STATUS["track"], title="Another song")),
+            dict(YTM_STATUS, track=dict(YTM_STATUS["track"], video_id="../bad")),
+        ]
+        for status in cases:
+            with self.subTest(status=status), self.ytm_environment(ALL_MISSES, status=status) as env:
+                result = self.ytm_lookup(env, ytm_track())
+                self.assertIsNone(result.lines)
+                self.assertIsNotNone(result.retry_at)
+                self.assertNotIn("watch", [call[0] for call in env.calls])
+                self.assertEqual(env.requests.call_count, 3)
+                self.assertIsNone(env.cache.read(ytm_track(), NOW))
+                self.assertIn("lyrics: ytmusic lookup failed", env.stderr.getvalue())
+
+    def test_ytm_request_failure_is_transient(self):
+        for options in [{"watch": ConnectionError("offline")},
+                        {"watch": YTMusicServerError("Server returned HTTP 503")},
+                        {"plain": YTM_400}]:
+            with self.subTest(options=options), \
+                    self.ytm_environment(ALL_MISSES, ytmusicapi=fake_ytmusicapi(**options)) as env:
+                current = ytm_track()
+                key = env.state.update_track(current)
+                result = self.lyrics.lookup_lyrics(current, env.cache)
+                env.state.accept_lookup(key, *result)
+                self.assertIsNone(result.lines)
+                self.assertIsNotNone(result.retry_at)
+                self.assertIsNone(env.cache.read(current, NOW))
+                # Three spaced requests end at 100.4, so the first retry is due at 115.4.
+                self.assertIsNone(env.state.next_lookup(115.3))
+                env.clock[0] = 115.5
+                self.assertEqual(env.state.next_lookup(env.clock[0]), (key, current))
+
+    def test_ytm_without_lyrics_is_a_definitive_miss(self):
+        for options in [{"watch": dict(YTM_WATCH, lyrics=None)},
+                        {"watch": {key: value for key, value in YTM_WATCH.items() if key != "lyrics"}},
+                        {"plain": None}]:
+            with self.subTest(options=options), \
+                    self.ytm_environment(ALL_MISSES, ytmusicapi=fake_ytmusicapi(**options)) as env:
+                result = self.ytm_lookup(env, ytm_track())
+                self.assertIsNone(result.lines)
+                self.assertIsNone(result.retry_at)
+                entry = env.cache.read(ytm_track(), NOW)
+                self.assertTrue(entry.fresh)
+                self.assertIsNone(entry.plain)
+                self.assertEqual(env.state.output(0), {"text": "Sun Shower — The Poles", "synced": False})
+
+    def test_track_change_drops_plain_lyrics(self):
+        state = self.lyrics.LyricsState()
+        old_key = state.update_track(ytm_track(length=240))
+        state.accept_lookup(old_key, None, None, ["Old plain"])
+        self.assertEqual(state.output(0), {"text": "Old plain", "synced": False})
+        state.update_track(ytm_track(title="New song", length=240))
+        state.accept_lookup(old_key, None, None, ["Late plain"])
+        self.assertEqual(state.output(0), {"text": "New song — The Poles", "synced": False})
+
+    def test_worker_delivers_plain_lyrics(self):
+        result = self.lyrics.LookupResult(None, None, ["Plain"])
+        with mock.patch.object(self.lyrics, "lookup_lyrics", return_value=result):
+            worker = self.lyrics.LookupWorker(cache=None)
+            try:
+                worker.submit("key", ytm_track())
+                for _ in range(200):
+                    completed = worker.take_result()
+                    if completed is not None:
+                        break
+                    worker.thread.join(0.01)
+                self.assertEqual(completed, ("key", None, None, ["Plain"]))
+            finally:
+                worker.close()
 
 
 if __name__ == "__main__":
