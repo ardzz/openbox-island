@@ -1,3 +1,20 @@
 eww/_colors.scss
 __pycache__/
 eww/weather-location
+
+# AI harness / agent session artifacts
+HANDOFF.md
+session.txt
+.omc/
+.omp/
+.claude/
+CLAUDE.local.md
+.codex/
+.cursor/
+.aider*
+.continue/
+.windsurf/
+.gemini/
+.kiro/
+.superpowers/
+.codegraph/
