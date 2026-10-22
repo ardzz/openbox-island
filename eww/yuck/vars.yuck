@@ -1,7 +1,7 @@
 (deflisten media :initial '{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}' "scripts/media")
 (deflisten viz :initial "[0,0,0,0,0,0]" "scripts/viz")
 (deflisten lyrics :initial '{"text":"","synced":false}' "scripts/lyrics.py")
-(deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1}' "scripts/alert")
+(deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}' "scripts/alert")
 (deflisten status :initial '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false}' "scripts/status")
 (deflisten weather :initial '{"ok":false,"icon":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")
 (defvar island_reveal false)

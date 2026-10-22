@@ -3,11 +3,12 @@ load helpers
 setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
   export ALERT_FIXTURE="$BATS_TEST_TMPDIR"
+  export ISLAND_SCREENSHOT_DIR="$BATS_TEST_TMPDIR/shots"
   BIN="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$BIN" "$XDG_RUNTIME_DIR"
   export PATH="$BIN:$PATH"
   source "$SCRIPTS/alert"
-  CLEAR='{"kind":"","icon":"","text":"","value":"","level":-1}'
+  CLEAR='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
   RESULT="$BATS_TEST_TMPDIR/result"
 }
 
@@ -87,6 +88,7 @@ teardown() {
   } > "$RESULT"
   [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["charging","Mengisi daya","76%",76],["battery","Charger dicabut","77%",77],["battery","Charger dicabut","78%",78],["battery","Baterai penuh","100%",100],["battery","Charger dicabut","100%",100]]' ]
   [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F0084|\U000F0079|\U000F0079|\U000F0079|\U000F0079' ]
+  [ "$(jq -sc 'map(.image)|unique' "$RESULT")" = '[""]' ]
 }
 
 @test "low and critical battery crossings do not repeat below their thresholds" {
@@ -123,7 +125,7 @@ make_fakes() {
   printf '76\n' > "$ALERT_FIXTURE/battery-percent"
   mkfifo "$ALERT_FIXTURE/audio-events" "$ALERT_FIXTURE/brightness-events" \
     "$ALERT_FIXTURE/battery-events" "$ALERT_FIXTURE/wifi-events" \
-    "$ALERT_FIXTURE/bluetooth-events"
+    "$ALERT_FIXTURE/bluetooth-events" "$ALERT_FIXTURE/screenshot-events"
   printf 'Device AA:BB:CC:DD:EE:01 Keyboard K380\n' > "$ALERT_FIXTURE/bt-connected"
   printf 'Device AA:BB:CC:DD:EE:01 (public)\n\tName: K380\n\tAlias: Keyboard K380\n\tIcon: input-keyboard\n\tConnected: yes\n' \
     > "$ALERT_FIXTURE/bt-info-AA:BB:CC:DD:EE:01"
@@ -189,8 +191,15 @@ EOF
 touch "$ALERT_FIXTURE/bluetooth-ready"
 exec cat "$ALERT_FIXTURE/bluetooth-events"
 EOF
+  cat > "$BIN/inotifywait" <<'EOF'
+#!/usr/bin/env bash
+[[ $# == 7 && $1 == -m && $2 == -q && $3 == -e && $4 == close_write,moved_to && $5 == --format && $6 == %w%f ]] || exit 2
+[[ $7 == "$ISLAND_SCREENSHOT_DIR" && -d $7 ]] || exit 2
+touch "$ALERT_FIXTURE/screenshot-ready"
+exec cat "$ALERT_FIXTURE/screenshot-events"
+EOF
   chmod +x "$BIN/pactl" "$BIN/light" "$BIN/udevadm" "$BIN/upower" "$BIN/nmcli" \
-    "$BIN/bluetoothctl" "$BIN/gdbus"
+    "$BIN/bluetoothctl" "$BIN/gdbus" "$BIN/inotifywait"
 }
 
 @test "fractional battery snapshots truncate percentages and retain charging transitions" {
@@ -318,7 +327,7 @@ bt_line() {
     bluetooth_event "$(bt_line AA_BB_CC_DD_EE_01 Device1 "'Connected': <false>")"
     bluetooth_event "$(bt_line AA_BB_CC_DD_EE_01 Device1 "'Connected': <false>")"
   } >> "$RESULT"
-  [ "$(jq -sc 'map([.kind,.text,.value,.level])' "$RESULT")" = '[["bluetooth","Bluetooth tersambung","WH-1000XM4 · 80%",-1],["bluetooth","Bluetooth terputus","WH-1000XM4",-1],["bluetooth","Bluetooth terputus","Keyboard K380",-1]]' ]
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["bluetooth","Bluetooth tersambung","WH-1000XM4 · 80%",-1,""],["bluetooth","Bluetooth terputus","WH-1000XM4",-1,""],["bluetooth","Bluetooth terputus","Keyboard K380",-1,""]]' ]
   [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F02CB|\U000F02CB|\U000F030C' ]
 }
 
@@ -352,13 +361,51 @@ bt_line() {
   [ "$(jq -sc 'map(.value)|unique' "$RESULT")" = '["Perangkat"]' ]
 }
 
+@test "new screenshot images emit a thumbnail alert and other files are ignored" {
+  local dir=/home/user/Gambar/Screenshots
+  {
+    screenshot_event "$dir/Screenshot_2026-10-22.png"
+    screenshot_event "$dir/notes.txt"
+    screenshot_event "$dir/.Screenshot.png.part"
+    screenshot_event "$dir/foto liburan.JPG"
+    screenshot_event "$dir/b.jpeg"
+  } > "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["screenshot","Tangkapan layar","Screenshot_2026-10-22.png",-1,"file:///home/user/Gambar/Screenshots/Screenshot_2026-10-22.png"],["screenshot","Tangkapan layar","foto liburan.JPG",-1,"file:///home/user/Gambar/Screenshots/foto%20liburan.JPG"],["screenshot","Tangkapan layar","b.jpeg",-1,"file:///home/user/Gambar/Screenshots/b.jpeg"]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F0100|\U000F0100|\U000F0100' ]
+}
+
+@test "screenshot image is a file URI safe to embed in a CSS url" {
+  screenshot_event "/home/user/Layar (1)/it's a\\shot.png" > "$RESULT"
+  [ "$(jq -r .value "$RESULT")" = "it's a\\shot.png" ]
+  [ "$(jq -r .image "$RESULT")" = 'file:///home/user/Layar%20%281%29/it%27s%20a%5Cshot.png' ]
+}
+
+@test "screenshot directory prefers the override then XDG pictures then ~/Pictures" {
+  export HOME="$BATS_TEST_TMPDIR/home"
+  [ "$(screenshot_dir)" = "$ISLAND_SCREENSHOT_DIR" ]
+  unset ISLAND_SCREENSHOT_DIR
+  cat > "$BIN/xdg-user-dir" <<'EOF'
+#!/usr/bin/env bash
+[[ $* == PICTURES ]] || exit 2
+cat "$ALERT_FIXTURE/xdg-pictures"
+EOF
+  chmod +x "$BIN/xdg-user-dir"
+  printf '%s\n' "$HOME/Gambar" > "$ALERT_FIXTURE/xdg-pictures"
+  [ "$(screenshot_dir)" = "$HOME/Gambar/Screenshots" ]
+  printf '%s\n' "$HOME" > "$ALERT_FIXTURE/xdg-pictures"
+  [ "$(screenshot_dir)" = "$HOME/Pictures/Screenshots" ]
+  rm "$BIN/xdg-user-dir"
+  [ "$(PATH="$BIN" screenshot_dir)" = "$HOME/Pictures/Screenshots" ]
+}
+
 @test "sources without their tools are skipped with a note" {
   local source
-  for source in bluetooth; do
+  for source in bluetooth screenshot; do
     run bash -c 'source "$2"; PATH=$1; source_worker "$3"' _ "$BIN" "$SCRIPTS/alert" "$source"
     [ "$status" -eq 0 ]
     case $source in
       bluetooth) [ "$output" = 'alert: sumber bluetooth dilewati, gdbus tidak tersedia' ] ;;
+      screenshot) [ "$output" = 'alert: sumber screenshot dilewati, inotifywait tidak tersedia' ] ;;
     esac
   done
 }
@@ -372,7 +419,7 @@ start_listener() {
   listener_pid=$!
   IFS= read -r -t 2 -u "$output_fd" first
   [ "$first" = "$CLEAR" ]
-  for source in audio brightness battery wifi bluetooth; do
+  for source in audio brightness battery wifi bluetooth screenshot; do
     for ((attempt=0; attempt<200; attempt++)); do
       [[ -e $ALERT_FIXTURE/$source-ready ]] && break
       sleep 0.005
@@ -384,6 +431,7 @@ start_listener() {
   exec {battery_fd}<> "$ALERT_FIXTURE/battery-events"
   exec {wifi_fd}<> "$ALERT_FIXTURE/wifi-events"
   exec {bluetooth_fd}<> "$ALERT_FIXTURE/bluetooth-events"
+  exec {screenshot_fd}<> "$ALERT_FIXTURE/screenshot-events"
 }
 
 @test "listener starts cleared then emits a changed volume and clears after its hold" {
@@ -425,13 +473,16 @@ start_listener() {
   [ "$event" = "$CLEAR" ]
 }
 
-@test "listener forwards bluetooth alerts with the alert hold" {
+@test "listener forwards bluetooth and screenshot alerts with the alert hold" {
   start_listener
   ! IFS= read -r -t 0.1 -u "$output_fd" event
   bt_line F4_93_B1_9A_5C_21 Device1 "'Connected': <true>" >&"$bluetooth_fd"
   printf '\n' >&"$bluetooth_fd"
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$(jq -c '[.kind,.text,.value]' <<< "$event")" = '["bluetooth","Bluetooth tersambung","WH-1000XM4 · 80%"]' ]
+  printf '%s\n' "$ISLAND_SCREENSHOT_DIR/shot.png" >&"$screenshot_fd"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.value,.image]' <<< "$event")" = "$(jq -cn --arg d "$ISLAND_SCREENSHOT_DIR" '["screenshot","shot.png","file://\($d)/shot.png"]')" ]
   ! IFS= read -r -t 0.29 -u "$output_fd" event
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$event" = "$CLEAR" ]

@@ -56,7 +56,13 @@
             (equalizer)
             (indicators)))
         (box :class "pill pill-alert alert-${alert.kind}" :orientation "h" :space-evenly false :spacing 10
-          (label :class "alert-icon" :width 24 :text {alert.icon})
+          ; One slot for thumbnail or icon; revealers because :visible stays hidden in never-shown stack pages.
+          (box :orientation "h" :space-evenly false :spacing 0 :valign "center"
+            (revealer :transition "none" :reveal {alert.image != ""}
+              (box :class "alert-thumb" :valign "center"
+                   :style {alert.image == "" ? "" : "background-image: url('${alert.image}');"}))
+            (revealer :transition "none" :reveal {alert.image == ""}
+              (label :class "alert-icon" :width 24 :text {alert.icon})))
           (label :class "alert-text" :text {alert.text} :xalign 0 :hexpand true
                  :limit-width 28 :show-truncated true)
           (revealer :transition "none" :reveal {alert.level >= 0}

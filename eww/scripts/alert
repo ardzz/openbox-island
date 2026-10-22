@@ -24,7 +24,8 @@ ICON_GAMEPAD=$'\U000F0297'
 ICON_MOUSE=$'\U000F037D'
 ICON_KEYBOARD=$'\U000F030C'
 ICON_PHONE=$'\U000F011C'
-CLEAR_JSON='{"kind":"","icon":"","text":"","value":"","level":-1}'
+ICON_CAMERA=$'\U000F0100'
+CLEAR_JSON='{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}'
 BT_CONNECTED_RE="^/org/bluez/hci[0-9]+/dev_([0-9A-Fa-f_]{17}): org\\.freedesktop\\.DBus\\.Properties\\.PropertiesChanged \\('org\\.bluez\\.Device1', \\{.*'Connected': <(true|false)>"
 declare -gA wifi_states=() bt_states=()
 
@@ -34,10 +35,12 @@ level_icon() {
   else printf '%s' "$4"; fi
 }
 
+# alert_json KIND ICON TEXT VALUE LEVEL [IMAGE_PATH]: the image becomes a percent-encoded file URI for CSS url().
 alert_json() {
   jq -cn --arg kind "$1" --arg icon "$2" --arg text "$3" \
-    --arg value "$4" --argjson level "$5" \
-    '{kind:$kind,icon:$icon,text:$text,value:$value,level:$level}'
+    --arg value "$4" --argjson level "$5" --arg image "${6:-}" \
+    '{kind:$kind,icon:$icon,text:$text,value:$value,level:$level,
+      image:(if $image == "" then "" else "file://" + ($image | split("/") | map(@uri) | join("/")) end)}'
 }
 
 audio_update() {
@@ -229,6 +232,28 @@ bluetooth_event() {
   alert_json bluetooth "$icon" "$text" "$alias" -1
 }
 
+screenshot_dir() {
+  local pictures=''
+  if [[ -n ${ISLAND_SCREENSHOT_DIR:-} ]]; then
+    printf '%s\n' "$ISLAND_SCREENSHOT_DIR"
+    return
+  fi
+  if command -v xdg-user-dir > /dev/null 2>&1; then
+    pictures=$(xdg-user-dir PICTURES 2>/dev/null) || pictures=''
+  fi
+  # xdg-user-dir answers $HOME when PICTURES is not configured.
+  if [[ -z $pictures || ${pictures%/} == "${HOME%/}" ]]; then pictures=$HOME/Pictures; fi
+  printf '%s\n' "${pictures%/}/Screenshots"
+}
+
+screenshot_snapshot() { :; }
+
+screenshot_event() {
+  case ${1,,} in
+    *.png|*.jpg|*.jpeg) alert_json screenshot "$ICON_CAMERA" 'Tangkapan layar' "${1##*/}" -1 "$1" ;;
+  esac
+}
+
 stop_children() {
   local pid
   if [[ -n ${monitor_pid:-} ]]; then kill "$monitor_pid" 2>/dev/null || :; fi
@@ -259,6 +284,7 @@ source_worker() {
     battery) tool=upower ;;
     wifi) tool=nmcli ;;
     bluetooth) tool='gdbus bluetoothctl' ;;
+    screenshot) tool=inotifywait ;;
   esac
   for path in $tool; do
     if ! require "$path"; then
@@ -280,6 +306,13 @@ source_worker() {
       run_forever monitor_stream wifi_event nmcli monitor ;;
     bluetooth)
       run_forever monitor_stream bluetooth_event gdbus monitor --system --dest org.bluez ;;
+    screenshot)
+      path=$(screenshot_dir)
+      if ! mkdir -p "$path"; then
+        printf 'alert: sumber screenshot dilewati, %s tidak dapat dibuat\n' "$path" >&2
+        return 0
+      fi
+      run_forever monitor_stream screenshot_event inotifywait -m -q -e close_write,moved_to --format '%w%f' "$path" ;;
   esac
 }
 
@@ -312,7 +345,7 @@ main() {
   mkfifo "$workdir/events"
   exec {input_fd}<> "$workdir/events"
   printf '%s\n' "$CLEAR_JSON"
-  for source in audio brightness battery wifi bluetooth; do
+  for source in audio brightness battery wifi bluetooth screenshot; do
     source_worker "$source" > "$workdir/events" &
     worker_pids+=("$!")
   done

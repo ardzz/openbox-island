@@ -15,6 +15,9 @@ $muted: mix($fg, $island-bg, 60%);
 .pill-idle { min-height: 36px; min-width: 64px; padding: 0 14px; }
 .pill-alert { min-height: 36px; min-width: 452px; padding: 0 14px; }
 .alert-icon { font-size: 16px; }
+// The screenshot thumbnail replaces the icon; the hexpand text column absorbs the extra width.
+.alert-thumb { min-width: 42px; min-height: 26px; border-radius: 6px; background-color: $island-track;
+  background-size: cover; background-position: center; }
 .alert-text { font-weight: bold; }
 .alert-value { color: $muted; }
 .hud trough { background-color: $island-track; border-radius: 2px; min-height: 4px; min-width: 140px; }
