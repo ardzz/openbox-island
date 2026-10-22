@@ -52,6 +52,7 @@ Alert menggantikan isi pill sementara, hanya pada tampilan ringkas; tampilan yan
 | --- | --- |
 | `volume` | `Volume` atau `Bisu`, dengan persentase volume |
 | `mic` | `Mikrofon nyala` atau `Mikrofon mati` |
+| `output` | `Output audio` saat sink default atau port aktifnya berganti, dengan nama port aktif (jika sink punya lebih dari satu port) atau nama sink; ikon headphone Bluetooth, headphone, monitor (HDMI/DisplayPort), atau speaker |
 | `brightness` | `Kecerahan`, dengan persentase |
 | `charging` | `Mengisi daya` saat charger dipasang, dengan persentase; ikon berwarna aksen dan berdenyut beberapa kali |
 | `battery` | `Charger dicabut` atau `Baterai penuh`, dengan persentase |

@@ -125,6 +125,7 @@ make_fakes() {
   printf '17.00\n' > "$ALERT_FIXTURE/brightness"
   printf 'discharging\n' > "$ALERT_FIXTURE/battery-state"
   printf '76\n' > "$ALERT_FIXTURE/battery-percent"
+  write_sinks alsa_output.pci-0000_00_1f.3.analog-stereo
   mkfifo "$ALERT_FIXTURE/audio-events" "$ALERT_FIXTURE/brightness-events" \
     "$ALERT_FIXTURE/battery-events" "$ALERT_FIXTURE/wifi-events" \
     "$ALERT_FIXTURE/bluetooth-events" "$ALERT_FIXTURE/screenshot-events"
@@ -144,6 +145,8 @@ case $1 in
   get-sink-volume) read -r n < "$ALERT_FIXTURE/volume"; printf 'Volume: front-left: 27525 / %s%% / -23 dB, front-right: 65536 / 100%% / 0 dB\n' "$n" ;;
   get-sink-mute) printf 'Mute: '; cat "$ALERT_FIXTURE/mute" ;;
   get-source-mute) printf 'Mute: '; cat "$ALERT_FIXTURE/mic" ;;
+  get-default-sink) cat "$ALERT_FIXTURE/default-sink" ;;
+  -f) [[ $* == '-f json list sinks' ]] || exit 2; cat "$ALERT_FIXTURE/sinks.json" ;;
   *) exit 2 ;;
 esac
 EOF
@@ -301,6 +304,90 @@ EOF
   printf '51\n' > "$ALERT_FIXTURE/volume"
   audio_event "Event 'change' on sink #65" >> "$RESULT"
   [ "$(jq -c '[.kind,.value,.level]' "$RESULT")" = '["volume","51%",51]' ]
+}
+
+# write_sinks DEFAULT [BUILTIN_PORT]: fake default sink and `pactl -f json list sinks` output.
+write_sinks() {
+  printf '%s\n' "$1" > "$ALERT_FIXTURE/default-sink"
+  jq -n --arg port "${2:-analog-output-speaker}" '[
+    {index:65, name:"alsa_output.pci-0000_00_1f.3.analog-stereo", description:"Built-in Audio Analog Stereo", active_port:$port,
+     ports:[{name:"analog-output-speaker", description:"Speakers"}, {name:"analog-output-headphones", description:"Headphones"}]},
+    {index:70, name:"alsa_output.pci-0000_01_00.1.hdmi-stereo", description:"Built-in Audio Digital Stereo (HDMI)", active_port:"hdmi-output-0",
+     ports:[{name:"hdmi-output-0", description:"HDMI / DisplayPort"}]},
+    {index:71, name:"bluez_output.F4_93_B1_9A_5C_21.1", description:"WH-1000XM4", active_port:"headphone-output",
+     ports:[{name:"headphone-output", description:"Headphone"}]},
+    {index:72, name:"alsa_output.usb-Logitech_G435-00.analog-stereo", description:"G435 Wireless Gaming Headset Analog Stereo", active_port:"analog-output",
+     ports:[{name:"analog-output", description:"Analog Output"}]},
+    {index:73, name:"alsa_output.usb-Dock-00.analog-stereo", description:"USB Dock Analog Stereo", active_port:"displayport-output",
+     ports:[{name:"analog-output-lineout", description:"Line Out"}, {name:"displayport-output", description:"DisplayPort 1"}]}
+  ]' > "$ALERT_FIXTURE/sinks.json"
+}
+
+@test "audio output switches emit the device with its icon and the port only for multi-port sinks" {
+  make_fakes
+  audio_snapshot > "$RESULT"
+  {
+    write_sinks alsa_output.pci-0000_00_1f.3.analog-stereo analog-output-headphones
+    audio_event "Event 'change' on sink #65"
+    write_sinks alsa_output.pci-0000_01_00.1.hdmi-stereo
+    audio_event "Event 'change' on server"
+    write_sinks bluez_output.F4_93_B1_9A_5C_21.1
+    audio_event "Event 'change' on server"
+    write_sinks alsa_output.usb-Logitech_G435-00.analog-stereo
+    audio_event "Event 'change' on server"
+    write_sinks alsa_output.usb-Dock-00.analog-stereo
+    audio_event "Event 'change' on server"
+    write_sinks alsa_output.pci-0000_00_1f.3.analog-stereo
+    audio_event "Event 'change' on server"
+  } >> "$RESULT"
+  [ "$(jq -sc 'map([.kind,.text,.value,.level,.image])' "$RESULT")" = '[["output","Output audio","Headphones",-1,""],["output","Output audio","Built-in Audio Digital Stereo (HDMI)",-1,""],["output","Output audio","WH-1000XM4",-1,""],["output","Output audio","G435 Wireless Gaming Headset Analog Stereo",-1,""],["output","Output audio","DisplayPort 1",-1,""],["output","Output audio","Speakers",-1,""]]' ]
+  [ "$(jq -sr 'map(.icon)|join("|")' "$RESULT")" = $'\U000F02CB|\U000F0379|\U000F0970|\U000F02CB|\U000F0379|\U000F04C3' ]
+}
+
+@test "unchanged outputs stay silent and only sink or server events query the sinks once each" {
+  make_fakes
+  audio_snapshot > "$RESULT"
+  : > "$ALERT_FIXTURE/audio-queries"
+  {
+    audio_event "Event 'change' on server"
+    printf '51\n' > "$ALERT_FIXTURE/volume"
+    audio_event "Event 'change' on sink #65"
+    printf 'yes\n' > "$ALERT_FIXTURE/mic"
+    audio_event "Event 'change' on source #66"
+  } >> "$RESULT"
+  [ "$(jq -sc 'map(.kind)' "$RESULT")" = '["volume","mic"]' ]
+  [ "$(cat "$ALERT_FIXTURE/audio-queries")" = "$(printf '%s\n' \
+    'get-sink-volume @DEFAULT_SINK@' 'get-sink-mute @DEFAULT_SINK@' 'get-source-mute @DEFAULT_SOURCE@' \
+    get-default-sink '-f json list sinks' \
+    'get-sink-volume @DEFAULT_SINK@' 'get-sink-mute @DEFAULT_SINK@' 'get-source-mute @DEFAULT_SOURCE@' \
+    get-default-sink '-f json list sinks' \
+    'get-sink-volume @DEFAULT_SINK@' 'get-sink-mute @DEFAULT_SINK@' 'get-source-mute @DEFAULT_SOURCE@')" ]
+}
+
+@test "audio monitor reconnect takes the output baseline silently" {
+  make_fakes
+  cat > "$BIN/queued_monitor" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$1"
+sleep 0.05
+EOF
+  chmod +x "$BIN/queued_monitor"
+  monitor_stream audio_event queued_monitor "Event 'change' on server" > "$RESULT"
+  write_sinks bluez_output.F4_93_B1_9A_5C_21.1
+  monitor_stream audio_event queued_monitor "Event 'change' on server" >> "$RESULT"
+  [ ! -s "$RESULT" ]
+  write_sinks alsa_output.pci-0000_00_1f.3.analog-stereo
+  audio_event "Event 'change' on server" >> "$RESULT"
+  [ "$(jq -c '[.kind,.value]' "$RESULT")" = '["output","Speakers"]' ]
+}
+
+@test "volume alerts keep working when pactl cannot list sinks as JSON" {
+  make_fakes
+  rm "$ALERT_FIXTURE/sinks.json"
+  audio_snapshot > "$RESULT" 2>/dev/null
+  printf '51\n' > "$ALERT_FIXTURE/volume"
+  audio_event "Event 'change' on server" >> "$RESULT" 2>/dev/null
+  [ "$(jq -c '[.kind,.value]' "$RESULT")" = '["volume","51%"]' ]
 }
 
 @test "wifi only handles wifi devices and deduplicates state while preserving connection text" {
@@ -595,6 +682,17 @@ start_listener() {
   sleep 0.15
   printf "Event 'change' on sink #65\n" >&"$audio_fd"
   ! IFS= read -r -t 0.15 -u "$output_fd" event
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$event" = "$CLEAR" ]
+}
+
+@test "listener holds an audio output switch for the alert hold" {
+  start_listener
+  write_sinks bluez_output.F4_93_B1_9A_5C_21.1
+  printf "Event 'change' on server\n" >&"$audio_fd"
+  IFS= read -r -t 1 -u "$output_fd" event
+  [ "$(jq -c '[.kind,.text,.value,.level]' <<< "$event")" = '["output","Output audio","WH-1000XM4",-1]' ]
+  ! IFS= read -r -t 0.29 -u "$output_fd" event
   IFS= read -r -t 1 -u "$output_fd" event
   [ "$event" = "$CLEAR" ]
 }
