@@ -43,7 +43,7 @@
   :geometry (geometry :x "0px" :y "0px" :width "508px" :height "44px" :anchor "top center")
   :wm-ignore true
   ; Hovering a shown notification never expands the island: the pointer is on its way to click it.
-  (eventbox :onhover {(media.state == "none" && !weather.ok) || (notify.active && alert.kind == "") ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
+  (eventbox :onhover {(media.state == "none" && !weather.ok && notif_center.total == 0) || (notify.active && alert.kind == "") ? "" : "${EWW_CONFIG_DIR}/scripts/island hover &"}
     ; The pill hangs from the top edge; the ears beside it curve into the screen edge like a notch.
     (box :halign "center" :valign "start" :visible {!island_reveal} :orientation "h" :space-evenly false
       (box :class "ear ear-left" :valign "start")
@@ -129,14 +129,15 @@
        (box :orientation "h" :space-evenly false
         (box :class "ear ear-left" :valign "start")
         ; The header shows once two or more tabs have content (count each tab's condition).
-        (box :class "pill pill-expanded ${(media.state != 'none' ? 1 : 0) + (weather.ok ? 1 : 0) >= 2 ? 'with-tabs' : ''}"
+        (box :class "pill pill-expanded ${(media.state != 'none' ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) >= 2 ? 'with-tabs' : ''}"
              :orientation "v" :space-evenly false
           ; eww's onscroll only reports vertical scrolling: up/down over the header switches tabs.
-          (revealer :transition "none" :reveal {(media.state != "none" ? 1 : 0) + (weather.ok ? 1 : 0) >= 2}
+          (revealer :transition "none" :reveal {(media.state != "none" ? 1 : 0) + (weather.ok ? 1 : 0) + (notif_center.total > 0 ? 1 : 0) >= 2}
             (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/tab {} &"
               (box :class "tabs" :orientation "h" :halign "center" :space-evenly false :spacing 4
                 (tab-chip :id "musik" :label "Musik" :available {media.state != "none"})
-                (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok}))))
+                (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok})
+                (tab-chip :id "notif" :label {notif_center.label} :available {notif_center.total > 0}))))
           (revealer :transition "none" :reveal {island_tab == "musik"}
         (box :class "page" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 14
@@ -209,5 +210,35 @@
                 (box :orientation "h" :space-evenly false :halign "center" :spacing 6
                   (label :class "forecast-icon tone-${day.tone}" :text {day.icon})
                   (label :class "forecast-temp" :text "${day.max} / ${day.min}"))
-                (label :class "forecast-rain" :text "󰖌 ${day.rain}")))))))
+                (label :class "forecast-rain" :text "󰖌 ${day.rain}"))))))
+          ; Newest first; scrolling over the list moves through older ones. A click acts like the pill's.
+          (revealer :transition "none" :reveal {island_tab == "notif"}
+        (box :class "page" :orientation "v" :space-evenly false :spacing 6
+          (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/notif scroll {} &"
+            (box :orientation "v" :space-evenly false :spacing 2
+              (for row in {notif_center.rows}
+                (eventbox :cursor "pointer" :onclick "${EWW_CONFIG_DIR}/scripts/notif click ${row.id} &"
+                          :tooltip "${row.summary}${row.body != "" ? " · " + row.body : ""}"
+                  (box :class "notif-row ${row.critical ? 'notify-critical' : ''}" :orientation "h"
+                       :space-evenly false :spacing 10
+                    (box :orientation "h" :space-evenly false :spacing 0 :valign "center"
+                      (revealer :transition "none" :reveal {row.image != ""}
+                        (box :class "notify-thumb" :valign "center"
+                             :style {row.image == "" ? "" : "background-image: url('${row.image}');"}))
+                      (revealer :transition "none" :reveal {row.image == ""}
+                        (label :class "notify-icon" :width 24 :text {row.icon})))
+                    (box :orientation "v" :space-evenly false :spacing 0 :valign "center" :hexpand true
+                      (box :orientation "h" :space-evenly false :spacing 8
+                        (label :class "notif-summary" :text {row.summary} :xalign 0 :hexpand true
+                               :limit-width 46 :show-truncated true :wrap false)
+                        (label :class "notif-meta" :text {row.time} :xalign 1))
+                      (box :orientation "h" :space-evenly false :spacing 8
+                        (label :class "notif-body" :text {row.body} :xalign 0 :hexpand true
+                               :limit-width 50 :show-truncated true :wrap false)
+                        (label :class "notif-meta" :text {row.app} :xalign 1
+                               :limit-width 16 :show-truncated true))))))))
+          (box :orientation "h" :space-evenly false
+            (label :class "notif-more" :hexpand true :xalign 0
+                   :text {notif_center.more > 0 ? "+${notif_center.more} lainnya" : notif_center.total == 0 ? "Tidak ada notifikasi" : ""})
+            (button :class "notif-clear" :onclick "${EWW_CONFIG_DIR}/scripts/notif clear &" "Hapus semua")))))
         (box :class "ear ear-right" :valign "start"))))))

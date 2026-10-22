@@ -447,6 +447,45 @@ $ear: 14px;
   font-weight: bold;
 }
 
+// Notification center: four two-line rows plus the footer fit the 218px card.
+.notif-row {
+  min-height: 32px;
+  padding: 0 6px;
+  border-radius: 8px;
+}
+
+.notif-row:hover {
+  background-color: $island-track;
+}
+
+.notif-summary {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.notif-body,
+.notif-meta,
+.notif-more {
+  font-size: 11px;
+  color: $muted;
+}
+
+.notify-critical .notif-summary {
+  color: $red;
+}
+
+.notif-clear {
+  padding: 1px 10px;
+  border-radius: 9px;
+  font-size: 11px;
+  color: $muted;
+  background-color: $island-track;
+}
+
+.notif-clear:hover {
+  color: $island-accent;
+}
+
 .title {
   font-weight: bold;
   font-size: 14px;

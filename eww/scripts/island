@@ -52,6 +52,7 @@ expand() {
   fi
   # The compact pill is hidden now: notifications wait until it returns.
   notify_signal '@expanded 1'
+  notif_signal '@expanded 1'
 }
 
 collapse() {
@@ -62,6 +63,7 @@ collapse() {
   if hovered; then eww update island_reveal=true; return 0; fi
   eww close island-expanded
   notify_signal '@expanded 0'
+  notif_signal '@expanded 0'
 }
 
 # collapse_if_idle: collapse unless the pointer is on the island or an auto-expand still holds it.

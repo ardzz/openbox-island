@@ -231,6 +231,19 @@ wait_for_calls() {
   if IFS= read -r -t 0.1 -u "$notify_fd" signal; then false; fi
 }
 
+@test "expanding and collapsing tell the notification center" {
+  mkdir -p "$ST"; mkfifo "$ST/notif.fifo"
+  exec {notif_fd}<> "$ST/notif.fifo"
+  stub_hover_sleep; on_compact
+  run "$SCRIPTS/island" hover
+  IFS= read -r -t 1 -u "$notif_fd" signal
+  [ "$signal" = '@expanded 1' ]
+  away
+  run "$SCRIPTS/island" hover
+  IFS= read -r -t 1 -u "$notif_fd" signal
+  [ "$signal" = '@expanded 0' ]
+}
+
 @test "a pointer that comes back while hiding never reports a collapse" {
   mkdir -p "$ST"; mkfifo "$ST/notify.fifo"
   exec {notify_fd}<> "$ST/notify.fifo"

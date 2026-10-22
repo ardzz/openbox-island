@@ -62,13 +62,17 @@ seconds_us() {
   printf '%s' "$((10#$whole * 1000000 + 10#${fraction:0:6}))"
 }
 
-# notify_signal LINE: hand LINE to the notification listener (scripts/notify) if it runs.
+# fifo_signal NAME LINE: hand LINE to the listener reading $XDG_RUNTIME_DIR/eww-island/NAME.fifo if it runs.
 # A read-write open of a FIFO needs no reader, so this never blocks; short lines are atomic.
-notify_signal() {
-  local fifo="${XDG_RUNTIME_DIR:-/tmp}/eww-island/notify.fifo"
+fifo_signal() {
+  local fifo="${XDG_RUNTIME_DIR:-/tmp}/eww-island/$1.fifo"
   [[ -p $fifo ]] || return 0
-  printf '%s\n' "$1" 2>/dev/null 1<> "$fifo" || :
+  printf '%s\n' "$2" 2>/dev/null 1<> "$fifo" || :
 }
+# notify_signal LINE: to the notification pill listener (scripts/notify).
+notify_signal() { fifo_signal notify "$1"; }
+# notif_signal LINE: to the notification center listener (scripts/notif).
+notif_signal() { fifo_signal notif "$1"; }
 
 # fmt_time SECONDS: m:ss below an hour, h:mm:ss from an hour. Decimals truncated; junk = 0.
 fmt_time() {

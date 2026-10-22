@@ -4,7 +4,7 @@ setup() {
   BIN="$BATS_TEST_TMPDIR/bin"; mkdir -p "$BIN"
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" EXPECTED_CFG="$REPO/eww"
   export FAKE_EWW_LOG="$BATS_TEST_TMPDIR/eww.log" FAKE_WEATHER="$BATS_TEST_TMPDIR/weather"
-  export FAKE_TAB="$BATS_TEST_TMPDIR/island_tab"
+  export FAKE_TAB="$BATS_TEST_TMPDIR/island_tab" FAKE_NOTIF="$BATS_TEST_TMPDIR/notif_center"
   ST="$XDG_RUNTIME_DIR/eww-island"; mkdir -p "$ST"
   : > "$FAKE_EWW_LOG"
   # Fake eww: `get` answers weather and island_tab without logging; other calls are logged.
@@ -16,6 +16,7 @@ case $1 in
     case $2 in
       weather) cat "$FAKE_WEATHER" 2>/dev/null ;;
       island_tab) cat "$FAKE_TAB" 2>/dev/null ;;
+      notif_center) cat "$FAKE_NOTIF" 2>/dev/null ;;
     esac
     exit 0 ;;
   update)
@@ -34,6 +35,8 @@ no_weather() { printf '{"ok":false,"temp":""}\n' > "$FAKE_WEATHER"; }
 saved() { printf '%s\n' "$1" > "$ST/tab"; }
 shown() { printf '%s\n' "$1" > "$FAKE_TAB"; }
 both() { music; weather; }
+notif() { printf '{"total":%s,"unread":0,"rows":[]}\n' "${1:-2}" > "$FAKE_NOTIF"; }
+no_notif() { notif 0; }
 
 @test "resolve picks the first tab in order when nothing is saved" {
   both
@@ -191,4 +194,35 @@ both() { music; weather; }
   run "$SCRIPTS/tab"
   [ "$status" -eq 2 ]
   [ "$(calls)" = "" ]
+}
+
+@test "the notification tab is offered while the center has entries" {
+  no_music; no_weather; notif
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = notif ]
+  no_notif; weather; saved notif
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = cuaca ]
+}
+
+@test "the notification tab comes after music and weather" {
+  both; notif; shown cuaca
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = notif ]
+  rm -f "$ST/tab_at"
+  run "$SCRIPTS/tab" next
+  [ "$(cat "$FAKE_TAB")" = musik ]
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = musik ]
+}
+
+@test "select tells the notification center which tab is shown" {
+  both; notif
+  mkfifo "$ST/notif.fifo"
+  exec {notif_fd}<> "$ST/notif.fifo"
+  run "$SCRIPTS/tab" select notif
+  [ "$status" -eq 0 ]
+  IFS= read -r -t 1 -u "$notif_fd" line
+  [ "$line" = '@tab notif' ]
+  [ "$(calls)" = 'update island_tab=notif' ]
 }

@@ -11,11 +11,12 @@ ICON_BELL=$'\U000F009A'
 CLEAR_JSON='{"active":false,"id":0,"app":"","summary":"","body":"","icon":"","image":"","critical":false}'
 QUEUE_MAX=3
 US=$'\x1f'
-# One notify-hook line -> ID, KEY (app + stack tag), APP, ENTRY, CRITICAL (0/1), ICON, JSON joined by US.
-# eww labels show plain text: markup tags are dropped and entities decoded.
-NORMALIZE='def clean: tostring | gsub("[[:cntrl:]]"; " ") | gsub("<[^>]*>"; "")
+# eww labels show plain text: markup tags are dropped and entities decoded (also used by scripts/notif).
+CLEAN_JQ='def clean: tostring | gsub("[[:cntrl:]]"; " ") | gsub("<[^>]*>"; "")
     | gsub("&lt;"; "<") | gsub("&gt;"; ">") | gsub("&quot;"; "\"") | gsub("&(apos|#39);"; "'"'"'")
-    | gsub("&amp;"; "&") | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ");
+    | gsub("&amp;"; "&") | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ");'
+# One notify-hook line -> ID, KEY (app + stack tag), APP, ENTRY, CRITICAL (0/1), ICON, JSON joined by US.
+NORMALIZE="$CLEAN_JQ"'
   select(type == "object")
   | ((.id | tonumber?) // 0) as $id | (.app // "" | clean) as $app | (.tag // "" | clean) as $tag
   | select($id > 0 and $app != "eww-island" and ($tag | IN("obvolume", "obbacklight") | not))
