@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# preview CONFIG_DIR SAMPLE OUT.png: render one island window in a sample state to a PNG.
+# The window opens 300px down on the current DISPLAY, over a solid backdrop, from a private copy
+# of CONFIG_DIR whose listeners and polls are frozen to plain variables and whose animations are
+# off, so only the sample decides the picture.
+# SAMPLE: "window=island|island-expanded", optional "tab=<id>", then "var=<json>" lines;
+# @ASSETS@ in a value stands for the absolute path of the sample's assets/ folder.
+set -euo pipefail
+
+SETTLE=${PREVIEW_SETTLE:-1.5}
+COPY='' RUN=''
+BACKDROP='(defwindow preview-backdrop
+  :monitor 0
+  :geometry (geometry :x "0px" :y "300px" :width "520px" :height "230px" :anchor "top center")
+  :wm-ignore true
+  (box :class "preview-backdrop"))'
+STILL_CSS='* { animation: none; transition: none; }
+.preview-backdrop { background-color: #808080; }'
+
+usage() {
+  if [[ -n ${1:-} ]]; then printf 'preview: %s\n' "$1" >&2; fi
+  printf 'pemakaian: preview CONFIG_DIR SAMPLE OUT.png\n' >&2
+  exit 2
+}
+
+ew() { XDG_RUNTIME_DIR=$RUN eww --config "$COPY" "$@"; }
+
+# cleanup: stop the daemon, then drop the copy, the runtime dir and the log eww keeps per socket.
+cleanup() {
+  local socket
+  local -a sockets=()
+  if [[ -n $RUN ]]; then sockets=("$RUN"/eww-server_*); fi
+  if [[ -n $COPY ]]; then
+    ew kill >/dev/null 2>&1 || :
+    pkill -f "eww --config $COPY( |\$)" 2>/dev/null || :
+    rm -rf "$COPY"
+  fi
+  for socket in "${sockets[@]}"; do
+    [[ $socket == *'*' ]] || rm -f "${XDG_CACHE_HOME:-$HOME/.cache}/eww/eww_${socket##*/eww-server_}.log"
+  done
+  if [[ -n $RUN ]]; then rm -rf "$RUN"; fi
+}
+
+# freeze FILE: windows 300px down; every deflisten/defpoll becomes a defvar holding its :initial.
+freeze() {
+  sed -E -i \
+    -e 's/(:y[[:space:]]+)"0px"/\1"300px"/g' \
+    -e "s/^([[:space:]]*)\\((deflisten|defpoll)[[:space:]]+([^[:space:]]+)[[:space:]].*:initial[[:space:]]+('[^']*'|\"[^\"]*\").*\\)[[:space:]]*\$/\\1(defvar \\3 \\4)/" \
+    -e 's/^([[:space:]]*)\((deflisten|defpoll)[[:space:]]+([^[:space:]]+)([[:space:]].*)?$/\1(defvar \3 "")/' \
+    "$1"
+}
+
+main() {
+  (( $# == 3 )) || usage
+  local config=$1 sample=$2 out=$3 window='' tab='' line assets crop file
+  local -a updates=()
+  [[ -d $config ]] || usage "CONFIG_DIR tidak ada: $config"
+  [[ -f $sample ]] || usage "SAMPLE tidak ada: $sample"
+  assets="$(cd "$(dirname "$sample")" && pwd)/assets"
+  while IFS= read -r line || [[ -n $line ]]; do
+    case $line in
+      ''|'#'*) ;;
+      window=*) window=${line#window=} ;;
+      tab=*) tab=${line#tab=} ;;
+      ?*=*) updates+=("${line//@ASSETS@/$assets}") ;;
+      *) usage "baris sampel tidak dikenal: $line" ;;
+    esac
+  done < "$sample"
+  case $window in
+    island) crop=520x46 ;;
+    island-expanded)
+      crop=520x230
+      updates+=(island_reveal=true)
+      if [[ -n $tab ]]; then updates+=("island_tab=$tab"); fi ;;
+    *) usage "window harus island atau island-expanded: '$window'" ;;
+  esac
+
+  trap cleanup EXIT
+  COPY=$(mktemp -d /tmp/island-preview.XXXX)
+  RUN="$COPY.run"
+  mkdir -m 700 "$RUN"
+  cp -a "$config/." "$COPY/"
+  while IFS= read -r -d '' file; do freeze "$file"; done < <(find "$COPY" -name '*.yuck' -print0)
+  if grep -rqE --include='*.yuck' '\((deflisten|defpoll)([[:space:]]|$)' "$COPY"; then
+    printf 'preview: deflisten/defpoll yang tidak satu baris tidak bisa dibekukan\n' >&2
+    return 1
+  fi
+  # The backdrop hides whatever the screen shows behind transparent parts of the crop.
+  printf '\n%s\n' "$BACKDROP" >> "$COPY/eww.yuck"
+  for file in "$COPY/eww.scss" "$COPY/eww.css"; do
+    if [[ -f $file ]]; then printf '\n%s\n' "$STILL_CSS" >> "$file"; fi
+  done
+
+  ew daemon >/dev/null 2>&1
+  for _ in {1..50}; do ew ping >/dev/null 2>&1 && break; sleep 0.1; done
+  ew open preview-backdrop >/dev/null
+  ew open "$window" >/dev/null
+  # After open: a stack built with a selection already set shows no page (eww 0.5).
+  if (( ${#updates[@]} )); then ew update "${updates[@]}"; fi
+  sleep "$SETTLE"
+  import -window root -crop "$crop+700+300" +repage "$out"
+}
+
+main "$@"

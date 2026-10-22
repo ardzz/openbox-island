@@ -152,6 +152,12 @@ python -m unittest discover -s tests -p 'test_ytm_like.py'
 
 `tools/check [ROOT]` memeriksa file yang di-track di `eww/`, `openbox/`, `tools/`, dan `tests/`: lebih dari 200 baris `WARN`, lebih dari 300 baris `FAIL` (kecuali `*.conf`, `eww/players`, `eww/shortcuts`, dan gambar), `shellcheck -x -S warning` untuk skrip bash, dan `py_compile` untuk Python. Keluar 1 bila ada FAIL atau error lint.
 
+`tools/preview CONFIG_DIR SAMPLE OUT.png` merender satu jendela island dari keadaan contoh di `tools/samples/*.vars` (baris `window=`, opsional `tab=`, lalu `var=<json>`; `@ASSETS@` menunjuk `tools/samples/assets/`). Salinan konfigurasi di `/tmp` memakai defvar sebagai ganti listener/poll, tanpa animasi, dengan latar abu-abu, dan dibuka 300px di bawah tepi atas pada `DISPLAY` aktif dengan daemon dan runtime dir privat:
+
+```bash
+for f in tools/samples/*.vars; do tools/preview eww "$f" ~/.cache/island-baseline/"$(basename "$f" .vars)".png; done
+```
+
 ## Debug
 
 - `~/.cache/eww-island.log`: log daemon island, termasuk diagnostik `viz:` (dependensi hilang atau worker audio berhenti) dan stderr `lyrics:` (lookup/cache gagal)
