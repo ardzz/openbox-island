@@ -108,6 +108,7 @@ EOF
 }
 
 @test "the listener emits one JSON per change, drives the island, and honors player priority" {
+  export ISLAND_MEDIA_GRACE=0.3
   mkdir -p "$BATS_TEST_TMPDIR/eww"
   cp -r "$SCRIPTS" "$BATS_TEST_TMPDIR/eww/scripts"
   cp "$REPO/eww/players" "$BATS_TEST_TMPDIR/eww/players"
@@ -129,15 +130,106 @@ EOF
   chmod +x "$BIN/playerctl"
   run timeout 1.5 "$BATS_TEST_TMPDIR/eww/scripts/media"
   [ "$status" -eq 124 ]
-  [ "${#lines[@]}" -eq 5 ]
+  [ "${#lines[@]}" -eq 6 ]
   [ "$(jq -r .state <<<"${lines[0]}")" = none ]
   [ "$(jq -r .title <<<"${lines[1]}")" = A ]
   [ "$(jq -r .title <<<"${lines[2]}")" = B ]
   [ "$(jq -r .title <<<"${lines[3]}")" = $'C1\nC2' ]
-  [ "$(jq -r .state <<<"${lines[4]}")" = none ]
-  [ "$(cat "$STATE/media.json")" = "${lines[4]}" ]
+  [ "$(jq -r .state <<<"${lines[4]}")" = loading ]
+  [ "$(jq -r .state <<<"${lines[5]}")" = none ]
+  [ "$(cat "$STATE/media.json")" = "${lines[5]}" ]
   [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = $'auto 4\nauto 4\nclose' ]
   [[ "$(cat "$BATS_TEST_TMPDIR/playerctl.args")" == "--player=$(tr -d '[:space:]' < "$REPO/eww/players") --follow metadata --format "* ]]
+}
+
+# listener PLAYERCTL_BODY: run the media listener on a fake playerctl; island calls go to island.log.
+listener() {
+  mkdir -p "$BATS_TEST_TMPDIR/eww"
+  cp -r "$SCRIPTS" "$BATS_TEST_TMPDIR/eww/scripts"
+  cp "$REPO/eww/players" "$BATS_TEST_TMPDIR/eww/players"
+  printf '#!/usr/bin/env bash\necho "$*" >> "%s/island.log"\n' "$BATS_TEST_TMPDIR" \
+    > "$BATS_TEST_TMPDIR/eww/scripts/island"
+  printf '#!/usr/bin/env bash\n%s\n' "$1" > "$BIN/playerctl"
+  chmod +x "$BATS_TEST_TMPDIR/eww/scripts/island" "$BIN/playerctl"
+  touch "$BATS_TEST_TMPDIR/island.log"
+}
+
+@test "loading_json keeps the player but no track details" {
+  run loading_json edge.i1
+  [ "$output" = '{"state":"loading","player":"edge.i1","title":"","artist":"","art":"","length":0,"length_text":"0:00"}' ]
+}
+
+@test "a brief gap between tracks shows loading on the same player, never closing the island" {
+  export ISLAND_MEDIA_GRACE=1
+  listener "printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf '\n'
+printf 'Stopped\x1fedge.i1\x1f\x1f\x1f\x1f\x1e\n'
+printf 'Playing\x1fedge.i1\x1f\x1f\x1f\x1f\x1e\n'
+sleep 0.3
+cat \"\$XDG_RUNTIME_DIR/eww-island/player\" > \"$BATS_TEST_TMPDIR/player.during\"
+cat \"\$XDG_RUNTIME_DIR/eww-island/media.json\" > \"$BATS_TEST_TMPDIR/media.during\"
+printf 'Playing\x1fedge.i1\x1fB\x1fY\x1f\x1f2000000\x1e\n'
+sleep 5"
+  run timeout 1.5 "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 124 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [ "$(jq -r .title <<<"${lines[1]}")" = A ]
+  [ "${lines[2]}" = "$(loading_json edge.i1)" ]
+  [ "$(jq -c '[.state,.title,.artist]' <<<"${lines[3]}")" = '["playing","B","Y"]' ]
+  [ "$(cat "$BATS_TEST_TMPDIR/media.during")" = "${lines[2]}" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/player.during")" = edge.i1 ]
+  [ "$(cat "$STATE/media.json")" = "${lines[3]}" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = 'auto 4' ]
+}
+
+@test "no player for the whole grace period ends the music and closes the island" {
+  export ISLAND_MEDIA_GRACE=0.3
+  listener "printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf '\n'
+sleep 5"
+  run timeout 1.2 "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 124 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [ "$(jq -r .state <<<"${lines[2]}")" = loading ]
+  [ "$(jq -r .state <<<"${lines[3]}")" = none ]
+  [ "$(cat "$STATE/media.json")" = "${lines[3]}" ]
+  [ "$(cat "$STATE/player")" = "" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = close ]
+}
+
+@test "a player that stays stopped still closes the island after the grace period" {
+  export ISLAND_MEDIA_GRACE=0.3
+  listener "printf 'Paused\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+sleep 0.1
+printf 'Stopped\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+sleep 5"
+  run timeout 1.2 "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 124 ]
+  [ "$(jq -r .state <<<"${lines[-1]}")" = none ]
+  [ "$(jq -r .state <<<"${lines[-2]}")" = loading ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = close ]
+}
+
+@test "an untitled track that outlasts the grace period is shown as it is" {
+  export ISLAND_MEDIA_GRACE=0.3
+  listener "printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fedge.i1\x1f\x1f\x1f\x1f5000000\x1e\n'
+sleep 5"
+  run timeout 1.2 "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 124 ]
+  [ "$(jq -r .state <<<"${lines[2]}")" = loading ]
+  [ "$(jq -c '[.state,.title,.length]' <<<"${lines[3]}")" = '["playing","",5]' ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = 'auto 4' ]
+}
+
+@test "a gap before the first track shows no loading state" {
+  export ISLAND_MEDIA_GRACE=1
+  listener "printf '\n'
+printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+sleep 5"
+  run timeout 0.8 "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "${#lines[@]}" -eq 2 ]
+  [ "$(jq -r .title <<<"${lines[1]}")" = A ]
 }
 
 @test "a silent player source still reports no player and clears a stale player" {
@@ -196,7 +288,8 @@ EOF
   [ ! -d "$ART_CACHE" ]
 }
 
-@test "listener finishes close before dispatching the following auto" {
+@test "listener finishes close before dispatching the following auto (grace 0 closes at once)" {
+  export ISLAND_MEDIA_GRACE=0
   mkdir -p "$BATS_TEST_TMPDIR/eww"
   cp -r "$SCRIPTS" "$BATS_TEST_TMPDIR/eww/scripts"
   cp "$REPO/eww/players" "$BATS_TEST_TMPDIR/eww/players"

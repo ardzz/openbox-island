@@ -319,6 +319,43 @@ $ear: 14px;
   font-size: 28px;
 }
 
+// Loading skeleton between tracks: grey rounded blocks where the text will be.
+@keyframes skeleton-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}
+
+.skeleton {
+  background-color: $island-track;
+  border-radius: 6px;
+  animation: skeleton-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.skeleton-title {
+  min-height: 14px;
+  margin: 2px 0;
+}
+
+.skeleton-artist {
+  min-height: 11px;
+  margin: 3px 0;
+}
+
+// Rows keep the height of the text they stand in for: lyrics 18px, progress row 16px.
+.skeleton-lyrics {
+  min-height: 12px;
+  margin: 3px 0;
+}
+
+.skeleton-progress {
+  min-height: 4px;
+  border-radius: 2px;
+}
+
+.skeleton-row {
+  min-height: 16px;
+}
+
 .eqbar {
   background-color: $island-accent;
   min-width: 3px;

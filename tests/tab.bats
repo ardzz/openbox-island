@@ -55,6 +55,12 @@ both() { music; weather; }
   [ "$output" = musik ]
 }
 
+@test "resolve keeps music while the next track loads" {
+  music loading; weather; saved musik
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = musik ]
+}
+
 @test "resolve falls back to weather when the music stopped, keeping the saved choice" {
   no_music; weather; saved musik
   run "$SCRIPTS/tab" resolve

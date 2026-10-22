@@ -13,6 +13,20 @@ REC=$'\x1e'
 FORMAT="{{status}}$SEP{{playerInstance}}$SEP{{title}}$SEP{{artist}}$SEP{{mpris:artUrl}}$SEP{{mpris:length}}$REC"
 NONE_JSON='{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}'
 
+# grace_us: how long (ISLAND_MEDIA_GRACE seconds, default 1.5) a shown track may go missing before
+# the music counts as stopped; players report no track for a moment while changing tracks. 0 = never wait.
+grace_us() {
+  local grace=${ISLAND_MEDIA_GRACE:-1.5}
+  [[ $grace =~ ^[0-9]+(\.[0-9]+)?$ ]] || grace=1.5
+  seconds_us "$grace"
+}
+
+# loading_json PLAYER: the shown player is between tracks; the island draws a skeleton.
+loading_json() {
+  jq -nc --arg player "$1" \
+    '{state: "loading", player: $player, title: "", artist: "", art: "", length: 0, length_text: "0:00"}'
+}
+
 # players_list: comma-separated priority list from eww/players.
 players_list() {
   local list
@@ -79,6 +93,13 @@ track_key() {
   esac
 }
 
+# has_track RECORD: the record names a playing or paused track; mid-change players drop the title.
+has_track() {
+  local status title
+  IFS=$SEP read -r -d '' status _ title _ < <(printf '%s' "$1")
+  [[ $status == Playing || $status == Paused ]] && [[ -n $title ]]
+}
+
 # media_action FIRST PREV_KEY KEY STATUS: auto = a new track started playing (never on the
 # first update), close = the shown player went away, none = nothing to do.
 media_action() {
@@ -94,33 +115,64 @@ media_action() {
   fi
 }
 
+# publish JSON: hand JSON to eww and to the scripts that read media.json.
+publish() {
+  printf '%s\n' "$1" > "$STATE/media.json.tmp"
+  mv "$STATE/media.json.tmp" "$STATE/media.json"
+  printf '%s\n' "$1"
+}
+
 stream() {
   require playerctl jq || return 127
-  local line key prev="" first=1 status player json
+  local line rc key prev="" first=1 status player="" json grace deadline=0 left timeout settle
+  local buf="" partial="" record pending=""
+  grace=$(grace_us)
   mkdir -p "$STATE"
   printf '\n' > "$STATE/player"
-  printf '%s\n' "$NONE_JSON" > "$STATE/media.json.tmp"
-  mv "$STATE/media.json.tmp" "$STATE/media.json"
-  printf '%s\n' "$NONE_JSON"
-  local buf="" record
-  while IFS= read -r line; do
-    if [[ -z $buf && -z $line ]]; then
-      record=""                      # playerctl prints an empty line when no player is left
+  publish "$NONE_JSON"
+  while :; do
+    settle=0
+    if (( deadline )); then
+      left=$(( deadline - ${EPOCHREALTIME/./} ))
+      line="" rc=142
+      if (( left > 0 )); then
+        printf -v timeout '%d.%06d' $(( left / 1000000 )) $(( left % 1000000 ))
+        IFS= read -r -t "$timeout" line; rc=$?
+      fi
+      # No track came back in time: show what the player reports now (a timed-out read keeps partial input).
+      if (( rc > 128 )); then partial+=$line record=$pending deadline=0 settle=1; fi
     else
-      buf+=${buf:+$'\n'}$line
-      [[ $buf == *"$REC" ]] || continue
-      record=${buf%"$REC"}
-      buf=""
+      IFS= read -r line; rc=$?
+    fi
+    if (( ! settle )); then
+      (( rc == 0 )) || break
+      line=$partial$line partial=""
+      if [[ -z $buf && -z $line ]]; then
+        record=""                    # playerctl prints an empty line when no player is left
+      else
+        buf+=${buf:+$'\n'}$line
+        [[ $buf == *"$REC" ]] || continue
+        record=${buf%"$REC"}
+        buf=""
+      fi
+      # A track change passes through records without a track: keep the shown player loading.
+      if [[ -n $prev ]] && (( grace )) && ! has_track "$record"; then
+        if (( ! deadline )); then
+          deadline=$(( ${EPOCHREALTIME/./} + grace ))
+          publish "$(loading_json "$player")"
+        fi
+        pending=$record
+        continue
+      fi
+      deadline=0
     fi
     IFS=$SEP read -r status player _ <<<"$record"
     key=$(track_key "$record")
     [[ -n $key ]] || player=""
     json=$(media_json "$record")
     printf '%s\n' "$player" > "$STATE/player"
-    printf '%s\n' "$json" > "$STATE/media.json.tmp"
-    mv "$STATE/media.json.tmp" "$STATE/media.json"
     if [[ -n $key && $key != "$prev" ]]; then date +%s%1N > "$STATE/marquee_at"; fi
-    printf '%s\n' "$json"
+    publish "$json"
     case $(media_action "$first" "$prev" "$key" "$status") in
       auto) "$DIR/island" auto "$AUTO_SECONDS" >/dev/null ;;
       close) "$DIR/island" close >/dev/null ;;

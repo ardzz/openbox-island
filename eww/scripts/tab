@@ -13,7 +13,7 @@ DEBOUNCE_DS=5
 # Header order. A new tab: append its name, add available_NAME, then its chip and page in island.yuck.
 TABS=(musik cuaca)
 # media writes media.json before it calls island, so this never lags behind a stopped player.
-available_musik() { [[ $(jq -r '.state // "none"' "$STATE/media.json" 2>/dev/null) =~ ^(playing|paused)$ ]]; }
+available_musik() { [[ $(jq -r '.state // "none"' "$STATE/media.json" 2>/dev/null) =~ ^(playing|paused|loading)$ ]]; }
 available_cuaca() { [[ $(eww get weather 2>/dev/null | jq -r '.ok // false' 2>/dev/null) == true ]]; }
 
 # Keep any inherited lock fd out of eww: a daemon auto-started by eww would hold it forever.
