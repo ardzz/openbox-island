@@ -4,7 +4,7 @@
 (deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}' "scripts/alert")
 (deflisten status :initial '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false}' "scripts/status")
 (deflisten rec :initial '{"active":false,"app":"","time":""}' "scripts/rec")
-(deflisten weather :initial '{"ok":false,"icon":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")
+(deflisten weather :initial '{"ok":false,"icon":"","tone":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")
 (defvar island_reveal false)
 (defpoll pos :interval "1s" :initial '{"pos":0,"text":"0:00"}' :run-while island_reveal "scripts/position")
 ; Scroll title and artist only while the expanded island is revealed.

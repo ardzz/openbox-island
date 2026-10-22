@@ -43,7 +43,7 @@
             (revealer :transition "none" :reveal {weather.ok}
               (box :orientation "h" :space-evenly false :spacing 6
                    :tooltip "${weather.desc}${weather.region != "" ? " · " + weather.region : ""}"
-                (label :class "weather-icon" :text {weather.icon})
+                (label :class "weather-icon tone-${weather.tone}" :text {weather.icon})
                 (label :class "weather-temp" :text {weather.temp})
                 (revealer :transition "none" :reveal {weather.city != ""}
                   (box :orientation "h" :space-evenly false :spacing 6
@@ -108,7 +108,7 @@
           (revealer :transition "none" :reveal {media.state == "none"}
         (box :class "pill pill-expanded weather-card" :orientation "v" :space-evenly false :spacing 8
           (box :orientation "h" :space-evenly false :spacing 12
-            (label :class "weather-big-icon" :text {weather.icon})
+            (label :class "weather-big-icon tone-${weather.tone}" :text {weather.icon})
             (box :orientation "v" :space-evenly false :valign "center" :spacing 2
               (label :class "weather-big-temp" :text {weather.temp} :xalign 0)
               (label :class "weather-desc" :text {weather.desc} :xalign 0))
@@ -127,6 +127,6 @@
               (box :orientation "v" :space-evenly false :halign "center" :spacing 2
                 (label :class "forecast-day" :text {day.day})
                 (box :orientation "h" :space-evenly false :halign "center" :spacing 6
-                  (label :class "forecast-icon" :text {day.icon})
+                  (label :class "forecast-icon tone-${day.tone}" :text {day.icon})
                   (label :class "forecast-temp" :text "${day.max} / ${day.min}"))
                 (label :class "forecast-rain" :text "󰖌 ${day.rain}")))))))))))

@@ -6,71 +6,349 @@ $island-track: mix($fg, $island-bg, 18%);
 // Bar palettes usually define $red; the generated default palette does not.
 $red: #ff453a !default;
 
-* { all: unset; font-family: $font, "Symbols Nerd Font", "Noto Sans"; font-size: 13px; }
+* {
+  all: unset;
+  font-family: $font, "Symbols Nerd Font", "Noto Sans";
+  font-size: 13px;
+}
 
 $muted: mix($fg, $island-bg, 60%);
 
-.pill { background-color: $island-bg; color: $fg; border-radius: 14px; }
-.pill-media { min-height: 36px; min-width: 465px; padding: 0 10px 0 5px; }
-.pill-idle { min-height: 36px; min-width: 64px; padding: 0 14px; }
-.pill-alert { min-height: 36px; min-width: 452px; padding: 0 14px; }
-.alert-icon { font-size: 16px; }
+.pill {
+  background-color: $island-bg;
+  color: $fg;
+  border-radius: 14px;
+}
+
+.pill-media {
+  min-height: 36px;
+  min-width: 465px;
+  padding: 0 10px 0 5px;
+}
+
+.pill-idle {
+  min-height: 36px;
+  min-width: 64px;
+  padding: 0 14px;
+}
+
+.pill-alert {
+  min-height: 36px;
+  min-width: 452px;
+  padding: 0 14px;
+}
+
+.alert-icon {
+  font-size: 16px;
+}
+
 // The screenshot thumbnail replaces the icon; the hexpand text column absorbs the extra width.
-.alert-thumb { min-width: 42px; min-height: 26px; border-radius: 6px; background-color: $island-track;
-  background-size: cover; background-position: center; }
-.alert-text { font-weight: bold; }
-.alert-value { color: $muted; }
-.hud trough { background-color: $island-track; border-radius: 2px; min-height: 4px; min-width: 140px; }
-.hud progress { background-color: $island-accent; border-radius: 2px; min-height: 4px; }
-@keyframes alert-pulse { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
-.alert-charging .alert-icon { color: $island-accent; animation: alert-pulse 0.7s ease-in-out 3; }
-.alert-battery-low .alert-icon, .alert-temperature .alert-icon { color: $red; }
-.alert-battery-low .hud progress { background-color: $red; }
-.dot { min-width: 6px; min-height: 6px; border-radius: 3px; }
-.dot-mic { background-color: $yellow; }
-.dot-camera { background-color: $green; }
-.dot-rec { background-color: $red; }
-.rec-time { color: $red; font-size: 11px; }
-.dnd { color: $muted; font-size: 12px; }
-.weather-icon { font-size: 15px; }
-.weather-temp, .forecast-temp { font-size: 13px; }
-.weather-city-small { font-weight: normal; }
-.weather-separator, .weather-desc, .weather-region, .weather-sun, .weather-details, .forecast-day { color: $muted; }
-.weather-big-icon { font-size: 32px; }
-.weather-big-temp { font-size: 22px; font-weight: bold; }
-.weather-city { font-weight: bold; }
-.weather-region, .weather-sun, .weather-details { font-size: 12px; }
-.forecast-day, .forecast-rain { font-size: 11px; }
-.forecast-icon { font-size: 15px; }
-.forecast-rain { color: $island-accent; }
+.alert-thumb {
+  min-width: 42px;
+  min-height: 26px;
+  border-radius: 6px;
+  background-color: $island-track;
+  background-size: cover;
+  background-position: center;
+}
 
-.cover { background-color: $island-track; background-size: cover; background-position: center; }
-.cover-small { min-width: 24px; min-height: 24px; border-radius: 8px; }
-.cover-large { min-width: 64px; min-height: 64px; border-radius: 12px; }
-.cover-fallback { color: $muted; }
-.cover-small .cover-fallback { font-size: 12px; }
-.cover-large .cover-fallback { font-size: 28px; }
+.alert-text {
+  font-weight: bold;
+}
 
-.eqbar { background-color: $island-accent; min-width: 3px; min-height: 4px; border-radius: 2px; }
-.eqbar.lvl0 { min-height: 4px; }
-.eqbar.lvl1 { min-height: 5px; }
-.eqbar.lvl2 { min-height: 7px; }
-.eqbar.lvl3 { min-height: 8px; }
-.eqbar.lvl4 { min-height: 10px; }
-.eqbar.lvl5 { min-height: 11px; }
-.eqbar.lvl6 { min-height: 13px; }
-.eqbar.lvl7 { min-height: 14px; }
-.eqbar.lvl8 { min-height: 16px; }
-.paused .eqbar { min-height: 4px; }
+.alert-value {
+  color: $muted;
+}
 
-.pill-expanded { min-width: 440px; padding: 14px 20px; border-radius: 16px; }
-.title { font-weight: bold; font-size: 14px; }
-.artist, .time { color: $muted; }
-.lyrics { color: $fg; font-style: italic; }
-.lyrics.fallback { color: $muted; }
-.time { font-size: 11px; }
-.progress trough { background-color: $island-track; border-radius: 2px; min-height: 4px; min-width: 200px; }
-.progress progress { background-color: $island-accent; border-radius: 2px; min-height: 4px; }
-.ctl { font-size: 18px; color: $fg; }
-.ctl:hover { color: $island-accent; }
-.ctl-main { font-size: 22px; }
+.hud trough {
+  background-color: $island-track;
+  border-radius: 2px;
+  min-height: 4px;
+  min-width: 140px;
+}
+
+.hud progress {
+  background-color: $island-accent;
+  border-radius: 2px;
+  min-height: 4px;
+}
+
+@keyframes alert-pulse {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.alert-charging .alert-icon {
+  color: $island-accent;
+  animation: alert-pulse 0.7s ease-in-out 3;
+}
+
+.alert-battery-low .alert-icon,
+.alert-temperature .alert-icon {
+  color: $red;
+}
+
+.alert-battery-low .hud progress {
+  background-color: $red;
+}
+
+.dot {
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 3px;
+}
+
+.dot-mic {
+  background-color: $yellow;
+}
+
+.dot-camera {
+  background-color: $green;
+}
+
+.dot-rec {
+  background-color: $red;
+}
+
+.rec-time {
+  color: $red;
+  font-size: 11px;
+}
+
+.dnd {
+  color: $muted;
+  font-size: 12px;
+}
+
+.weather-icon {
+  font-size: 15px;
+}
+
+.weather-temp,
+.forecast-temp {
+  font-size: 13px;
+}
+
+.weather-city-small {
+  font-weight: normal;
+}
+
+.weather-separator,
+.weather-desc,
+.weather-region,
+.weather-sun,
+.weather-details,
+.forecast-day {
+  color: $muted;
+}
+
+.weather-big-icon {
+  font-size: 32px;
+}
+
+.weather-big-temp {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.weather-city {
+  font-weight: bold;
+}
+
+.weather-region,
+.weather-sun,
+.weather-details {
+  font-size: 12px;
+}
+
+.forecast-day,
+.forecast-rain {
+  font-size: 11px;
+}
+
+.forecast-icon {
+  font-size: 15px;
+}
+
+.forecast-rain {
+  color: $island-accent;
+}
+
+// Weather icon colour follows the condition and heat (tone from scripts/weather).
+.tone-hot {
+  color: $red;
+}
+
+.tone-warm {
+  color: mix($red, $yellow, 45%);
+}
+
+.tone-sunny {
+  color: $yellow;
+}
+
+.tone-night {
+  color: mix($blue, $fg, 45%);
+}
+
+.tone-cold {
+  color: $cyan;
+}
+
+.tone-rain {
+  color: $blue;
+}
+
+.tone-storm {
+  color: $magenta;
+}
+
+.tone-snow {
+  color: $alt-white;
+}
+
+.tone-cloud,
+.tone-fog {
+  color: $muted;
+}
+
+.cover {
+  background-color: $island-track;
+  background-size: cover;
+  background-position: center;
+}
+
+.cover-small {
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 8px;
+}
+
+.cover-large {
+  min-width: 64px;
+  min-height: 64px;
+  border-radius: 12px;
+}
+
+.cover-fallback {
+  color: $muted;
+}
+
+.cover-small .cover-fallback {
+  font-size: 12px;
+}
+
+.cover-large .cover-fallback {
+  font-size: 28px;
+}
+
+.eqbar {
+  background-color: $island-accent;
+  min-width: 3px;
+  min-height: 4px;
+  border-radius: 2px;
+}
+
+.eqbar.lvl0 {
+  min-height: 4px;
+}
+
+.eqbar.lvl1 {
+  min-height: 5px;
+}
+
+.eqbar.lvl2 {
+  min-height: 7px;
+}
+
+.eqbar.lvl3 {
+  min-height: 8px;
+}
+
+.eqbar.lvl4 {
+  min-height: 10px;
+}
+
+.eqbar.lvl5 {
+  min-height: 11px;
+}
+
+.eqbar.lvl6 {
+  min-height: 13px;
+}
+
+.eqbar.lvl7 {
+  min-height: 14px;
+}
+
+.eqbar.lvl8 {
+  min-height: 16px;
+}
+
+.paused .eqbar {
+  min-height: 4px;
+}
+
+.pill-expanded {
+  min-width: 440px;
+  padding: 14px 20px;
+  border-radius: 16px;
+}
+
+.title {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.artist,
+.time {
+  color: $muted;
+}
+
+.lyrics {
+  color: $fg;
+  font-style: italic;
+}
+
+.lyrics.fallback {
+  color: $muted;
+}
+
+.time {
+  font-size: 11px;
+}
+
+.progress trough {
+  background-color: $island-track;
+  border-radius: 2px;
+  min-height: 4px;
+  min-width: 200px;
+}
+
+.progress progress {
+  background-color: $island-accent;
+  border-radius: 2px;
+  min-height: 4px;
+}
+
+.ctl {
+  font-size: 18px;
+  color: $fg;
+}
+
+.ctl:hover {
+  color: $island-accent;
+}
+
+.ctl-main {
+  font-size: 22px;
+}

@@ -76,6 +76,8 @@ Jika `dunstctl` tersedia, setelah window island berhasil dibuka launcher memasan
 
 Cuaca berasal dari wttr.in. Pill idle menampilkan ikon, suhu, dan kota, rata tengah. Hover di atas island idle selama 0,3 detik membuka kartu detail 480×180 px: kondisi cuaca, suhu, kota dan wilayah, waktu matahari terbit/terbenam, suhu terasa, kelembapan, angin, indeks UV, serta prakiraan 3 hari dengan suhu maksimum/minimum dan peluang hujan. Jika cuaca tidak tersedia, hover idle tidak membuka kartu. Cuaca diperbarui setiap 30 menit, dicoba ulang setelah 5 menit jika gagal, dan cache dapat dipakai selama 3 jam.
 
+Warna ikon cuaca (pill, kartu, dan prakiraan) mengikuti kondisi lalu suhu: hujan biru, badai magenta, salju putih, kabut dan berawan abu; selain itu ≥33° merah (panas), ≤15° cyan (dingin), cerah malam biru pucat, ≥28° jingga (hangat), cerah kuning. Prakiraan memakai suhu maksimum dan selalu dianggap siang. Warna berasal dari palet tema bar.
+
 Urutan lokasi: berkas `eww/weather-location` (diabaikan git) → GeoClue → perkiraan alamat IP. Isi berkas tersebut dengan lokasi pilihan untuk mengganti lokasi otomatis. Kota dan wilayah berasal dari reverse geocoding OpenStreetMap Nominatim (Data © OpenStreetMap contributors, ODbL), dengan cache 30 hari; hanya kunci cache yang dibulatkan ke area sekitar 1 km.
 
 GeoClue opsional: pasang dengan `sudo pacman -S geoclue`, lalu tambahkan ke `/etc/geoclue/geoclue.conf`:

@@ -91,7 +91,7 @@ printf '100000\n'
 EOF
   chmod +x "$BIN/date" "$BIN/sleep" "$BIN/curl" "$BIN/timeout" "$BIN/where-am-i" "$BIN/stat"
   export PATH="$BIN"
-  EMPTY='{"ok":false,"icon":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}'
+  EMPTY='{"ok":false,"icon":"","tone":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}'
 }
 
 teardown() {
@@ -119,7 +119,8 @@ next_weather() {
 
 assert_weather() {
   local temp=$1 desc=$2 icon=$3
-  [ "$event" = "{\"ok\":true,\"icon\":\"$icon\",\"temp\":\"$temp\",\"desc\":\"$desc\",\"city\":\"\",\"region\":\"\",\"feels\":\"\",\"humidity\":\"\",\"wind\":\"\",\"uv\":\"\",\"sunrise\":\"\",\"sunset\":\"\",\"days\":[]}" ]
+  # tone has its own tests; compare the rest of the event exactly.
+  [ "$(jq -c 'del(.tone)' <<< "$event")" = "{\"ok\":true,\"icon\":\"$icon\",\"temp\":\"$temp\",\"desc\":\"$desc\",\"city\":\"\",\"region\":\"\",\"feels\":\"\",\"humidity\":\"\",\"wind\":\"\",\"uv\":\"\",\"sunrise\":\"\",\"sunset\":\"\",\"days\":[]}" ]
 }
 
 weather_tick() {
@@ -202,6 +203,41 @@ EOF
   [ "$status" -eq 0 ]
   event=$output
   assert_weather '-7°' 'Berawan' '󰖐'
+}
+
+@test "weather tone follows precipitation first, then heat, then sky and time of day" {
+  source "$SCRIPTS/weather"
+  local temp code hour tone
+  while IFS='|' read -r temp code hour tone; do
+    run weather_json "$temp" "$code" "$hour"
+    [ "$status" -eq 0 ]
+    [ "$(jq -r .tone <<< "$output")" = "$tone" ] || { echo "$temp $code $hour: $output"; false; }
+  done <<'EOF'
+36|176|12|rain
+30|299|12|rain
+33|200|12|storm
+-2|179|08|snow
+34|143|12|fog
+33|113|12|hot
+33|119|12|hot
+33|113|22|hot
+28|116|12|warm
+32|119|12|warm
+27|113|12|sunny
+16|116|12|sunny
+29|113|22|night
+15|113|12|cold
+10|119|12|cold
+15|113|22|cold
+24|119|12|cloud
+EOF
+}
+
+@test "forecast days carry a daytime tone from their maximum temperature" {
+  source "$SCRIPTS/weather"
+  run weather_json 25 119 22 '{"days":[{"day":"Hari ini","weatherCode":"113","max":"34","min":"25","rain":"0%"},{"day":"Besok","weatherCode":"113","max":"27","min":"20","rain":"0%"},{"day":"Lusa","weatherCode":"302","max":"35","min":"24","rain":"90%"},{"day":"X","weatherCode":"","max":"","min":"","rain":""}]}'
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '[.days[].tone]' <<< "$output")" = '["hot","sunny","rain",""]' ]
 }
 
 @test "invalid JSON and missing or invalid weather fields produce unavailable" {
@@ -392,7 +428,7 @@ enable_geocode() {
   realistic_weather
   enable_geocode
   start_weather
-  [ "$event" = '{"ok":true,"icon":"󰖑","temp":"28°","desc":"Berkabut","city":"Surabaya","region":"Jawa Timur","feels":"30°","humidity":"68%","wind":"4 km/j","uv":"0","sunrise":"05:05","sunset":"17:23","days":[{"day":"Hari ini","icon":"󰖑","max":"35°","min":"26°","rain":"7%"},{"day":"Besok","icon":"󰖖","max":"34°","min":"25°","rain":"80%"},{"day":"Sab","icon":"󰖕","max":"33°","min":"24°","rain":"10%"}]}' ]
+  [ "$event" = '{"ok":true,"icon":"󰖑","tone":"fog","temp":"28°","desc":"Berkabut","city":"Surabaya","region":"Jawa Timur","feels":"30°","humidity":"68%","wind":"4 km/j","uv":"0","sunrise":"05:05","sunset":"17:23","days":[{"day":"Hari ini","icon":"󰖑","tone":"fog","max":"35°","min":"26°","rain":"7%"},{"day":"Besok","icon":"󰖖","tone":"rain","max":"34°","min":"25°","rain":"80%"},{"day":"Sab","icon":"󰖕","tone":"hot","max":"33°","min":"24°","rain":"10%"}]}' ]
 }
 
 @test "astronomy converts midnight and noon without changing their minutes" {
@@ -563,5 +599,6 @@ EOF
   printf '23\n' > "$WEATHER_FIXTURE/hour"
   printf '' > "$WEATHER_FIXTURE/block-fetch"
   start_weather
-  [ "$event" = "$(jq -c '.icon="󰖔"' <<< "$previous")" ]
+  [ "$(jq -r .tone <<< "$previous")" = warm ]
+  [ "$event" = "$(jq -c '.icon="󰖔" | .tone="night"' <<< "$previous")" ]
 }
