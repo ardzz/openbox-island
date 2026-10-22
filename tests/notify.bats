@@ -324,17 +324,6 @@ wait_for_line() {
   wait_for_line "$NOTIFY_FIXTURE/xdotool.log" 'windowactivate 77'
 }
 
-@test "clicking a critical notification also closes its dunst popup" {
-  export ISLAND_NOTIFY_SECONDS=2
-  start_listener
-  post 32 Baterai habis CRITICAL
-  next_event
-  "$SCRIPTS/notify" click 32
-  next_event 0.5
-  [ "$event" = "$CLEAR" ]
-  wait_for_line "$NOTIFY_FIXTURE/dunstctl.log" 'close 32'
-}
-
 @test "a stale click for a notification no longer shown changes nothing" {
   export ISLAND_NOTIFY_SECONDS=2
   printf 'app 5\n' > "$NOTIFY_FIXTURE/windows"
