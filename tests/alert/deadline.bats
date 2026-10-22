@@ -75,3 +75,10 @@ EOF
   tick '2026-10-22 07:30'
   [ "$(notified)" = 'Tugas|Deadline hari ini · 17:00|a' ]
 }
+
+@test "reminder bodies keep the item text exactly" {
+  prepare
+  add_due '2026-10-21 08:00' 'Periksa C:\temp dan "kutip"' '2026-10-22 17:00'
+  tick '2026-10-21 09:00'
+  [ "$(notified)" = 'Tugas|Deadline besok · 17:00|Periksa C:\temp dan "kutip"' ]
+}

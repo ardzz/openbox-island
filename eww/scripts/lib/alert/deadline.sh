@@ -22,13 +22,14 @@ deadline_snapshot() {
   local now doc id due text keys
   now=$(todo_now)
   doc=$(store_read "$TODO_FILE" "$TODO_EMPTY")
-  while IFS=$'\t' read -r id due text; do
+  while IFS=$'\t' read -r id due; do
     keys=$(jq -c --argjson id "$id" --argjson k "$(deadline_passed_keys "$due" "$now")" \
       '.items[] | select(.id == $id) | $k - (.reminded // [])' <<< "$doc")
     [[ $keys != '[]' ]] || continue
     store_update "$TODO_FILE" "$TODO_EMPTY" "$TODO_NORMALIZE_JQ | ($DEADLINE_MARK_JQ)" \
       --argjson id "$id" --argjson due "$due" --argjson keys "$keys" || continue
+    text=$(jq -r --argjson id "$id" '.items[] | select(.id == $id) | .text' <<< "$doc")
     notify-send -a Tugas -- "$(deadline_title "$due" "$now")" "$text" || :
   done < <(jq -r --argjson now "$now" \
-    '.items[] | select((.done | not) and .due != null and .due > $now) | [.id, .due, .text] | @tsv' <<< "$doc")
+    '.items[] | select((.done | not) and .due != null and .due > $now) | [.id, .due] | @tsv' <<< "$doc")
 }
