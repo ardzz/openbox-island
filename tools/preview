@@ -14,7 +14,8 @@ BACKDROP='(defwindow preview-backdrop
   :geometry (geometry :x "0px" :y "300px" :width "520px" :height "230px" :anchor "top center")
   :wm-ignore true
   (box :class "preview-backdrop"))'
-STILL_CSS='* { animation: none; transition: none; }
+# :not(#id) gives id specificity, beating class rules such as the skeleton pulse (GTK has no !important).
+STILL_CSS='*:not(#preview-none) { animation: none; transition: none; }
 .preview-backdrop { background-color: #808080; }'
 
 usage() {
