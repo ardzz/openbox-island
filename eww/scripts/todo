@@ -17,6 +17,8 @@ source "$DIR/lib/todo/deadline.sh"
 source "$DIR/lib/listener.sh"
 # shellcheck source=lib/paged.sh
 source "$DIR/lib/paged.sh"
+# shellcheck source=lib/todo/render.sh
+source "$DIR/lib/todo/render.sh"
 ROWS=4
 MAX_TEXT=200
 
@@ -36,14 +38,6 @@ TOGGLE_JQ='if any(.items[]; .id == $id)
   else null end'
 REMOVE_JQ='if any(.items[]; .id == $id) then .items |= map(select(.id != $id)) else null end'
 CLEAR_JQ='.items |= map(select(.done | not))'
-# Open items newest first, then done items latest finished first.
-RENDER_JQ='(.items | map(select(.done | not)) | sort_by(-.id)) as $open
-  | (.items | map(select(.done)) | sort_by(-(.done_at // 0), -.id)) as $done
-  | ($open + $done) as $all | ($all | length) as $total | ($open | length) as $count
-  | ($all | '"$PAGED_JQ"') as $page
-  | {open: $count, done: ($done | length), total: $total,
-     label: ("Tugas" + (if $count > 0 then " \($count)" else "" end)),
-     rows: [$page.rows[] | {id, text, done, due}], more: $page.more, offset: $page.offset}'
 
 
 now_us() { printf '%s' "${EPOCHREALTIME/./}"; }
@@ -81,7 +75,8 @@ prompt() {
 # load: read the list (missing or corrupt = empty) and keep the offset within it.
 load() {
   doc=$(store_read "$TODO_FILE" "$TODO_EMPTY")
-  total=$(jq '.items | length' <<< "$doc")
+  read -r total timed < <(jq -r '[(.items | length),
+    (if any(.items[]; (.done | not) and .due != null) then 1 else 0 end)] | @tsv' <<< "$doc")
   (( offset <= total - ROWS )) || offset=$(( total > ROWS ? total - ROWS : 0 ))
 }
 
@@ -95,7 +90,7 @@ scroll() {
 
 todo_render() {
   [[ -n $doc ]] || return 1
-  jq -c --argjson offset "$offset" --argjson rows "$ROWS" "$RENDER_JQ" <<< "$doc" 2>/dev/null
+  jq -c --argjson offset "$offset" --argjson rows "$ROWS" --argjson now "$(todo_now)" "$TODO_RENDER_JQ" <<< "$doc" 2>/dev/null
 }
 
 todo_handle() {
@@ -105,7 +100,7 @@ todo_handle() {
     '@scroll 1') scroll 1 ;;
     '@expanded 0') offset=0 ;;
   esac
-  listen_tick=0
+  listen_tick=0; if (( timed )); then listen_tick=${ISLAND_TODO_TICK:-60}; fi
 }
 
 usage() { printf 'usage: todo [add TEXT [--due EPOCH] | set-due ID EPOCH|none | prompt | toggle ID | remove ID | clear-done | scroll up|down]\n' >&2; return 2; }
@@ -141,7 +136,7 @@ main() {
       fi ;;
     clear-done) todo_change "$CLEAR_JQ" ;;
     '')
-      local doc='' total=0 offset=0
+      local doc='' total=0 timed=0 offset=0
       # The first load comes as a "@tick" right after the FIFO exists, so it misses no "@refresh".
       # shellcheck disable=SC2034 # read by listen
       listen_tick=0.000001
