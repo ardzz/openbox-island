@@ -36,13 +36,17 @@ case $1 in
       echo stopping >> "$FAKE_LAUNCH_LOG"
     elif (( remaining == 0 )); then
       echo unreachable >> "$FAKE_LAUNCH_LOG"; exit 1
+    elif (( remaining < -1 )); then
+      # A daemon that is still starting does not answer yet.
+      echo $((remaining + 1)) > "$FAKE_LAUNCH_STATE"
+      echo starting >> "$FAKE_LAUNCH_LOG"; exit 1
     fi ;;
   daemon)
     if [[ -r "$HOME/.config/eww-island/_colors.scss" ]]; then
       cp "$HOME/.config/eww-island/_colors.scss" "$FAKE_LAUNCH_PALETTE"
     fi
     echo daemon >> "$FAKE_LAUNCH_LOG"
-    echo -1 > "$FAKE_LAUNCH_STATE" ;;
+    echo $(( -1 - ${FAKE_STARTUP_POLLS:-0} )) > "$FAKE_LAUNCH_STATE" ;;
   open) echo "$*" >> "$FAKE_LAUNCH_LOG" ;;
 esac
 EOF
@@ -54,6 +58,16 @@ EOF
   run "$REPO/openbox/island.sh"
   [ "$status" -eq 0 ]
   [ "$(grep -E '^(unreachable|daemon|open)' "$FAKE_LAUNCH_LOG" | uniq)" = $'unreachable\ndaemon\nopen island' ]
+}
+
+@test "a daemon slow to answer still opens the island and installs the OSD drop-in" {
+  delayed_eww
+  export FAKE_STARTUP_POLLS=70
+  run "$REPO/openbox/island.sh"
+  [ "$status" -eq 0 ]
+  grep -qx 'open island' "$FAKE_LAUNCH_LOG"
+  cmp "$REPO/eww/dunst-osd.conf" "$XDG_CONFIG_HOME/dunst/dunstrc.d/50-eww-island-osd.conf"
+  [ ! -e "$BATS_TEST_TMPDIR/dunstify.log" ]
 }
 
 @test "stop kills only the island config and removes state even when already stopped" {

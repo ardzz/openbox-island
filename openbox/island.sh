@@ -61,7 +61,8 @@ EOF
 ) || [[ -e $CFG/_colors.scss ]] || fail "palet island gagal ditulis"
 mkdir -p "${LOG%/*}"
 setsid -f "${E[@]}" daemon --no-daemonize >"$LOG" 2>&1 </dev/null || fail "daemon gagal start"
-for _ in {1..50}; do
+# A loaded session can take several seconds to bring the daemon up; giving up early leaves dunst without the drop-in.
+for _ in {1..300}; do
   "${E[@]}" ping >/dev/null 2>&1 && break
   sleep 0.1
 done
