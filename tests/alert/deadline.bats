@@ -82,3 +82,14 @@ EOF
   tick '2026-10-21 09:00'
   [ "$(notified)" = 'Tugas|Deadline besok · 17:00|Periksa C:\temp dan "kutip"' ]
 }
+
+@test "a reminder another writer already claimed is not sent again" {
+  prepare
+  add_due '2026-10-21 08:00' a '2026-10-22 17:00'
+  local stale file="$XDG_DATA_HOME/eww-island/todo.json"
+  stale=$(cat "$file")
+  jq -c '.items[0].reminded = ["eve"]' "$file" > "$file.new" && mv "$file.new" "$file"
+  store_read() { printf '%s\n' "$stale"; }
+  tick '2026-10-21 09:00'
+  [ -z "$(notified)" ]
+}

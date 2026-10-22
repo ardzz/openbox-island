@@ -86,3 +86,12 @@ rejects() { run deadline_parse "$1" "$NOW"; [ "$status" -ne 0 ]; [ -z "$output" 
   [ "$(deadline_title "$(at '2026-10-21 17:00')" "$NOW")" = 'Deadline hari ini · 17:00' ]
   [ "$(deadline_title "$(at '2026-10-22 09:00')" "$NOW")" = 'Deadline besok · 09:00' ]
 }
+
+@test "days are counted on the calendar even where midnight is skipped" {
+  export TZ=America/Santiago
+  local due
+  due=$(at '2026-09-06 17:00')
+  [ "$(deadline_at "$due" 0 09:00)" = "$(at '2026-09-06 09:00')" ]
+  [ "$(deadline_at "$due" -1 09:00)" = "$(at '2026-09-05 09:00')" ]
+  [ "$(deadline_passed_keys "$due" "$(at '2026-09-06 10:00')")" = '["eve","day"]' ]
+}

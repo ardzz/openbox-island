@@ -10,7 +10,7 @@ DEADLINE_MONTHS=(jan feb mar apr mei jun jul agu sep okt nov des)
 # deadline_at EPOCH DAYS HH:MM: HH:MM on the local day DAYS days after EPOCH's day.
 deadline_at() {
   local day
-  day=$(date -d "$(date -d "@$1" +%F) $2 days" +%F) && date -d "$day $3" +%s
+  day=$(TZ=UTC0 date -d "$(date -d "@$1" +%F) $2 days" +%F) && date -d "$day $3" +%s
 }
 
 # deadline_date TEXT NOW: "D MONTH" or "D/M" as YYYY-MM-DD in NOW's year.

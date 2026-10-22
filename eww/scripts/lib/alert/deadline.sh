@@ -9,7 +9,8 @@ source "$DIR/lib/todo/data.sh"
 source "$DIR/lib/todo/deadline.sh"
 
 # Add $keys to item $id's fired reminders while it is open with deadline $due; null otherwise.
-DEADLINE_MARK_JQ='if any(.items[]; .id == $id and .due == $due and (.done | not))
+DEADLINE_MARK_JQ='if any(.items[]; .id == $id and .due == $due and (.done | not)
+    and (($keys - (.reminded // [])) | length > 0))
   then .items |= map(if .id == $id then .reminded = ((.reminded // []) + $keys | unique) else . end)
   else null end'
 
