@@ -89,12 +89,15 @@
                      :style {notify.image == "" ? "" : "background-image: url('${notify.image}');"}))
               (revealer :transition "none" :reveal {notify.image == ""}
                 (label :class "notify-icon" :width 24 :text {notify.icon})))
-            (box :orientation "v" :space-evenly false :spacing 0 :valign "center" :hexpand true
+            (box :orientation "v" :space-evenly false :spacing 1 :valign "center" :hexpand true
               (label :class "notify-summary" :text {notify.summary} :xalign 0
-                     :limit-width 46 :show-truncated true :wrap false)
+                     :limit-width 40 :show-truncated true :wrap false)
               (revealer :transition "none" :reveal {notify.body != ""}
                 (label :class "notify-body" :text {notify.body} :xalign 0
-                       :limit-width 56 :show-truncated true :wrap false))))))))))
+                       :limit-width 50 :show-truncated true :wrap false)))
+            (revealer :transition "none" :reveal {notify.app != ""}
+              (label :class "notify-app" :text {notify.app} :xalign 1 :valign "center"
+                     :limit-width 16 :show-truncated true)))))))))
 
 (defwindow island-expanded
   :monitor 0

@@ -79,11 +79,16 @@ $muted: mix($fg, $island-bg, 60%);
 }
 
 .notify-summary {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: bold;
 }
 
 .notify-body {
+  font-size: 11px;
+  color: $muted;
+}
+
+.notify-app {
   font-size: 11px;
   color: $muted;
 }
