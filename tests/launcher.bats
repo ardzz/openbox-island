@@ -65,7 +65,7 @@ fake_watcher() {
   delayed_eww
   run "$REPO/openbox/island.sh"
   [ "$status" -eq 0 ]
-  [ "$(grep -E '^(unreachable|daemon|open)' "$FAKE_LAUNCH_LOG" | uniq)" = $'unreachable\ndaemon\nopen island' ]
+  [ "$(grep -E '^(unreachable|daemon|open)' "$FAKE_LAUNCH_LOG" | uniq)" = $'unreachable\ndaemon\nopen island\nopen island-upcoming' ]
 }
 
 @test "a daemon slow to answer still opens the island and installs the OSD drop-in" {
@@ -192,7 +192,7 @@ EOF
   run "$REPO/openbox/island.sh"
   [ "$status" -eq 0 ]
   for _ in {1..100}; do grep -q '^fullscreen' "$FAKE_LAUNCH_LOG" && break; sleep 0.02; done
-  [ "$(grep -E '^(open|fullscreen)' "$FAKE_LAUNCH_LOG")" = "open island"$'\n'"fullscreen $(cat "$FAKE_LAUNCH_STATE.pid")" ]
+  [ "$(grep -E '^(open|fullscreen)' "$FAKE_LAUNCH_LOG")" = "open island"$'\n'"open island-upcoming"$'\n'"fullscreen $(cat "$FAKE_LAUNCH_STATE.pid")" ]
 }
 
 @test "ISLAND_FULLSCREEN_HIDE=0 launches without the fullscreen watcher" {

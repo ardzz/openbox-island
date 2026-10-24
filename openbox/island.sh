@@ -70,6 +70,7 @@ for _ in {1..300}; do
 done
 "${E[@]}" ping >/dev/null 2>&1 || fail "daemon tidak merespons"
 "${E[@]}" open island >/dev/null 2>&1 || fail "window island gagal dibuka"
+"${E[@]}" open island-upcoming >/dev/null 2>&1 || fail "window island-upcoming gagal dibuka"
 if [[ ${ISLAND_FULLSCREEN_HIDE:-1} != 0 ]]; then
   setsid -f "$CFG/scripts/fullscreen" "$daemon_pid" >>"$LOG" 2>&1 </dev/null
 fi

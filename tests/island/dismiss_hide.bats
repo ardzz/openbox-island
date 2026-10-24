@@ -58,3 +58,13 @@ load common
   sleep 0.2
   [ "$(calls)" = "" ]
 }
+
+@test "hide closes the left pill with the compact island and show opens both again" {
+  run "$SCRIPTS/island" hide
+  [ "$status" -eq 0 ]
+  [ "$(grep -E '^(open|close)' "$FAKE_EWW_LOG")" = $'close island-upcoming\nclose island' ]
+  : > "$FAKE_EWW_LOG"
+  run "$SCRIPTS/island" show
+  [ "$status" -eq 0 ]
+  [ "$(grep -E '^(open|close)' "$FAKE_EWW_LOG")" = $'open island\nopen island-upcoming' ]
+}

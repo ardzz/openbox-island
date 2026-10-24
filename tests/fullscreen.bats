@@ -105,11 +105,12 @@ settle() { sleep 0.3; }
   until_true hidden
   grep -qx 'close island-expanded' "$FAKE_EWW_LOG"
   grep -qx 'close island' "$FAKE_EWW_LOG"
+  grep -qx 'close island-upcoming' "$FAKE_EWW_LOG"
   ! grep -q '^open' "$FAKE_EWW_LOG"
   : > "$FAKE_EWW_LOG"
   set_state 0x100 _NET_WM_STATE_MAXIMIZED_VERT
   until_true shown
-  [ "$(calls)" = 'open island' ]
+  [ "$(calls)" = $'open island\nopen island-upcoming' ]
 }
 
 @test "switching the active window between fullscreen and normal windows hides and shows the island" {
