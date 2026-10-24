@@ -3,6 +3,12 @@
 # Source it after core.sh and store.sh; do not execute.
 TODO_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/eww-island/todo.json"
 TODO_EMPTY='{"next_id":1,"items":[]}'
+# shellcheck disable=SC2034 # read by scripts/todo and lib/prep/sync.sh
+MAX_TEXT=200
+
+# Raw text -> one trimmed line of at most $max characters ($t is the raw text).
+# shellcheck disable=SC2034 # read by scripts/todo and lib/prep/sync.sh
+TEXT_JQ='$t | gsub("[[:cntrl:][:space:]]+"; " ") | ltrimstr(" ") | .[:$max] | rtrimstr(" ")'
 
 # A stored list failing this is corrupt: it reads as empty and is kept aside on the next change.
 # shellcheck disable=SC2034 # read by lib/store.sh

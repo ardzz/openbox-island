@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# prep sync: create Tugas prep items for matching meetings starting soon.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
+# shellcheck source=lib/store.sh
+source "$DIR/lib/store.sh"
+# shellcheck source=lib/todo/data.sh
+source "$DIR/lib/todo/data.sh"
+# shellcheck source=lib/todo/deadline.sh
+source "$DIR/lib/todo/deadline.sh"
+# shellcheck source=lib/prep/template.sh
+source "$DIR/lib/prep/template.sh"
+# shellcheck source=lib/prep/sync.sh
+source "$DIR/lib/prep/sync.sh"
+
+usage() { printf 'usage: prep sync\n' >&2; return 2; }
+
+main() {
+  case ${1:-} in
+    sync) (( $# == 1 )) || { usage; return; }; require jq || return 127; prep_sync ;;
+    *) usage ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

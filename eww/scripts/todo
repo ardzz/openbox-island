@@ -20,10 +20,6 @@ source "$DIR/lib/paged.sh"
 # shellcheck source=lib/todo/render.sh
 source "$DIR/lib/todo/render.sh"
 ROWS=4
-MAX_TEXT=200
-
-# Raw text -> one trimmed line of at most $max characters.
-TEXT_JQ='$t | gsub("[[:cntrl:][:space:]]+"; " ") | ltrimstr(" ") | .[:$max] | rtrimstr(" ")'
 ADD_JQ='.next_id as $id
   | .items += [{id: $id, text: $text, done: false, created: $now}
       + (if $due == null then {} else {due: $due, reminded: $reminded} end)]

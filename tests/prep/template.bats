@@ -1,9 +1,6 @@
 # tests/prep/template.bats: reading, matching, due times and saving prep templates.
 load common
 bats_require_minimum_version 1.5.0
-
-at() { date -d "$1" +%s; }
-
 # --- prep_templates: parsing ------------------------------------------------
 
 @test "parse skips comments and blanks and reads pattern, before and trimmed items" {
