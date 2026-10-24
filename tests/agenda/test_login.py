@@ -7,15 +7,16 @@ import io
 import json
 import os
 from pathlib import Path
+import socket
 import stat
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 import urllib.error
 import urllib.parse
 import urllib.request
-
 from .google_fixtures import CLIENT
 from agenda_pkg import google, main
 
@@ -195,31 +196,87 @@ class LoginTests(unittest.TestCase):
         self.assertFalse(exists)
         self.assertEqual(calls, [])
 
+    def test_idle_connection_and_blocked_browser_do_not_block_login(self):
+        with tempfile.TemporaryDirectory() as root:
+            env, urls, calls, held = write_config(root), [], [], []
+
+            def idle(url):
+                urls.append(url)
+                params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+                host, port = params["redirect_uri"][0].split("://", 1)[1].split(":")
+                held.append(socket.create_connection((host, int(port)), timeout=5))
+
+            status, output = self.run_login(
+                env, "Kantor", idle, exchange_that(calls, {"refresh_token": REFRESH}),
+                timeout=0.6)
+            for sock in held:
+                sock.close()
+            exists = (Path(root) / "google-tokens.json").exists()
+        self.assertEqual((status, exists, calls), (1, False, []))
+        self.assertIn("login kedaluwarsa", output)
+        with tempfile.TemporaryDirectory() as root:
+            env, urls, calls = write_config(root), [], []
+            release, arrived = threading.Event(), threading.Event()
+
+            def blocked(url):
+                params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+
+                def hit():
+                    target = (params["redirect_uri"][0] + "/?" + urllib.parse.urlencode(
+                        {"code": CODE, "state": params["state"][0]}))
+                    urllib.request.urlopen(target, timeout=5).read()
+                    arrived.set()
+
+                threading.Thread(target=hit, daemon=True).start()
+                release.wait(5)
+
+            try:
+                status, output = self.run_login(
+                    env, "Kantor", blocked, exchange_that(calls, {"refresh_token": REFRESH}))
+            finally:
+                release.set()
+            saved = json.loads((Path(root) / "google-tokens.json").read_text())
+        self.assertTrue(arrived.is_set())
+        self.assertEqual((status, saved, len(calls)), (0, {"Kantor": REFRESH}, 1))
+        self.assertIn("Kantor: login berhasil; jalankan agenda check", output)
+
+    def test_invalid_existing_token_store_is_preserved(self):
+        for content in (b"{ rusak", b"[]", b'{"Kantor": 1}', b"\xff\xfe"):
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as root:
+                env = write_config(root)
+                path = Path(root) / "google-tokens.json"
+                path.write_bytes(content)
+                urls, calls = [], []
+                browser = browser_that(
+                    urls, lambda state: {"code": CODE, "state": state})
+                status, output = self.run_login(
+                    env, "Kantor", browser, exchange_that(calls, {"refresh_token": REFRESH}))
+                after = path.read_bytes()
+            self.assertEqual(status, 1)
+            self.assertIn("google-tokens.json tidak valid; perbaiki atau hapus dulu",
+                          output)
+            self.assertEqual(after, content)
+            for secret in (SECRET, CODE, REFRESH):
+                self.assertNotIn(secret, output)
+
     def test_unknown_and_ical_accounts_return_1(self):
         with tempfile.TemporaryDirectory() as root:
-            env = write_config(
-                root, "Pribadi | #34c759 | | https://calendar.example/basic.ics\n")
-            urls, calls = [], []
-            fake = exchange_that(calls, {"refresh_token": REFRESH})
+            env = write_config(root, "Pribadi | #34c759 | | https://calendar.example/basic.ics\n")
+            urls, calls, fake = [], [], exchange_that([], {"refresh_token": REFRESH})
             status1, out1 = self.run_login(env, "Kantor", lambda u: urls.append(u), fake)
             status2, out2 = self.run_login(env, "Pribadi", lambda u: urls.append(u), fake)
-        self.assertEqual((status1, status2), (1, 1))
+        self.assertEqual((status1, status2, urls), (1, 1, []))
         self.assertIn("akun Google Kantor tidak ada di config", out1)
         self.assertIn("akun Google Pribadi tidak ada di config", out2)
-        self.assertEqual(urls, [])
-        self.assertEqual(calls, [])
 
     def test_missing_client_file_returns_1(self):
         with tempfile.TemporaryDirectory() as root:
-            env = write_config(root, client=False)
-            urls, calls = [], []
-            status, output = self.run_login(
-                env, "Kantor", lambda u: urls.append(u),
-                exchange_that(calls, {"refresh_token": REFRESH}))
+            env, urls, calls = write_config(root, client=False), [], []
+            status, output = self.run_login(env, "Kantor", lambda u: urls.append(u),
+                                            exchange_that(calls, {"refresh_token": REFRESH}))
         self.assertEqual(status, 1)
         self.assertIn("google-client.json belum ada", output)
-        self.assertEqual(urls, [])
-        self.assertEqual(calls, [])
+        self.assertEqual((urls, calls), ([], []))
 
 
 class DispatchTests(unittest.TestCase):
@@ -229,7 +286,3 @@ class DispatchTests(unittest.TestCase):
             main.main(["login", "Kantor"])
         self.assertEqual(raised.exception.code, 1)
         run.assert_called_once_with("Kantor")
-
-
-if __name__ == "__main__":
-    unittest.main()
