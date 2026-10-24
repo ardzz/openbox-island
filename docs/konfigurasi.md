@@ -89,7 +89,7 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_DEADLINE_DAY` | `09:00` | Jam pengingat hari H; nilai kosong menonaktifkannya | `eww/scripts/lib/todo/deadline.sh` | [deadline](fitur.md#deadline) |
 | `ISLAND_DEADLINE_INTERVAL` | `30` | Interval pemeriksaan pengingat deadline (detik) | `eww/scripts/lib/alert/deadline.sh` | [deadline](fitur.md#deadline) |
 | `ISLAND_TODO_TICK` | `60` | Interval pembaruan label dan warna deadline pada daftar tugas (detik) | `eww/scripts/todo` | [deadline](fitur.md#deadline) |
-| `ISLAND_CALENDARS` | `~/.config/openbox-island/calendars` | Berkas akun kalender iCal (mengikuti `XDG_CONFIG_HOME` bila diset) | `eww/scripts/agenda_pkg/config.py`, `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
+| `ISLAND_CALENDARS` | `~/.config/openbox-island/calendars` | Berkas akun kalender iCal (mengikuti `XDG_CONFIG_HOME` bila diset); `google-client.json` dan `google-tokens.json` untuk akun Google Calendar API berada di folder yang sama dengan berkas ini | `eww/scripts/agenda_pkg/config.py`, `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_CAL_INTERVAL` | `300` | Interval pengambilan ulang feed kalender (detik) | `eww/scripts/agenda_pkg/main.py` | [kalender](fitur.md#kalender) |
 | `ISLAND_CAL_DAYS` | `30` | Jumlah hari ke depan setelah hari ini yang ditampilkan agenda (maksimum 366; nilai bukan angka atau di bawah 1 memakai 30) | `eww/scripts/agenda_pkg/main.py` | [kalender](fitur.md#kalender) |
 | `ISLAND_MEETING_BEFORE` | `10` | Menit sebelum rapat untuk pengingat; nilai kosong menonaktifkannya | `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |

@@ -156,6 +156,30 @@ Pengingat dikirim sebagai notifikasi aplikasi **Kalender** 10 menit sebelum rapa
 
 Alamat iCal rahasia adalah kata sandi: siapa pun yang memilikinya dapat membaca kalender. Simpan hanya di berkas konfigurasi di luar repo, jangan masukkan ke commit atau screenshot. Cache kalender tersimpan di `~/.cache/eww-island/calendar`.
 
+### Akun Google Calendar API
+
+Gunakan akun API bila akun tidak bisa memberi alamat iCal rahasia atau hanya membagikan status sibuk/luang (free/busy), misalnya akun kantor dari Google Workspace. Akun seperti ini dibaca lewat Google Calendar API dengan login OAuth baca-saja, bukan alamat iCal.
+
+1. Di [Google Cloud Console](https://console.cloud.google.com/), buat atau pilih project di bawah organisasi kantor, lalu aktifkan **Google Calendar API**.
+2. Di layar persetujuan OAuth (OAuth consent screen), pilih **Internal** bila tersedia. Bila harus **External**, terbitkan aplikasinya (*In production*), karena status *Testing* membuat login kedaluwarsa setelah 7 hari. Tambahkan scope `https://www.googleapis.com/auth/calendar.readonly`.
+3. Buat kredensial **OAuth client ID** bertipe **Desktop app**, lalu unduh berkas JSON-nya ke `~/.config/openbox-island/google-client.json` dan batasi aksesnya: `chmod 600 ~/.config/openbox-island/google-client.json`.
+4. Tulis baris akun dengan `google:<calendarId>` sebagai alamatnya; `primary` adalah kalender utama, id kalender lain juga bisa dipakai:
+
+   ```text
+   Kantor | #4f8cff | nama@kantor | google:primary
+   ```
+
+5. Login sekali dari terminal, lalu periksa:
+
+   ```bash
+   ~/.config/eww-island/scripts/agenda login Kantor
+   ~/.config/eww-island/scripts/agenda check
+   ```
+
+   Perintah `login` membuka browser untuk persetujuan Google, mencetak tautan yang sama bila browser tidak terbuka, dan menyimpan token di `~/.config/openbox-island/google-tokens.json` (mode 600). Ulangi login untuk setiap akun `google:`.
+
+Berkas `google-tokens.json` memberi akses baca ke kalender seperti kata sandi: simpan hanya di luar repo dan jangan masukkan ke commit atau screenshot. Cabut aksesnya kapan pun di Google Account → Security → third-party access; admin Workspace juga bisa memblokir aplikasi ini.
+
 ### Persiapan meeting
 
 Template persiapan meeting disimpan di `${ISLAND_PREP:-${XDG_CONFIG_HOME:-$HOME/.config}/openbox-island/prep}`. Satu baris berisi satu seri meeting: `POLA | SEBELUM | item; item; …`. Baris kosong dan baris berawalan `#` diabaikan. `POLA` dicocokkan tanpa membedakan huruf besar/kecil sebagai bagian dari judul meeting; baris pertama yang cocok dipakai. Contoh:

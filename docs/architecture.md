@@ -60,7 +60,7 @@ eww/scripts/<nama>         entry point: deflisten atau perintah dari yuck
 eww/scripts/lib/*.sh       framework bersama (core, store, paged, listener, monitor)
 eww/scripts/lib/<area>/    modul per area: alert, status, notify, tabs, viz, weather, media, ytm
 eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sources/: lrclib, netease, ytmusic)
-eww/scripts/agenda_pkg/    produsen kalender: config, fetch/cache iCal, recurring events, render JSON
+eww/scripts/agenda_pkg/    produsen kalender: config, fetch/cache iCal, Google Calendar API (google.py, login.py), recurring events, render JSON
 eww/scripts/prep           CLI prep: `sync` satu sinkronisasi, `edit ID` lewat rofi
 eww/scripts/lib/prep/      template.sh (format template) dan sync.sh (membuat item Tugas)
 eww/scripts/lib/alert/prep.sh sumber alert `prep` (interval `ISLAND_PREP_INTERVAL`)
