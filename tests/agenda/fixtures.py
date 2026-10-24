@@ -3,6 +3,7 @@
 import datetime as dt
 from pathlib import Path
 import sys
+import urllib.error
 import zoneinfo
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "eww" / "scripts"
@@ -100,3 +101,10 @@ SUMMARY:Dibatalkan
 END:VEVENT
 END:VCALENDAR
 """.replace(b"\n", b"\r\n")
+
+
+def fake_fetch(url):
+    """Stand-in for fetch.download: FEED, except an HTTP 401 for the Pribadi account."""
+    if "pribadi" in url:
+        raise urllib.error.HTTPError(url, 401, "Unauthorized", {}, None)
+    return FEED
