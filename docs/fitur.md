@@ -156,13 +156,32 @@ Pengingat dikirim sebagai notifikasi aplikasi **Kalender** 10 menit sebelum rapa
 
 Alamat iCal rahasia adalah kata sandi: siapa pun yang memilikinya dapat membaca kalender. Simpan hanya di berkas konfigurasi di luar repo, jangan masukkan ke commit atau screenshot. Cache kalender tersimpan di `~/.cache/eww-island/calendar`.
 
+### Persiapan meeting
+
+Template persiapan meeting disimpan di `${ISLAND_PREP:-${XDG_CONFIG_HOME:-$HOME/.config}/openbox-island/prep}`. Satu baris berisi satu seri meeting: `POLA | SEBELUM | item; item; …`. Baris kosong dan baris berawalan `#` diabaikan. `POLA` dicocokkan tanpa membedakan huruf besar/kecil sebagai bagian dari judul meeting; baris pertama yang cocok dipakai. Contoh:
+
+```text
+# POLA | SEBELUM | item; item; …
+Weekly Report | 2j | Report progres; Plan minggu depan
+Standup | 30m | Baca catatan; Siapkan blocker
+Retro | 1h | Kumpulkan catatan sprint
+```
+
+`SEBELUM` boleh kosong (bawaan `${ISLAND_PREP_BEFORE:-2j}`), `Nm` untuk N menit sebelum mulai, `Nj` untuk N jam sebelum mulai, dan `Nh` untuk N hari sebelumnya pukul `${ISLAND_DEADLINE_TIME:-17:00}`. Item dipisah `;`, dirapikan, dan dibatasi 20 item per template. Baris tanpa item, dengan `POLA` kosong, atau dengan `SEBELUM` tidak dikenal dilewati dengan pesan `prep: baris N dilewati` di stderr.
+
+Worker alert memeriksa agenda yang masih `ok` dan membuat satu item Tugas untuk setiap item template pada meeting yang mulai dalam `ISLAND_PREP_AHEAD` jam (bawaan 24 jam; isi kosong menonaktifkan) dan belum dicatat di ledger `${XDG_DATA_HOME:-$HOME/.local/share}/eww-island/prep-made`. Item dibuat dengan teks `<judul> · <item>`, deadline pada waktu `SEBELUM` (atau jam mulai meeting bila waktu itu sudah lewat), dan field `prep` berisi ID baris agenda. Ledger berisi baris `ID START`; setelah item dibuat, menghapus item Tugas tidak membuatnya lagi untuk occurrence yang sama. Ledger dibersihkan dari baris yang mulai lebih dari 7 hari lalu pada penulisan berikutnya. Worker berjalan sebagai sumber alert `prep` setiap `ISLAND_PREP_INTERVAL` detik (bawaan 60).
+
+Item juga bisa diatur dari tombol berikon daftar pada baris Kalender (tooltip **Atur prep**): kartu ditutup dulu, lalu rofi bertanya `Item prep untuk <judul>; pisahkan dengan ;` dengan item saat ini sebagai isian awal. Menyimpan jawaban memperbarui baris template pertama yang cocok dengan judul (mempertahankan `POLA` dan `SEBELUM`-nya) atau menambah baris baru dari judul meeting; jawaban kosong menghapus baris itu, membatalkan rofi tidak mengubah apa pun, dan lebih dari 20 item dibuang sisanya. Jalan pintas ini menjalankan sinkronisasi sesudahnya, jadi item untuk meeting yang mulai dalam jendela juga langsung dibuat. Jalankan `scripts/prep sync` di terminal untuk menjalankan satu sinkronisasi dan melihat baris template yang dilewati.
+
+Tab Kalender menampilkan chip `Prep N/M` pada baris yang item prep-nya sudah dibuat: kuning selama belum semua selesai, aksen setelah selesai. Pill kiri menampilkan ` · Prep N/M` setelah waktu meeting dengan warna yang sama. Selama item untuk meeting itu masih ada yang belum selesai, isi pengingat meeting menjadi `<judul> · Prep N/M belum selesai`; setelah semua selesai atau bila tidak ada item prep, isi pengingat tetap judul meeting saja.
+
 ## Pill kiri
 
 Pill hitam di pojok kiri atas layar, bergaya sama dengan pill status bar: selalu menampilkan rapat yang perlu diperhatikan dari agenda Kalender dan deadline Tugas terbuka yang paling dekat, masing-masing sebagai segmen tersendiri. Jika keduanya ada, keduanya tampil dipisah garis tipis. Pill ini adalah window `island-upcoming` yang dibuka `island.sh` bersama pill ringkas dan ikut disembunyikan bersamanya saat layar penuh (lihat [Layar penuh](#layar-penuh)), lalu dibuka lagi saat island kembali.
 
 - Rapat diambil dari data agenda yang sama dengan tab Kalender (hanya bila kalender terbaca baik), dari acara yang belum berakhir, dalam urutan jadwal: yang sedang berlangsung tampil `sampai HH:MM` (jam berakhirnya) berwarna aksen; yang mulai dalam 15 menit tampil hitungan mundur `Nm` (menit dibulatkan ke atas) berwarna kuning; keduanya menawarkan tombol **Join** bila acara punya tautan rapat https. Rapat berikutnya hari ini tampil jam mulainya `HH:MM`; bila hari ini sudah habis, rapat berikutnya pada hari lain tampil dengan hari dan jam mulainya (misalnya `Besok 09:00` atau `Sen 26 Okt 09:00`).
 - Deadline menampilkan tugas terbuka dengan deadline paling awal, dengan label dan warna yang sama seperti chip pada tab Tugas: merah `terlambat` bila sudah lewat, kuning bila kurang dari 24 jam. Bila ada deadline terbuka lain yang jatuh tempo dalam 24 jam, jumlahnya tampil sebagai `+N` di sebelahnya.
-- Bila tidak ada rapat maupun deadline, pill menampilkan `Kosong hari ini`; kliknya membuka tab Kalender.
+- Rapat dengan item prep menampilkan ` · Prep N/M` setelah waktu rapat (kuning selama belum selesai, aksen setelah selesai). Bila tidak ada rapat maupun deadline, pill menampilkan `Kosong hari ini`; kliknya membuka tab Kalender.
 - Klik segmen rapat membuka kartu pada tab Kalender, klik segmen deadline membuka kartu pada tab Tugas; kartu terbuka selama 10 detik lalu mengikuti aturan hover seperti biasa. Bila tab yang dituju sedang tidak tersedia (misalnya Kalender belum dikonfigurasi), klik tidak membuka apa pun, bukan tab lain. Klik **Join** membuka tautan rapat.
 - Isi dibaca ulang dari berkas agenda dan daftar Tugas setiap `ISLAND_UPCOMING_TICK` detik (bawaan 5), dan hanya berubah tampilan bila isinya berubah.
 

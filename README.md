@@ -56,6 +56,7 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 **Tabs**
 - The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. Each tab appears only while it has content; To-do is always available and supports optional deadlines with reminders the day before and on the day.
 - Kalender lists iCal events from today through the next 30 days, with account colours, all-day summaries, Join buttons and meeting reminders.
+- Meeting prep templates turn recurring meetings into To-do items before each occurrence: a `Prep N/M` chip on the Kalender tab, `· Prep N/M` on the left pill, and a reminder body that names unfinished prep.
 
 **Indicators**
 - Dots on the pill for screen recording (red, with elapsed time), microphone in use (yellow) and camera in use (green), plus a crossed-out bell while dunst Do Not Disturb is on.

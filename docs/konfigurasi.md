@@ -95,5 +95,9 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_MEETING_BEFORE` | `10` | Menit sebelum rapat untuk pengingat; nilai kosong menonaktifkannya | `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_MEETING_AUTO` | `10` | Lama kartu Kalender terbuka saat pengingat rapat (detik) | `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_KALENDER_TICK` | `2` | Interval pembacaan data lokal untuk tab Kalender (detik) | `eww/scripts/kalender` | [kalender](fitur.md#kalender) |
+| `ISLAND_PREP` | `~/.config/openbox-island/prep` (mengikuti `XDG_CONFIG_HOME` bila diset) | Berkas template persiapan meeting | `eww/scripts/lib/prep/template.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
+| `ISLAND_PREP_AHEAD` | `24` | Jam ke depan untuk membuat item prep; nilai kosong menonaktifkannya | `eww/scripts/lib/prep/sync.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
+| `ISLAND_PREP_BEFORE` | `2j` | Waktu bawaan sebelum meeting bila `SEBELUM` template kosong (`Nm`, `Nj`, atau `Nh`) | `eww/scripts/lib/prep/template.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
+| `ISLAND_PREP_INTERVAL` | `60` | Interval sumber alert prep membuat item persiapan (detik) | `eww/scripts/lib/alert/prep.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
 | `ISLAND_UPCOMING_TICK` | `5` | Detik antar pembacaan ulang agenda dan Tugas untuk pill kiri | `eww/scripts/upcoming` | [pill-kiri](fitur.md#pill-kiri) |
 | `OB_YTM_AUTH` | `~/.config/ytm-player/auth.json` | Login ytm-player untuk status tombol suka (lirik YouTube Music tetap memakai `${XDG_CONFIG_HOME:-$HOME/.config}/ytm-player/auth.json`) | `eww/scripts/ytm_like.py` | [tombol-suka-youtube-music](#tombol-suka-youtube-music) |

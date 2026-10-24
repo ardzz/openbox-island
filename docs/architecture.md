@@ -40,6 +40,7 @@ flowchart LR
 - `scripts/notify-hook` dijalankan dunst untuk tiap notifikasi; ia hanya mengirim baris ke `notify.fifo` dan `@refresh` ke `notif.fifo`.
 - `scripts/agenda watch` mengambil feed iCal dan menulis `$ISLAND_STATE/agenda.json` setiap 15 detik; `scripts/kalender` membaca data itu untuk daftar, scroll, dan Join. Produsen berjalan sebagai monitor sumber alert `meeting`, bukan deflisten khusus kartu: deflisten yang hanya dipakai kartu berhenti saat kartu ditutup, padahal pengingat harus tetap berjalan.
 - `scripts/upcoming` (deflisten pill kiri) membaca `$ISLAND_STATE/agenda.json` dan berkas Tugas yang sama setiap `ISLAND_UPCOMING_TICK` detik, lalu mencetak satu baris JSON hanya bila isi pill berubah.
+- Persiapan meeting: sumber alert `prep` (`lib/alert/prep.sh`, terdaftar terakhir di `ALERT_SOURCES`) menjalankan `prep_sync` (`lib/prep/sync.sh`) setiap `ISLAND_PREP_INTERVAL` detik. Ia membaca `$ISLAND_STATE/agenda.json` yang `ok == true`, mencocokkan judul dengan template `lib/prep/template.sh` dari `PREP_FILE`, dan untuk occurrence yang belum ada di ledger `${XDG_DATA_HOME:-$HOME/.local/share}/eww-island/prep-made` (baris `ID START`, di bawah lock `prep-made.lock`) menambahkan item Tugas lewat `todo_change` dengan field `prep: <row id>`, `due = start − SEBELUM`, dan `reminded` dari `deadline_passed_keys`; ledger lalu ditulis ulang (baris lebih dari 7 hari dibuang). `scripts/prep sync` menjalankan satu sinkronisasi, `scripts/prep edit ID` memanggil rofi lalu `prep_save` dan `prep_sync`. Display menghitung `prep`/`prep_done` dari item Tugas yang `prep == row.id`: `scripts/kalender` dan `scripts/upcoming` menambahkannya ke JSON baris/meeting, dan `lib/alert/meeting.sh` menambahkan ` · Prep N/M belum selesai` ke isi pengingat selama item row itu belum semua selesai.
 - State runtime ada di `$ISLAND_STATE` (`$XDG_RUNTIME_DIR/eww-island`): FIFO `NAME.fifo`, lock, cache.
 
 ## 2. Struktur folder
@@ -60,6 +61,9 @@ eww/scripts/lib/*.sh       framework bersama (core, store, paged, listener, moni
 eww/scripts/lib/<area>/    modul per area: alert, status, notify, tabs, viz, weather, media, ytm
 eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sources/: lrclib, netease, ytmusic)
 eww/scripts/agenda_pkg/    produsen kalender: config, fetch/cache iCal, recurring events, render JSON
+eww/scripts/prep           CLI prep: `sync` satu sinkronisasi, `edit ID` lewat rofi
+eww/scripts/lib/prep/      template.sh (format template) dan sync.sh (membuat item Tugas)
+eww/scripts/lib/alert/prep.sh sumber alert `prep` (interval `ISLAND_PREP_INTERVAL`)
 eww/{players,shortcuts}    konfigurasi pengguna; cava.conf, dunst-osd.conf, _colors.scss
 tools/check                gerbang ukuran file, shellcheck, py_compile
 tools/preview              render satu jendela dari sampel ke PNG; sampel di tools/samples/*.vars
