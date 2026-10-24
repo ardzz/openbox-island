@@ -153,3 +153,50 @@ at() { date -d "$1" +%s; }
   [ "$status" -eq 0 ]
   [ "$(jq -c '.[1]' <<< "$output")" = '{"pattern":"retro   sesi a","before":"","items":["siapkan catatan"],"line":2}' ]
 }
+
+@test "a template with an empty before matches and keeps before empty" {
+  prep_write 'Weekly | | a'
+  run prep_templates
+  [ "$status" -eq 0 ]
+  [ "$output" = '[{"pattern":"weekly","before":"","items":["a"],"line":1}]' ]
+  run prep_match 'Weekly Report'
+  [ "$status" -eq 0 ]
+  [ "$output" = '{"pattern":"weekly","before":"","items":["a"],"line":1}' ]
+}
+
+@test "lowercasing is ASCII-only for patterns and titles" {
+  prep_write 'ÉQUIPE | | a'
+  run prep_templates
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.[0].pattern' <<< "$output")" = 'Équipe' ]
+  run prep_match 'équipe rapat'
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  prep_write 'équipe | | a'
+  run prep_match 'équipe rapat'
+  [ "$status" -eq 0 ]
+  [ "$output" = '{"pattern":"équipe","before":"","items":["a"],"line":1}' ]
+  run prep_match 'ÉQUIPE rapat'
+  [ "$status" -eq 1 ]
+}
+
+@test "a tab inside the pattern parses and matches" {
+  printf 'Weekly\tReport | 2j | a\n' > "$ISLAND_PREP"
+  run prep_templates
+  [ "$status" -eq 0 ]
+  [ "$output" = '[{"pattern":"weekly\treport","before":"2j","items":["a"],"line":1}]' ]
+  run prep_match "$(printf 'Weekly\tReport — Tim A')"
+  [ "$status" -eq 0 ]
+  [ "$output" = '{"pattern":"weekly\treport","before":"2j","items":["a"],"line":1}' ]
+}
+
+@test "save fails on an unreadable existing file and leaves it unchanged" {
+  [ "$(id -u)" -ne 0 ] || skip 'running as root'
+  prep_write 'Weekly | 1h | lama'
+  chmod 000 "$ISLAND_PREP"
+  run --separate-stderr prep_save 'Weekly Report' 'baru'
+  [ "$status" -ne 0 ]
+  [ "$stderr" = 'prep: berkas template tidak bisa dibaca' ]
+  chmod 644 "$ISLAND_PREP"
+  [ "$(cat "$ISLAND_PREP")" = 'Weekly | 1h | lama' ]
+}

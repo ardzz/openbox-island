@@ -6,6 +6,9 @@ PREP_FILE="${ISLAND_PREP:-${XDG_CONFIG_HOME:-$HOME/.config}/openbox-island/prep}
 # prep_file: the current template path, following ISLAND_PREP when it changes after sourcing.
 prep_file() { printf '%s' "${ISLAND_PREP:-$PREP_FILE}"; }
 
+# prep_lower TEXT: TEXT with ASCII A-Z folded to a-z (jq ascii_downcase semantics).
+prep_lower() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
+
 # prep_trim VAR: strip leading and trailing whitespace from VAR in place.
 prep_trim() {
   local -n v=$1
@@ -32,14 +35,22 @@ prep_parse() {
   prep_p_pattern=${line%%|*}; rest=${line#*|}
   prep_p_before=${rest%%|*}; rest=${rest#*|}
   prep_trim prep_p_pattern; prep_trim prep_p_before
-  prep_p_items=$(prep_items "$rest")
+  prep_p_items=$(prep_items "$rest") || return 1
   [[ -n $prep_p_pattern ]] && prep_before_ok "$prep_p_before" && [[ $prep_p_items != '[]' ]]
 }
 
-# prep_lines: print one tab-separated record per valid template line:
-# pattern TAB before TAB items-json TAB line-no. Bad lines are reported on stderr.
-prep_lines() {
-  local line n=0 file
+# prep_record LINE-NO: the parsed line as one compact JSON record, or status 1.
+prep_record() {
+  local pattern
+  pattern=$(prep_lower "$prep_p_pattern") || return 1
+  jq -cn --arg p "$pattern" --arg b "$prep_p_before" --argjson items "$prep_p_items" \
+    --argjson line "$1" '{pattern: $p, before: $b, items: $items, line: $line}'
+}
+
+# prep_records: one compact JSON record per valid template line, on stdout.
+# Bad lines are reported on stderr; any serialization failure fails the whole read.
+prep_records() {
+  local line n=0 file rec
   file=$(prep_file)
   [[ -r $file ]] || return 0
   while IFS= read -r line || [[ -n $line ]]; do
@@ -50,26 +61,31 @@ prep_lines() {
       printf 'prep: baris %d dilewati\n' "$n" >&2
       continue
     fi
-    printf '%s\t%s\t%s\t%d\n' "${prep_p_pattern,,}" "$prep_p_before" "$prep_p_items" "$n"
+    rec=$(prep_record "$n") || return 1
+    printf '%s\n' "$rec"
   done < "$file"
 }
 
 # prep_templates: the templates as one compact JSON array [{pattern, before, items, line}].
 prep_templates() {
-  prep_lines | jq -Rcn '[inputs | split("\t")
-    | {pattern: .[0], before: .[1], items: (.[2] | fromjson), line: (.[3] | tonumber)}]'
+  local records
+  records=$(prep_records) || return 1
+  jq -cn '[inputs]' <<< "$records"
 }
 
 # prep_match TITLE: the first template whose pattern is a substring of TITLE, or status 1.
 prep_match() {
-  local title=${1,,} pattern before items n
-  while IFS=$'\t' read -r pattern before items n; do
+  local title records rec pattern
+  title=$(prep_lower "$1") || return 1
+  records=$(prep_records 2>/dev/null) || return 1
+  while IFS= read -r rec; do
+    [[ -n $rec ]] || continue
+    pattern=$(jq -r '.pattern' <<< "$rec") || return 1
     if [[ $title == *"$pattern"* ]]; then
-      jq -cn --arg p "$pattern" --arg b "$before" --argjson items "$items" --argjson line "$n" \
-        '{pattern: $p, before: $b, items: $items, line: $line}'
+      printf '%s\n' "$rec"
       return 0
     fi
-  done < <(prep_lines 2>/dev/null)
+  done <<< "$records"
   return 1
 }
 
@@ -89,15 +105,19 @@ prep_due() {
 # prep_save TITLE ANSWER: set the items of the first template matching TITLE to ANSWER
 # (split on ";"); an empty answer deletes that line, no match appends one. Atomic write.
 prep_save() {
-  local title=$1 items line tmp found=0 out=() joined file
-  local title_lower=${title,,}
+  local title=$1 items line tmp found=0 out=() joined file title_lower
   file=$(prep_file)
-  items=$(prep_items "$2")
-  joined=$(jq -r 'join("; ")' <<< "$items")
+  if [[ -e $file && ! -r $file ]]; then
+    printf 'prep: berkas template tidak bisa dibaca\n' >&2
+    return 1
+  fi
+  title_lower=$(prep_lower "$title") || return 1
+  items=$(prep_items "$2") || return 1
+  joined=$(jq -r 'join("; ")' <<< "$items") || return 1
   if [[ -r $file ]]; then
     while IFS= read -r line || [[ -n $line ]]; do
       if (( ! found )) && prep_parse "${line%$'\r'}" \
-        && [[ $title_lower == *"${prep_p_pattern,,}"* ]]; then
+        && [[ $title_lower == *"$(prep_lower "$prep_p_pattern")"* ]]; then
         found=1
         if [[ $items != '[]' ]]; then
           if [[ -n $prep_p_before ]]; then
