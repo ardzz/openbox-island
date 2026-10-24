@@ -76,3 +76,17 @@ load common
   next_event 2
   [ "$(m title) $(m text)" = 'Demo 14:00' ]
 }
+
+@test "a month of long rows still shows the meeting and the deadline" {
+  todos "$(item 1 Laporan "$(at 17:00)")"
+  jq -nc --argjson now "$ISLAND_NOW" --arg long "$(printf 'x%.0s' {1..200})" '
+    {ok: true, stale: false, updated: "09:55", error: "", label: "Kalender", remaining: 0, allday: [],
+     next: null, errors: [],
+     rows: [range(700) | {id: "0000000000z\(. % 10)", start: ($now - 600 + . * 3600),
+       end: ($now + 1800 + . * 3600), title: (if . == 0 then "Standup" else $long end),
+       account: "Kantor", color: "#4f8cff", join: "", day: "Hari ini", time: "", state: "later"}]}' \
+    > "$ST/agenda.json"
+  [ "$(wc -c < "$ST/agenda.json")" -gt 200000 ]
+  shown
+  [ "$(m show) $(m title) $(d show) $(d title)" = 'true Standup true Laporan' ]
+}
