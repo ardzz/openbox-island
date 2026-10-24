@@ -48,6 +48,14 @@ class EventsTests(unittest.TestCase):
                     item.add(field, f"Join ({url}).")
                     self.assertEqual(join_link(item), url)
 
+    def test_structured_conference_links_preserve_trailing_query_punctuation(self):
+        url = "https://us02web.zoom.us/j/123?pwd=abc!"
+        for field in ("CONFERENCE", "X-GOOGLE-CONFERENCE"):
+            with self.subTest(field=field):
+                item = Event()
+                item.add(field, url)
+                self.assertEqual(join_link(item), url)
+
     def test_zoom_links_reject_suffix_lookalike_domains(self):
         item = Event()
         item.add("DESCRIPTION", "https://notzoom.us/j/123")

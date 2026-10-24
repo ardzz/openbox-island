@@ -25,7 +25,8 @@ def join_link(event):
         for value in _values(event, name):
             match = JOIN.search(str(value))
             if match:
-                return match.group(0).rstrip(").,;:!?]\"'")
+                url = match.group(0)
+                return url.rstrip(").,;:!?]\"'") if name in ("LOCATION", "DESCRIPTION") else url
     return ""
 
 
