@@ -14,7 +14,7 @@ if [[ $1 == --config && $2 == "$EXPECTED_CFG" ]]; then shift 2; else echo "bad c
 case $1 in
   get) [[ $2 == weather ]] && cat "$FAKE_WEATHER" 2>/dev/null; exit 0 ;;
   active-windows) cat "$FAKE_EWW_ACTIVE"; exit 0 ;;
-  open) sleep "${FAKE_EWW_OPEN_DELAY:-0}"; printf '%s: %s\n' "$2" "$2" >> "$FAKE_EWW_ACTIVE"
+  open) [[ $2 == "${FAKE_EWW_OPEN_FAIL:-}" ]] && exit 1; sleep "${FAKE_EWW_OPEN_DELAY:-0}"; printf '%s: %s\n' "$2" "$2" >> "$FAKE_EWW_ACTIVE"
         if [[ -n $FAKE_POINTER_AFTER_OPEN ]]; then echo "$FAKE_POINTER_AFTER_OPEN" > "$FAKE_POINTER"; fi ;;
   close) grep -vx "$2: $2" "$FAKE_EWW_ACTIVE" > "$FAKE_EWW_ACTIVE.tmp"; mv "$FAKE_EWW_ACTIVE.tmp" "$FAKE_EWW_ACTIVE" ;;
 esac

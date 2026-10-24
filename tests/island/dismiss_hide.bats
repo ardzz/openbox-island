@@ -68,3 +68,12 @@ load common
   [ "$status" -eq 0 ]
   [ "$(grep -E '^(open|close)' "$FAKE_EWW_LOG")" = $'open island\nopen island-upcoming' ]
 }
+
+@test "show reports a compact island that fails to reopen but still opens the left pill" {
+  run "$SCRIPTS/island" hide
+  [ "$status" -eq 0 ]
+  : > "$FAKE_EWW_LOG"
+  FAKE_EWW_OPEN_FAIL=island run "$SCRIPTS/island" show
+  [ "$status" -ne 0 ]
+  [ "$(grep -E '^(open|close)' "$FAKE_EWW_LOG")" = 'open island-upcoming' ]
+}

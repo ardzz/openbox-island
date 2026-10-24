@@ -105,7 +105,12 @@ hide() {
 show() {
   [[ -e $ISLAND_STATE/fullscreen ]] || return 0
   rm -f "$ISLAND_STATE/fullscreen"
-  if island_eww ping >/dev/null 2>&1; then island_eww open island; island_eww open island-upcoming; fi
+  if island_eww ping >/dev/null 2>&1; then
+    local rc=0
+    island_eww open island || rc=$?
+    island_eww open island-upcoming || rc=$?
+    return "$rc"
+  fi
 }
 
 usage() { echo "usage: island hover | auto SECONDS [TAB] | close | dismiss | hide | show" >&2; return 2; }
