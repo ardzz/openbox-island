@@ -10,7 +10,7 @@ Island adalah konfigurasi eww terpisah (`~/.config/eww-island`) dengan tiga jend
 |---|---|---|---|
 | `island` | `eww/yuck/windows/island.yuck` | 508×44 | pill ringkas: `stack` berisi `pill-idle`, `pill-media`, `pill-alert`, `pill-notify` |
 | `island-expanded` | `eww/yuck/windows/expanded.yuck` | 508×218 | kartu bertab (`tab-card`) di dalam `revealer` slidedown |
-| `island-upcoming` | `eww/yuck/windows/upcoming.yuck` | shrink-wrap ×44 | pill kiri: rapat yang perlu diperhatikan dan deadline Tugas terdekat |
+| `island-upcoming` | `eww/yuck/windows/upcoming.yuck` | 640×44 | pill kiri: rapat yang perlu diperhatikan dan deadline Tugas terdekat |
 
 `scripts/island` membuka/menutup `island-expanded` (hover, `auto`, `dismiss`) dan mengatur `island_reveal` serta `island_tab`.
 
