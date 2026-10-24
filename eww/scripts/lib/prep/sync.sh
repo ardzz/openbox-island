@@ -10,22 +10,28 @@ PREP_ADD_JQ='.next_id as $base
       + {id: ($base + $i), done: false, created: $created, due: $due, reminded: $reminded}]
   | .next_id = $base + ($new | length)'
 
-# prep_ledger_has ID: the ledger already records ID.
+# prep_ledger_line LINE: LINE is a complete ledger record "ID START".
+prep_ledger_line() { [[ $1 =~ ^[0-9a-f]{12}\ [0-9]+$ ]]; }
+
+# prep_ledger_has ID: the ledger already records ID on a complete line.
 prep_ledger_has() {
   [[ -r $PREP_LEDGER ]] || return 1
-  local id start
-  while read -r id start; do [[ $id == "$1" ]] && return 0; done < "$PREP_LEDGER"
+  local line
+  while IFS= read -r line; do
+    prep_ledger_line "$line" && [[ ${line%% *} == "$1" ]] && return 0
+  done < "$PREP_LEDGER"
   return 1
 }
 
 # prep_ledger_write NOW [ID START]: rewrite the ledger keeping lines whose START
 # is at most 7 days before NOW (plus the optional new line), atomically.
 prep_ledger_write() {
-  local now=$1 id start tmp kept=()
+  local now=$1 line start tmp kept=()
   if [[ -r $PREP_LEDGER ]]; then
-    while read -r id start; do
-      [[ $start =~ ^[0-9]+$ ]] || continue
-      (( start >= now - 7 * 86400 )) && kept+=("$id $start")
+    while IFS= read -r line; do
+      prep_ledger_line "$line" || continue
+      start=${line#* }
+      (( 10#$start >= now - 7 * 86400 )) && kept+=("$line")
     done < "$PREP_LEDGER"
   fi
   (( $# >= 3 )) && kept+=("$2 $3")
@@ -80,8 +86,10 @@ prep_sync_locked() {
 # check-add-record runs under the ledger lock; each ledger write prunes stale lines.
 prep_sync() {
   if [[ -v ISLAND_PREP_AHEAD && -z $ISLAND_PREP_AHEAD ]]; then return 0; fi
+  [[ -e $(prep_file) ]] || return 0
   local ahead=${ISLAND_PREP_AHEAD:-24} now fd rc=0
   [[ $ahead =~ ^[0-9]+$ ]] || ahead=24
+  ahead=$((10#$ahead))
   now=$(todo_now)
   mkdir -p -- "${PREP_LEDGER%/*}" || return 1
   exec {fd}> "${PREP_LEDGER}.lock" || return 1

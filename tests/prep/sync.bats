@@ -127,12 +127,40 @@ aaaaaaaaaaaa $(at '2026-10-22 09:00')" ]
 @test "a failed add records nothing in the ledger" {
   template_weekly
   agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
-  # An unwritable todo directory makes every todo_change fail (root can still write).
-  [ "$(id -u)" -ne 0 ] || skip 'running as root'
-  chmod 555 "${TODO_FILE%/*}"
+  # todo.json.lock as a directory fails in the Tugas store; todo.json itself stays usable.
+  mkdir "${TODO_FILE}.lock"
   run prep_sync
   [ "$status" -ne 0 ]
   [ "$status" -ne 127 ]
-  chmod 755 "${TODO_FILE%/*}"
   [ ! -e "$PREP_LEDGER" ]
+  [ ! -e "$TODO_FILE" ]
+}
+
+@test "the ahead hours are decimal, so 08 and 024 are not octal" {
+  template_weekly
+  agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 03:00')")"
+  ISLAND_PREP_AHEAD=08 prep_sync
+  [ ! -e "$TODO_FILE" ]
+  agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
+  ISLAND_PREP_AHEAD=024 prep_sync
+  [ "$(jq '.items | length' "$TODO_FILE")" -eq 2 ]
+}
+
+@test "a malformed ledger line does not count and is dropped on the next write" {
+  template_weekly
+  agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
+  mkdir -p "${PREP_LEDGER%/*}"
+  printf 'aaaaaaaaaaaa invalid\nbbbbbbbbbbbb %s extra\n' "$(at '2026-10-22 09:00')" > "$PREP_LEDGER"
+  prep_sync
+  [ "$(jq '.items | length' "$TODO_FILE")" -eq 2 ]
+  [ "$(cat "$PREP_LEDGER")" = "aaaaaaaaaaaa $(at '2026-10-22 09:00')" ]
+}
+
+@test "without a template file sync takes no ledger lock and writes nothing" {
+  agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
+  run prep_sync
+  [ "$status" -eq 0 ]
+  [ ! -e "$PREP_LEDGER" ]
+  [ ! -e "${PREP_LEDGER}.lock" ]
+  [ ! -e "$TODO_FILE" ]
 }

@@ -82,3 +82,10 @@ agenda_rows() {
 
 # items_json: todo items without ids, for exact comparison.
 items_json() { jq -c '[.items[] | {text,done,due,reminded,prep}]' "$TODO_FILE"; }
+
+# many_items N: "i1; i2; ...; iN" (long template item lists).
+many_items() {
+  local s='' i
+  for (( i = 1; i <= $1; i++ )); do s+="i$i; "; done
+  printf '%s' "${s%; }"
+}

@@ -1,7 +1,6 @@
 # tests/prep/template.bats: reading, matching, due times and saving prep templates.
 load common
 bats_require_minimum_version 1.5.0
-# --- prep_templates: parsing ------------------------------------------------
 
 @test "parse skips comments and blanks and reads pattern, before and trimmed items" {
   prep_write '# komen' '' '   ' '  # komentar menjorok' \
@@ -43,8 +42,6 @@ bats_require_minimum_version 1.5.0
   [ "$stderr" = $'prep: baris 1 dilewati\nprep: baris 2 dilewati\nprep: baris 3 dilewati' ]
 }
 
-# --- prep_match -------------------------------------------------------------
-
 @test "match is a case-insensitive substring of the title" {
   prep_write 'Weekly Report | 2j | Report progres; Plan minggu depan'
   run prep_match 'Weekly Report — Tim A'
@@ -76,8 +73,6 @@ bats_require_minimum_version 1.5.0
   [ -z "$output" ]
 }
 
-# --- prep_due ---------------------------------------------------------------
-
 @test "due subtracts minutes and hours, and an empty spec uses the default" {
   [ "$(prep_due "$START" '30m')" = "$(at '2026-10-22 09:30')" ]
   [ "$(prep_due "$START" '2j')" = "$(at '2026-10-22 08:00')" ]
@@ -98,8 +93,6 @@ bats_require_minimum_version 1.5.0
   export ISLAND_DEADLINE_TIME=09:30
   [ "$(prep_due "$START" '1h')" = "$(at '2026-10-21 09:30')" ]
 }
-
-# --- prep_save --------------------------------------------------------------
 
 @test "save into a missing file creates the folder and the file" {
   export ISLAND_PREP="$BATS_TEST_TMPDIR/baru/prep"
@@ -166,15 +159,12 @@ bats_require_minimum_version 1.5.0
   run prep_templates
   [ "$status" -eq 0 ]
   [ "$(jq -r '.[0].pattern' <<< "$output")" = 'Équipe' ]
-  run prep_match 'équipe rapat'
-  [ "$status" -eq 1 ]
-  [ -z "$output" ]
+  run prep_match 'équipe rapat'; [ "$status" -eq 1 ]; [ -z "$output" ]
   prep_write 'équipe | | a'
   run prep_match 'équipe rapat'
   [ "$status" -eq 0 ]
   [ "$output" = '{"pattern":"équipe","before":"","items":["a"],"line":1}' ]
-  run prep_match 'ÉQUIPE rapat'
-  [ "$status" -eq 1 ]
+  run prep_match 'ÉQUIPE rapat'; [ "$status" -eq 1 ]
 }
 
 @test "a tab inside the pattern parses and matches" {
@@ -196,4 +186,14 @@ bats_require_minimum_version 1.5.0
   [ "$stderr" = 'prep: berkas template tidak bisa dibaca' ]
   chmod 644 "$ISLAND_PREP"
   [ "$(cat "$ISLAND_PREP")" = 'Weekly | 1h | lama' ]
+}
+
+@test "items past the twentieth are ignored with one warning per line" {
+  prep_write "Weekly | 2j | $(many_items 25)"
+  run --separate-stderr prep_templates
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.[0].items' <<< "$output")" = '["i1","i2","i3","i4","i5","i6","i7","i8","i9","i10","i11","i12","i13","i14","i15","i16","i17","i18","i19","i20"]' ]
+  [ "$stderr" = 'prep: baris 1, item ke-21 dst. dilewati' ]
+  run prep_match 'Weekly Report'
+  [ "$(jq '.items | length' <<< "$output")" -eq 20 ]
 }

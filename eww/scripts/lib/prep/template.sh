@@ -16,10 +16,11 @@ prep_trim() {
   v=${v%"${v##*[![:space:]]}"}
 }
 
-# prep_items TEXT: print TEXT split on ";", trimmed, empties dropped, as a compact JSON array.
+# prep_items TEXT: print TEXT split on ";", trimmed, empties dropped (at most 20),
+# as a compact JSON array.
 prep_items() {
   jq -cn --arg text "$1" \
-    '$text | split(";") | map(gsub("^\\s+|\\s+\\z"; "")) | map(select(length > 0))'
+    '$text | split(";") | map(gsub("^\\s+|\\s+\\z"; "")) | map(select(length > 0)) | .[:20]'
 }
 
 # prep_before_ok SPEC: SPEC is empty, Nm, Nj or Nh.
@@ -28,14 +29,17 @@ prep_before_ok() { [[ -z $1 || $1 =~ ^[0-9]+[mjh]$ ]]; }
 # prep_parse LINE: set prep_p_pattern/before/items for a valid template line.
 # Returns 1 for blank, comment or bad lines. The raw fields keep their spelling.
 prep_parse() {
-  local line=$1 rest
-  prep_p_pattern='' prep_p_before='' prep_p_items='[]'
+  local line=$1 rest all
+  prep_p_pattern='' prep_p_before='' prep_p_items='[]' prep_p_over=0
   [[ $line =~ ^[[:space:]]*(#|$) ]] && return 1
   [[ $line == *'|'*'|'* ]] || return 1
   prep_p_pattern=${line%%|*}; rest=${line#*|}
   prep_p_before=${rest%%|*}; rest=${rest#*|}
   prep_trim prep_p_pattern; prep_trim prep_p_before
-  prep_p_items=$(prep_items "$rest") || return 1
+  all=$(jq -cn --arg text "$rest" \
+    '$text | split(";") | map(gsub("^\\s+|\\s+\\z"; "")) | map(select(length > 0))') || return 1
+  prep_p_items=$(jq -cn --argjson items "$all" '$items[:20]') || return 1
+  if [[ $(jq -n --argjson items "$all" '$items | length') -gt 20 ]]; then prep_p_over=1; fi
   [[ -n $prep_p_pattern ]] && prep_before_ok "$prep_p_before" && [[ $prep_p_items != '[]' ]]
 }
 
@@ -61,6 +65,7 @@ prep_records() {
       printf 'prep: baris %d dilewati\n' "$n" >&2
       continue
     fi
+    if (( prep_p_over )); then printf 'prep: baris %d, item ke-21 dst. dilewati\n' "$n" >&2; fi
     rec=$(prep_record "$n") || return 1
     printf '%s\n' "$rec"
   done < "$file"
