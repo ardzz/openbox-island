@@ -17,6 +17,10 @@ get() { local v; v=$(cat "$ISLAND_STATE/$1" 2>/dev/null); printf '%s\n' "${v:-0}
 put() { printf '%s\n' "$2" > "$ISLAND_STATE/$1"; }
 is_open() { island_eww active-windows 2>/dev/null | sed -n 's/^[^:]*: *//p' | grep -qx island-expanded; }
 
+# drop_pick_request: a closing card stops its todo listener before it can act, so a
+# pending deadline-picker request must go before the window closes.
+drop_pick_request() { rm -f -- "$ISLAND_STATE/todo-pick"; }
+
 # hovered: the pointer is inside a visible island window (compact or expanded) right now.
 hovered() {
   local k v px='' py='' x=0 y=0 w=0
@@ -59,6 +63,7 @@ collapse() {
   sleep "$REVEAL_SECONDS"
   # The window is still mapped while hiding: a pointer that came back gets no new enter event.
   if hovered; then island_eww update island_reveal=true; return 0; fi
+  drop_pick_request
   island_eww close island-expanded
   notify_signal '@expanded 0'
   notif_signal '@expanded 0'
@@ -77,6 +82,7 @@ dismiss() {
   is_open || return 0
   island_eww update island_reveal=false
   sleep "$REVEAL_SECONDS"
+  drop_pick_request
   island_eww close island-expanded
   notify_signal '@expanded 0'
   notif_signal '@expanded 0'
@@ -91,6 +97,7 @@ hide() {
   put auto_until 0
   if is_open; then
     island_eww update island_reveal=false
+    drop_pick_request
     island_eww close island-expanded
     notify_signal '@expanded 0'
     notif_signal '@expanded 0'

@@ -36,6 +36,23 @@ load common
   [ "$(calls)" = "$CLOSE" ]
 }
 
+@test "close that really collapses drops a pending picker request" {
+  mkdir -p "$ST"; echo 1 > "$ST/todo-pick"
+  expanded
+  run "$SCRIPTS/island" close
+  [ "$(calls)" = "$CLOSE" ]
+  [ ! -e "$ST/todo-pick" ]
+}
+
+@test "close that keeps the card open for the pointer keeps the picker request" {
+  mkdir -p "$ST"; echo 1 > "$ST/todo-pick"
+  expanded; on_expanded_only
+  run "$SCRIPTS/island" close
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = 'update island_tab=musik' ]
+  [ -e "$ST/todo-pick" ]
+}
+
 @test "close keeps an island the pointer is on open (player gone while hovering)" {
   expanded; on_expanded_only
   run "$SCRIPTS/island" close

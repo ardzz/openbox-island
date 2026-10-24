@@ -40,6 +40,42 @@ load common
   [ "$signal" = '@expanded 0' ]
 }
 
+@test "dismiss drops a pending picker request before closing the card" {
+  mkdir -p "$ST"; echo 1 > "$ST/todo-pick"
+  expanded; on_expanded_only
+  run "$SCRIPTS/island" dismiss
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = "$CLOSE" ]
+  [ ! -e "$ST/todo-pick" ]
+}
+
+@test "hide drops a pending picker request before closing the card" {
+  mkdir -p "$ST"; echo 1 > "$ST/todo-pick"
+  expanded; on_expanded_only
+  run "$SCRIPTS/island" hide
+  [ "$status" -eq 0 ]
+  [ ! -e "$ST/todo-pick" ]
+}
+
+@test "a fresh todo listener after the card closed emits the picker closed, not the stale request" {
+  mkdir -p "$ST" "$BATS_TEST_TMPDIR/data"
+  export XDG_DATA_HOME="$BATS_TEST_TMPDIR/data"
+  "$SCRIPTS/todo" add a
+  echo 1 > "$ST/todo-pick"
+  expanded; on_expanded_only
+  run "$SCRIPTS/island" dismiss
+  [ "$status" -eq 0 ]
+  [ ! -e "$ST/todo-pick" ]
+  # Ordinary reopen: a fresh card-only listener emits its first JSON.
+  mkdir -p "$BATS_TEST_TMPDIR/run2"
+  FIFO_OUT="$BATS_TEST_TMPDIR/todo-first.json"
+  XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" timeout 2 "$SCRIPTS/todo" > "$FIFO_OUT" 2>/dev/null &
+  wait $! || true
+  run jq -c .picker "$FIFO_OUT"
+  [ "$status" -eq 0 ]
+  [ "$output" = '{"show":false,"id":0,"text":"","month_label":"","weeks":[],"hour":"","minute":"","summary":""}' ]
+}
+
 @test "dismiss while a fullscreen window hides the island keeps it hidden" {
   mkdir -p "$ST"; : > "$ST/fullscreen"; : > "$FAKE_EWW_ACTIVE"
   run "$SCRIPTS/island" dismiss
