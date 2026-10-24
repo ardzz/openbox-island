@@ -28,6 +28,10 @@ class WindowTests(unittest.TestCase):
             with self.subTest(days=bad), mock.patch.dict(os.environ, {"ISLAND_CAL_DAYS": bad}):
                 self.assertEqual(main.window(at(21, 10), TZ),
                                  (start, dt.datetime(2026, 11, 21, tzinfo=TZ)))
+        for big in ("366", "367", "99999999"):
+            with self.subTest(days=big), mock.patch.dict(os.environ, {"ISLAND_CAL_DAYS": big}):
+                self.assertEqual(main.window(at(21, 10), TZ),
+                                 (start, dt.datetime(2027, 10, 23, tzinfo=TZ)))
 
 
 class CollectTests(unittest.TestCase):

@@ -16,6 +16,7 @@ from . import config, fetch
 
 INTERVAL = 300
 CAL_DAYS = 30
+MAX_CAL_DAYS = 366
 TICK = 15
 EMPTY = "belum ada kalender di config"
 
@@ -38,7 +39,7 @@ def cal_days():
         days = int(os.environ.get("ISLAND_CAL_DAYS", CAL_DAYS))
     except ValueError:
         return CAL_DAYS
-    return days if days >= 1 else CAL_DAYS
+    return min(days, MAX_CAL_DAYS) if days >= 1 else CAL_DAYS
 
 
 def window(now, tz):
