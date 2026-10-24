@@ -53,7 +53,19 @@ def collect(accounts, cache, now, tz, fetcher=None):
     timed, allday, errors, stale = [], [], [], False
     start, end = window(now, tz)
     for account in accounts:
-        raw, error = fetch.refresh(cache, account.url, fetcher or fetch.download, check=events.parse)
+        google = None
+        try:
+            mod = importlib.import_module(__package__ + ".google")
+            if mod.calendar_id(account):
+                google = mod
+        except ImportError:
+            google = None
+        if google is not None:
+            raw, error = fetch.refresh(
+                cache, f"{account.url}|{account.name}",
+                lambda _key, a=account: google.download(a, start, end), check=events.parse)
+        else:
+            raw, error = fetch.refresh(cache, account.url, fetcher or fetch.download, check=events.parse)
         if error:
             errors.append(f"{account.name}: {error}")
             stale = stale or raw is not None
