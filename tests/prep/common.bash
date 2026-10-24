@@ -47,7 +47,11 @@ EOF
 #!/usr/bin/env bash
 exit 0
 EOF
-  chmod +x "$BIN/eww" "$BIN/xdotool" "$BIN/rofi" "$BIN/sleep"
+  cat > "$BIN/notify-send" <<'EOF'
+#!/usr/bin/env bash
+printf 'notify-send%s\n' "$(printf ' [%s]' "$@")" >> "$FIX/calls"
+EOF
+  chmod +x "$BIN/eww" "$BIN/xdotool" "$BIN/rofi" "$BIN/sleep" "$BIN/notify-send"
   export PATH="$BIN:$PATH"
   START=$(date -d '2026-10-22 10:00' +%s) # Thu 22 Oct 10:00
   NOW=1792551600 # Wed 2026-10-21 10:00

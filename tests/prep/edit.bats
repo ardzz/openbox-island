@@ -127,3 +127,14 @@ calls() { cat "$FIX/calls"; }
   [ "$status" -eq 0 ]
   [ "$(calls)" = $'eww update island_reveal=false\neww close island-expanded\nrofi -dmenu -p Prep -mesg Item prep untuk Weekly Report; pisahkan dengan ; -filter  -l 0' ]
 }
+
+@test "an answer over twenty items saves twenty and notifies" {
+  agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
+  answer "$(many_items 21)"
+  run --separate-stderr "$SCRIPTS/prep" edit aaaaaaaaaaaa
+  [ "$status" -eq 0 ]
+  [ "$stderr" = 'prep: maksimal 20 item, sisanya dibuang' ]
+  [ "$(prep_templates | jq '.[0].items | length')" -eq 20 ]
+  [ "$(jq '.items | length' "$TODO_FILE")" -eq 20 ]
+  [[ $(calls) == *'notify-send [-a] [Kalender] [--] [Prep: maksimal 20 item] [Sisanya dibuang]'* ]]
+}

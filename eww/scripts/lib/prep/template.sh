@@ -82,7 +82,7 @@ prep_templates() {
 prep_match() {
   local title records rec pattern
   title=$(prep_lower "$1") || return 1
-  records=$(prep_records 2>/dev/null) || return 1
+  records=$(prep_records) || return 1
   while IFS= read -r rec; do
     [[ -n $rec ]] || continue
     pattern=$(jq -r '.pattern' <<< "$rec") || return 1
@@ -110,14 +110,24 @@ prep_due() {
 # prep_save TITLE ANSWER: set the items of the first template matching TITLE to ANSWER
 # (split on ";"); an empty answer deletes that line, no match appends one. Atomic write.
 prep_save() {
-  local title=$1 items line tmp found=0 out=() joined file title_lower
+  local title=$1 items line tmp found=0 out=() joined file title_lower all
   file=$(prep_file)
   if [[ -e $file && ! -r $file ]]; then
     printf 'prep: berkas template tidak bisa dibaca\n' >&2
     return 1
   fi
   title_lower=$(prep_lower "$title") || return 1
-  items=$(prep_items "$2") || return 1
+  all=$(jq -cn --arg text "$2" \
+    '$text | split(";") | map(gsub("^\\s+|\\s+\\z"; "")) | map(select(length > 0))') || return 1
+  if [[ $(jq -n --argjson items "$all" '$items | length') -gt 20 ]]; then
+    # shellcheck disable=SC2034 # read by scripts/prep
+    prep_save_over=1
+    printf 'prep: maksimal 20 item, sisanya dibuang\n' >&2
+  else
+    # shellcheck disable=SC2034 # read by scripts/prep
+    prep_save_over=0
+  fi
+  items=$(jq -cn --argjson items "$all" '$items[:20]') || return 1
   joined=$(jq -r 'join("; ")' <<< "$items") || return 1
   if [[ -r $file ]]; then
     while IFS= read -r line || [[ -n $line ]]; do

@@ -37,6 +37,9 @@ edit() {
   answer=$(rofi -dmenu -p Prep -mesg "Item prep untuk $title; pisahkan dengan ;" \
     -filter "$current" -l 0 < /dev/null) || return 0
   prep_save "$title" "$answer" || return 1
+  if (( ${prep_save_over:-0} )); then
+    notify-send -a Kalender -- 'Prep: maksimal 20 item' 'Sisanya dibuang' || :
+  fi
   prep_sync
 }
 

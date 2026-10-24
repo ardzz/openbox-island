@@ -164,3 +164,23 @@ aaaaaaaaaaaa $(at '2026-10-22 09:00')" ]
   [ ! -e "${PREP_LEDGER}.lock" ]
   [ ! -e "$TODO_FILE" ]
 }
+
+@test "CLI sync prints template warnings, the alert snapshot prints nothing" {
+  prep_write 'rusak tanpa kolom' 'Weekly Report | 2j | Report progres; Plan minggu depan'
+  agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
+  run --separate-stderr "$SCRIPTS/prep" sync
+  [ "$status" -eq 0 ]
+  [ "$stderr" = 'prep: baris 1 dilewati' ]
+  [ "$(jq '.items | length' "$TODO_FILE")" -eq 2 ]
+}
+
+@test "prep_snapshot prints nothing even with a bad template line" {
+  prep_write 'rusak tanpa kolom' 'Weekly Report | 2j | Report progres'
+  agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
+  DIR="$SCRIPTS" source "$SCRIPTS/lib/alert/prep.sh"
+  run --separate-stderr prep_snapshot
+  [ "$status" -eq 0 ]
+  [ "$output" = '' ]
+  [ "$stderr" = '' ]
+  [ "$(jq '.items | length' "$TODO_FILE")" -eq 1 ]
+}

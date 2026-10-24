@@ -13,4 +13,4 @@ source "$DIR/lib/prep/template.sh"
 source "$DIR/lib/prep/sync.sh"
 
 prep_interval() { printf '%s' "${ISLAND_PREP_INTERVAL:-60}"; }
-prep_snapshot() { prep_sync; }
+prep_snapshot() { prep_sync 2>/dev/null; }

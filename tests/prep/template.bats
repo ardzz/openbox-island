@@ -194,6 +194,7 @@ bats_require_minimum_version 1.5.0
   [ "$status" -eq 0 ]
   [ "$(jq -c '.[0].items' <<< "$output")" = '["i1","i2","i3","i4","i5","i6","i7","i8","i9","i10","i11","i12","i13","i14","i15","i16","i17","i18","i19","i20"]' ]
   [ "$stderr" = 'prep: baris 1, item ke-21 dst. dilewati' ]
-  run prep_match 'Weekly Report'
+  run --separate-stderr prep_match 'Weekly Report'
   [ "$(jq '.items | length' <<< "$output")" -eq 20 ]
+  [ "$stderr" = 'prep: baris 1, item ke-21 dst. dilewati' ]
 }
