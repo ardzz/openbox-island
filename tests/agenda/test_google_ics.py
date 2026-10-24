@@ -35,8 +35,8 @@ class ToIcsTests(unittest.TestCase):
         items = [
             item(id="ad1", iCalUID="ad1@google.com", summary="Cuti",
                  start={"date": "2026-10-21"}, end={"date": "2026-10-23"}),
-            item(id="ad2", iCalUID="ad2@google.com", summary="Libur",
-                 start={"date": "2026-10-24"}, end={}),
+            {"id": "ad2", "iCalUID": "ad2@google.com", "status": "confirmed",
+             "summary": "Libur", "start": {"date": "2026-10-24"}},
         ]
         timed, allday = occurrences(google.to_ics(items))
         spans = {entry["title"]: (entry["first"], entry["last"]) for entry in allday}
@@ -142,10 +142,16 @@ class ToIcsTests(unittest.TestCase):
             item(start={"dateTime": "2026-10-21T08:00:00"}),
             item(start={"date": "2026-13-40"}),
             item(end=dict(bad)),
+            item(start={}),
+            item(start={"dateTime": None}),
+            item(end={}),
+            item(end={"dateTime": None}),
             item(id="b1", iCalUID="s@google.com", summary="Rutin",
                  recurringEventId="s", originalStartTime=dict(bad)),
             item(id="b2", iCalUID="s@google.com", summary="Rutin",
                  recurringEventId="s", originalStartTime={"dateTime": 123}),
+            item(id="b3", iCalUID="s@google.com", summary="Rutin",
+                 recurringEventId="s", originalStartTime={}),
         ]
         for entry in cases:
             with self.subTest(entry=repr(entry)[:60]):

@@ -145,7 +145,7 @@ def _moment(value):
         return moment
     if value.get("date") is not None:
         return dt.date.fromisoformat(value["date"])
-    return None
+    raise ValueError("timestamp tanpa dateTime/date")
 
 
 def _join_value(item):
