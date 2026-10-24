@@ -2,7 +2,7 @@
 load helpers
 
 at() { date -d "$1" +%s; }
-tick() { ISLAND_NOW=$(at "$1") meeting_snapshot; }
+tick() { ISLAND_NOW=$(at "$1") meeting_event tick; }
 notified() { cat "$ALERT_FIXTURE/notified" 2>/dev/null || :; }
 opened() { cat "$ALERT_FIXTURE/opened" 2>/dev/null || :; }
 
@@ -87,4 +87,16 @@ agenda() {
   tick '2026-10-21 10:00'
   [ "$(notified)" = $'Kalender|Meeting dimulai · 10:00|A\nKalender|Meeting dimulai · 10:00|B' ]
   [ "$(opened)" = $'open 10\nopen 10' ]
+}
+
+@test "a monitor baseline stays silent and leaves the first tick unclaimed" {
+  prepare
+  agenda 'Standup' '2026-10-21 10:00'
+  ISLAND_NOW=$(at '2026-10-21 10:00') alert_source=meeting source_baseline
+  [ -z "$(notified)" ]
+  [ -z "$(opened)" ]
+  tick '2026-10-21 10:00'
+  tick '2026-10-21 10:00'
+  [ "$(notified)" = 'Kalender|Meeting dimulai · 10:00|Standup' ]
+  [ "$(opened)" = 'open 10' ]
 }

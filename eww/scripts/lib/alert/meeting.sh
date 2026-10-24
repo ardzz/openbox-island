@@ -18,7 +18,10 @@ meeting_init() {
     || alert_skip 'config kalender belum ada'
 }
 meeting_monitor() { printf '%s\0' "$DIR/agenda" watch; }
-meeting_event() { meeting_snapshot; }
+meeting_event() { meeting_remind; }
+
+# This source keeps no sampled state, so its baseline has nothing to do.
+meeting_snapshot() { :; }
 
 # meeting_open SECONDS: show the Kalender tab on the island for SECONDS.
 meeting_open() { "$DIR/island" auto "$1" kalender > /dev/null 2>&1 || :; }
@@ -35,8 +38,8 @@ meeting_claim() {
   return "$rc"
 }
 
-# meeting_snapshot: notify each meeting reminder now due, once, and open the Kalender tab.
-meeting_snapshot() {
+# meeting_remind: notify each meeting reminder now due, once, and open the Kalender tab.
+meeting_remind() {
   local now before doc row key start id title line
   now=${ISLAND_NOW:-$EPOCHSECONDS}
   before=${ISLAND_MEETING_BEFORE-10}
