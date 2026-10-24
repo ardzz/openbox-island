@@ -127,16 +127,30 @@ class ToIcsTests(unittest.TestCase):
                  end={"dateTime": "2026-10-22T10:30:00", "timeZone": "Asia/Jakarta"},
                  originalStartTime={"dateTime": "2026-10-22T08:00:00",
                                     "timeZone": "Asia/Jakarta"}),
-            item(id="bad", iCalUID="bad@google.com", summary="Zona rusak",
-                 start={"dateTime": "2026-10-21T09:00:00", "timeZone": "Mars/Olympus"},
-                 end={"dateTime": "2026-10-21T09:30:00", "timeZone": "Mars/Olympus"}),
         ]
         timed, _ = occurrences(google.to_ics(items))
         by_title = {(e["title"], e["start"]): e for e in timed}
         self.assertEqual(by_title[("Standup", at(21, 8))]["end"], at(21, 8, 30))
         rutin = sorted(e["start"] for e in timed if e["title"] == "Rutin")
         self.assertEqual(rutin, [at(21, 10), at(22, 10)])
-        self.assertFalse(any(e["title"] == "Zona rusak" for e in timed))
+
+    def test_malformed_timestamps_raise(self):
+        bad = {"dateTime": "2026-10-21T09:00:00", "timeZone": "Mars/Olympus"}
+        cases = [
+            item(start={"dateTime": 123}, end={"dateTime": 123}),
+            item(start={"dateTime": "bukan-tanggal"}),
+            item(start={"dateTime": "2026-10-21T08:00:00"}),
+            item(start={"date": "2026-13-40"}),
+            item(end=dict(bad)),
+            item(id="b1", iCalUID="s@google.com", summary="Rutin",
+                 recurringEventId="s", originalStartTime=dict(bad)),
+            item(id="b2", iCalUID="s@google.com", summary="Rutin",
+                 recurringEventId="s", originalStartTime={"dateTime": 123}),
+        ]
+        for entry in cases:
+            with self.subTest(entry=repr(entry)[:60]):
+                with self.assertRaises((TypeError, ValueError, KeyError)):
+                    google.to_ics([entry])
 
 
 if __name__ == "__main__":

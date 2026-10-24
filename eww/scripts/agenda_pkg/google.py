@@ -129,25 +129,22 @@ def list_events(token, cal_id, start, end):
 
 
 def _moment(value):
-    """An aware datetime or a date from a Google dateTime/date dict, else None."""
-    if not isinstance(value, dict):
+    """Aware datetime/date from a Google timestamp dict; absent parts give None.
+
+    A present but malformed timestamp (wrong type, unparsable, unknown
+    timeZone, offset-less dateTime without timeZone) raises.
+    """
+    if value is None:
         return None
-    if value.get("dateTime"):
-        try:
-            moment = dt.datetime.fromisoformat(value["dateTime"])
-        except (TypeError, ValueError):
-            return None
+    if not isinstance(value, dict):
+        raise TypeError("timestamp bukan objek")
+    if value.get("dateTime") is not None:
+        moment = dt.datetime.fromisoformat(value["dateTime"])
         if moment.tzinfo is None:
-            try:
-                return moment.replace(tzinfo=zoneinfo.ZoneInfo(value["timeZone"]))
-            except (KeyError, TypeError, ValueError, zoneinfo.ZoneInfoNotFoundError):
-                return None
+            moment = moment.replace(tzinfo=zoneinfo.ZoneInfo(value["timeZone"]))
         return moment
-    if value.get("date"):
-        try:
-            return dt.date.fromisoformat(value["date"])
-        except (TypeError, ValueError):
-            return None
+    if value.get("date") is not None:
+        return dt.date.fromisoformat(value["date"])
     return None
 
 
@@ -170,6 +167,8 @@ def to_ics(items):
             continue
         if any(isinstance(a, dict) and a.get("self") and a.get("responseStatus") == "declined"
                for a in item.get("attendees") or []):
+            continue
+        if item.get("start") is None:
             continue
         begin = _moment(item.get("start"))
         if begin is None:

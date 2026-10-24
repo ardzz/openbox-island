@@ -220,9 +220,16 @@ class CollectTests(unittest.TestCase):
     def test_malformed_google_response_keeps_stale_and_continues(self):
         good = {"items": [item(summary="Tetap Ada")]}
         other = config.Account("Lain", "#34c759", "", "google:primary")
+        bad_zone = {"dateTime": "2026-10-21T09:00:00", "timeZone": "Mars/Olympus"}
         malformed = [
             ["bukan", "objek"],
             {"items": [item(summary="Rusak", attendees=123)]},
+            {"items": [item(summary="Rusak", start={"dateTime": 123},
+                            end={"dateTime": 123})]},
+            {"items": [item(summary="Rusak", end=dict(bad_zone))]},
+            {"items": [item(id="r1", iCalUID="s@google.com", summary="Rusak",
+                            recurringEventId="s",
+                            originalStartTime=dict(bad_zone))]},
         ]
         for payload in malformed:
             with self.subTest(payload=repr(payload)[:40]), \
