@@ -177,7 +177,7 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 | `musik` | `10-musik.sh` | `media.json` berstatus playing/paused/loading |
 | `cuaca` | `20-cuaca.sh` | `weather.ok` |
 | `notif` | `30-notif.sh` | riwayat tidak kosong |
-| `tugas` | `40-tugas.sh` | `todo.fifo` ada |
+| `tugas` | `40-tugas.sh` | `todo.fifo` ada, atau daftar tersimpan punya tugas terbuka |
 | `pintasan` | `50-pintasan.sh` | `scripts/shortcuts list` punya tombol |
 
 ### 4.4 Widget bersama (`eww/yuck/widgets/`)

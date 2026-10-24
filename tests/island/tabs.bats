@@ -72,6 +72,16 @@ load common
   [ "$(head -n 1 "$FAKE_EWW_LOG")" = 'update island_reveal=false island_tab=musik' ]
 }
 
+@test "auto opens the to-do tab for a deadline while its listener is stopped" {
+  local data="${XDG_DATA_HOME}/eww-island/todo.json"
+  mkdir -p "${data%/*}"
+  printf '{"next_id":2,"items":[{"id":1,"text":"Laporan","done":false,"created":0,"due":1792558800}]}\n' > "$data"
+  on_compact; music
+  run "$SCRIPTS/island" auto 0 tugas
+  [ "$status" -eq 0 ]
+  [ "$(head -n 1 "$FAKE_EWW_LOG")" = 'update island_reveal=false island_tab=tugas' ]
+}
+
 @test "auto rejects a malformed tab name without touching eww" {
   run "$SCRIPTS/island" auto 5 'x y'
   [ "$status" -eq 2 ]

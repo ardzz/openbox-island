@@ -45,6 +45,19 @@ load common
   [ "$(cat "$ST/tab")" = tugas ]
 }
 
+@test "the to-do tab is offered while the list has an open item, even with its listener stopped" {
+  no_music; no_weather; no_notif; open_todo
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = tugas ]
+  run "$SCRIPTS/tab" resolve tugas
+  [ "$output" = tugas ]
+  open_todo true
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = musik ]
+  run "$SCRIPTS/tab" resolve tugas
+  [ "$output" = musik ]
+}
+
 @test "the to-do tab comes after notifications" {
   both; notif; shown notif; mkfifo "$ST/todo.fifo"
   run "$SCRIPTS/tab" next

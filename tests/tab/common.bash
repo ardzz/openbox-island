@@ -1,7 +1,7 @@
 # tests/tab/common.bash: fake eww and tab availability fixtures for scripts/tab.
 setup() {
   BIN="$BATS_TEST_TMPDIR/bin"; mkdir -p "$BIN"
-  export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" EXPECTED_CFG="$REPO/eww"
+  export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" XDG_DATA_HOME="$BATS_TEST_TMPDIR/data" EXPECTED_CFG="$REPO/eww"
   export FAKE_EWW_LOG="$BATS_TEST_TMPDIR/eww.log" FAKE_WEATHER="$BATS_TEST_TMPDIR/weather"
   export FAKE_TAB="$BATS_TEST_TMPDIR/island_tab" FAKE_NOTIF="$BATS_TEST_TMPDIR/notif_center"
   # No shortcuts config unless a test writes one.
@@ -39,3 +39,9 @@ both() { music; weather; }
 notif() { printf '{"total":%s,"unread":0,"rows":[]}\n' "${1:-2}" > "$FAKE_NOTIF"; }
 no_notif() { notif 0; }
 shortcuts() { printf 'x | Kunci | true\n' > "$ISLAND_SHORTCUTS"; }
+# open_todo [DONE]: write the stored to-do list with one item (done unless DONE is false).
+open_todo() {
+  local data="${XDG_DATA_HOME}/eww-island/todo.json"
+  mkdir -p "${data%/*}"
+  printf '{"next_id":2,"items":[{"id":1,"text":"Laporan","done":%s,"created":0}]}\n' "${1:-false}" > "$data"
+}

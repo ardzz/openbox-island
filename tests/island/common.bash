@@ -1,7 +1,7 @@
 # tests/island/common.bash: fake eww, xdotool pointer and tab fixtures for scripts/island.
 setup() {
   BIN="$BATS_TEST_TMPDIR/bin"; mkdir -p "$BIN"
-  export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" EXPECTED_CFG="$REPO/eww"
+  export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" XDG_DATA_HOME="$BATS_TEST_TMPDIR/data" EXPECTED_CFG="$REPO/eww"
   export FAKE_EWW_LOG="$BATS_TEST_TMPDIR/eww.log" FAKE_EWW_ACTIVE="$BATS_TEST_TMPDIR/active"
   export FAKE_POINTER="$BATS_TEST_TMPDIR/pointer" FAKE_WEATHER="$BATS_TEST_TMPDIR/weather"
   # No shortcuts config unless a test writes one.
