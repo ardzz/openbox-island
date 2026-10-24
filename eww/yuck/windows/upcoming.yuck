@@ -28,4 +28,4 @@
       (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 kalender &"
         (box :orientation "h" :space-evenly false :spacing 0
           (label :class "up-icon up-muted" :text "󰃭")
-          (label :class "up-muted" :text "Kosong hari ini"))))))
+          (label :class "up-muted up-empty" :text "Kosong hari ini"))))))
