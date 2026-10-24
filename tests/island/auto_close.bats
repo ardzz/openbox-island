@@ -49,7 +49,8 @@ load common
   expanded; on_expanded_only
   run "$SCRIPTS/island" close
   [ "$status" -eq 0 ]
-  [ "$(calls)" = 'update island_tab=musik' ]
+  # The pending request makes Tugas the fallback tab while the card stays open.
+  [ "$(calls)" = 'update island_tab=tugas' ]
   [ -e "$ST/todo-pick" ]
 }
 

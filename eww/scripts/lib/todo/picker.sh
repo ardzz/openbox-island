@@ -51,10 +51,17 @@ pick_valid_day() {
   [[ $(date -d "$1 12:00" +%F 2>/dev/null) == "$1" ]]
 }
 
-# pick_open_request ID: record ID, tell a live listener, and hold the card open on Tugas.
+# pick_open_request ID: record ID and tell a live listener under the island lifecycle
+# lock (so a closing card cannot delete the fresh request), then hold the card open.
 pick_open_request() {
-  pick_request_write "$1" || return 1
-  fifo_signal todo "@pick open $1"
+  local rc=0
+  mkdir -p "$ISLAND_STATE" || return 1
+  exec {pick_lock_fd}>"$ISLAND_STATE/lock" || return 1
+  if ! flock "$pick_lock_fd"; then exec {pick_lock_fd}>&-; return 1; fi
+  pick_request_write "$1" || rc=$?
+  if (( rc == 0 )); then fifo_signal todo "@pick open $1"; fi
+  exec {pick_lock_fd}>&-
+  (( rc == 0 )) || return "$rc"
   "$DIR/island" auto 60 tugas
 }
 

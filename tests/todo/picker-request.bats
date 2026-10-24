@@ -24,6 +24,37 @@ head_picker() { jq -c '[.picker.id,.picker.text,.picker.month_label,.picker.hour
   [ ! -e "$ST/todo-pick" ]
 }
 
+@test "due on a completed-only list still offers Tugas and opens the picker" {
+  pin_clock
+  todo add a
+  todo toggle 1
+  [ "$(jq -c '[.items[0].done, has("due")]' "$DATA")" = '[true,false]' ]
+  local id; id=$(jq -r '.items[0].id' "$DATA")
+  run todo due "$id"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ST/todo-pick")" = "$id" ]
+  [ "$("$SCRIPTS/tab" resolve tugas)" = tugas ]
+  grep -q '^eww update island_tab=tugas' "$FIX/calls"
+  start_listener
+  [ "$(head_picker)" = "[$id,\"a\",\"Oktober 2026\",\"17\",\"00\",\"Rab 21 Okt · 17:00\"]" ]
+}
+
+@test "due waits for the island lock so a closing card cannot delete its request" {
+  pin_clock
+  todo add a
+  local id; id=$(jq -r '.items[0].id' "$DATA")
+  # A closing card holds the island lock, then deletes the request before releasing.
+  ( exec 9>"$ST/lock"; flock 9; echo held > "$FIX/held"; sleep 0.5; rm -f "$ST/todo-pick" ) &
+  local closer=$!
+  for _ in {1..100}; do [ -e "$FIX/held" ] && break; sleep 0.01; done
+  [ -e "$FIX/held" ]
+  run todo due "$id"
+  [ "$status" -eq 0 ]
+  wait "$closer"
+  [ "$(cat "$ST/todo-pick")" = "$id" ]
+  grep -q '^eww update island_tab=tugas' "$FIX/calls"
+}
+
 @test "closing the picker by save, clear, cancel, collapse or removal drops the open request" {
   pin_clock
   todo add a --due 1793354400

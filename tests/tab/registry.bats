@@ -58,6 +58,17 @@ load common
   [ "$output" = musik ]
 }
 
+@test "the to-do tab is offered for a pending picker request on a completed-only list" {
+  no_music; no_weather; no_notif; open_todo true
+  run "$SCRIPTS/tab" resolve tugas
+  [ "$output" = musik ]
+  mkdir -p "$ST"; echo 1 > "$ST/todo-pick"
+  run "$SCRIPTS/tab" resolve tugas
+  [ "$output" = tugas ]
+  run "$SCRIPTS/tab" resolve
+  [ "$output" = tugas ]
+}
+
 @test "the to-do tab comes after notifications" {
   both; notif; shown notif; mkfifo "$ST/todo.fifo"
   run "$SCRIPTS/tab" next
