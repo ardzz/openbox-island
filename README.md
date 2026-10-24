@@ -55,7 +55,7 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 
 **Tabs**
 - The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. Each tab appears only while it has content; To-do is always available and supports optional deadlines with reminders the day before and on the day.
-- Kalender combines today's and tomorrow's iCal events, with account colours, all-day summaries, Join buttons and meeting reminders.
+- Kalender lists iCal events from today through the next 30 days, with account colours, all-day summaries, Join buttons and meeting reminders.
 
 **Indicators**
 - Dots on the pill for screen recording (red, with elapsed time), microphone in use (yellow) and camera in use (green), plus a crossed-out bell while dunst Do Not Disturb is on.
@@ -67,7 +67,7 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 - Scrolling over the compact pill changes the default output volume by ±5%.
 
 **Left pill**
-- A second, smaller pill in the top-left corner always shows the meeting to mind from the Kalender agenda — `sampai HH:MM` while it runs, a yellow `Nm` countdown (with **Join**) in the 15 minutes before it starts, its start time later today, or `Besok HH:MM` tomorrow — next to the nearest open To-do deadline with the same chip label as the To-do tab (red `terlambat` when overdue, yellow under 24 h, plus `+N` for other deadlines due within 24 h). With neither, it reads `Kosong hari ini`. Clicking the meeting opens the Kalender tab, clicking the deadline opens the To-do tab, and the pill hides and returns with the island in fullscreen.
+- A second, smaller pill in the top-left corner always shows the meeting to mind from the Kalender agenda — `sampai HH:MM` while it runs, a yellow `Nm` countdown (with **Join**) in the 15 minutes before it starts, its start time later today, or the day and time of the next meeting on a later day (e.g. `Besok 09:00`, `Sen 26 Okt 09:00`) — next to the nearest open To-do deadline with the same chip label as the To-do tab (red `terlambat` when overdue, yellow under 24 h, plus `+N` for other deadlines due within 24 h). With neither, it reads `Kosong hari ini`. Clicking the meeting opens the Kalender tab, clicking the deadline opens the To-do tab, and the pill hides and returns with the island in fullscreen.
 
 <p align="center">
   <img src="docs/assets/screenshots/pill-upcoming.png" alt="Left pill: upcoming meeting with Join and nearest deadline" width="400">

@@ -91,6 +91,7 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_TODO_TICK` | `60` | Interval pembaruan label dan warna deadline pada daftar tugas (detik) | `eww/scripts/todo` | [deadline](fitur.md#deadline) |
 | `ISLAND_CALENDARS` | `~/.config/openbox-island/calendars` | Berkas akun kalender iCal (mengikuti `XDG_CONFIG_HOME` bila diset) | `eww/scripts/agenda_pkg/config.py`, `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_CAL_INTERVAL` | `300` | Interval pengambilan ulang feed kalender (detik) | `eww/scripts/agenda_pkg/main.py` | [kalender](fitur.md#kalender) |
+| `ISLAND_CAL_DAYS` | `30` | Jumlah hari ke depan setelah hari ini yang ditampilkan agenda | `eww/scripts/agenda_pkg/main.py` | [kalender](fitur.md#kalender) |
 | `ISLAND_MEETING_BEFORE` | `10` | Menit sebelum rapat untuk pengingat; nilai kosong menonaktifkannya | `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_MEETING_AUTO` | `10` | Lama kartu Kalender terbuka saat pengingat rapat (detik) | `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_KALENDER_TICK` | `2` | Interval pembacaan data lokal untuk tab Kalender (detik) | `eww/scripts/kalender` | [kalender](fitur.md#kalender) |
