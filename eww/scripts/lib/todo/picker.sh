@@ -4,6 +4,105 @@
 
 pick_reset() { pick_show=0 pick_id=0 pick_sel='' pick_time='' pick_month=''; }
 
+# pick_request_file: a pending picker-open id survives the card-only listener being stopped.
+pick_request_file() { printf '%s' "$ISLAND_STATE/todo-pick"; }
+
+# pick_request_write ID: record ID atomically as the pending picker-open request.
+pick_request_write() {
+  local file tmp
+  file=$(pick_request_file)
+  mkdir -p "$ISLAND_STATE" || return 1
+  tmp=$(mktemp "$ISLAND_STATE/.todo-pick.XXXXXX") || return 1
+  if printf '%s\n' "$((10#$1))" > "$tmp" && mv -f -- "$tmp" "$file"; then return 0; fi
+  rm -f -- "$tmp"
+  return 1
+}
+
+# pick_request_clear: drop the pending picker-open request.
+pick_request_clear() { rm -f -- "$(pick_request_file)"; }
+
+# pick_request_open: on load, open the picker from the recorded request when it is not
+# already open on that id; requests for a gone item are dropped.
+pick_request_open() {
+  local file id
+  file=$(pick_request_file)
+  [[ -f $file ]] || return 0
+  id=$(cat "$file" 2>/dev/null)
+  [[ $id =~ ^[0-9]+$ ]] || { pick_request_clear; return 0; }
+  if (( pick_show )) && [[ $pick_id == "$((10#$id))" ]]; then return 0; fi
+  if pick_open "$id"; then return 0; fi
+  pick_close
+}
+
+# pick_add_id TEXT: add TEXT without a deadline and print the allocated id. TEXT must
+# already be validated (non-empty after trimming, as in add).
+pick_add_id() {
+  local text new
+  text=$(jq -rn --arg t "$1" --argjson max "$MAX_TEXT" "$TEXT_JQ") || return
+  [[ -n $text ]] || return 1
+  new=$(todo_change_doc "$ADD_JQ" --arg text "$text" --argjson now "$(now_us)" \
+    --argjson due null --argjson reminded null) || return
+  jq -er --arg text "$text" '[.items[] | select(.text == $text) | .id] | max' <<< "$new"
+}
+
+# pick_valid_day DATE: DATE is a real YYYY-MM-DD day; noon avoids DST-skipped midnights.
+pick_valid_day() {
+  [[ $1 =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || return 1
+  [[ $(date -d "$1 12:00" +%F 2>/dev/null) == "$1" ]]
+}
+
+# pick_open_request ID: record ID, tell a live listener, and hold the card open on Tugas.
+pick_open_request() {
+  pick_request_write "$1" || return 1
+  fifo_signal todo "@pick open $1"
+  "$DIR/island" auto 60 tugas
+}
+
+# pick_cmd ARGS...: validate one picker step and hand it to the listener; usage on bad input.
+pick_cmd() {
+  case ${1:-} in
+    nav)
+      (( $# == 2 )) && [[ $2 == -1 || $2 == 1 ]] || { usage; return; }
+      fifo_signal todo "@pick nav $2" ;;
+    day)
+      (( $# == 2 )) && pick_valid_day "$2" || { usage; return; }
+      fifo_signal todo "@pick day $2" ;;
+    hour|minute)
+      (( $# == 2 )) && [[ $2 == up || $2 == down ]] || { usage; return; }
+      fifo_signal todo "@pick $1 $2" ;;
+    time)
+      if (( $# == 2 )) && [[ $2 =~ ^([0-9]{2}):([0-9]{2})$ ]] && (( 10#${BASH_REMATCH[1]} <= 23 && 10#${BASH_REMATCH[2]} <= 59 )); then
+        fifo_signal todo "@pick time $2"
+      else
+        usage; return
+      fi ;;
+    save|clear|cancel)
+      (( $# == 1 )) || { usage; return; }
+      fifo_signal todo "@pick $1" ;;
+    *) usage; return ;;
+  esac
+}
+
+# pick_handle LINE: the listener applies one "@pick ..." line to the picker state.
+pick_handle() {
+  case $1 in
+    '@pick open '*)
+      load
+      pick_open "${1#'@pick open '}" || pick_close ;;
+    '@pick nav -1') (( pick_show )) && pick_nav -1 ;;
+    '@pick nav 1') (( pick_show )) && pick_nav 1 ;;
+    '@pick day '*) (( pick_show )) && pick_set_day "${1#'@pick day '}" ;;
+    '@pick hour up') (( pick_show )) && pick_step_hour up ;;
+    '@pick hour down') (( pick_show )) && pick_step_hour down ;;
+    '@pick minute up') (( pick_show )) && pick_step_minute up ;;
+    '@pick minute down') (( pick_show )) && pick_step_minute down ;;
+    '@pick time '*) (( pick_show )) && pick_set_time "${1#'@pick time '}" ;;
+    '@pick save') (( pick_show )) && pick_save ;;
+    '@pick clear') (( pick_show )) && pick_clear ;;
+    '@pick cancel') pick_close ;;
+  esac
+}
+
 # pick_today: today as YYYY-MM-DD in the local time zone.
 pick_today() { date -d "@$(todo_now)" +%F; }
 
@@ -88,24 +187,24 @@ pick_step_hour() {
 # pick_save: store the picked deadline like set_due and close the picker.
 pick_save() {
   local id=$pick_id sel=$pick_sel time=$pick_time
-  pick_reset
+  pick_close
   set_due "$id" "$(pick_epoch "$sel" "$time")"
 }
 
 # pick_clear: clear the picked deadline and close the picker.
 pick_clear() {
   local id=$pick_id
-  pick_reset
+  pick_close
   set_due "$id" none
 }
 
 # pick_close: close the picker without changing the deadline.
-pick_close() { pick_reset; }
+pick_close() { pick_reset; pick_request_clear; }
 
 # pick_sync: close the picker when its item is gone from $doc.
 pick_sync() {
   (( pick_show )) || return 0
-  if ! jq -e --argjson id "$pick_id" 'any(.items[]; .id == $id)' <<< "$doc" > /dev/null; then pick_reset; fi
+  if ! jq -e --argjson id "$pick_id" 'any(.items[]; .id == $id)' <<< "$doc" > /dev/null; then pick_close; fi
 }
 
 # The picker object for the render; a jq fragment reading $doc. Grid dates walk UTC noon
@@ -113,7 +212,7 @@ pick_sync() {
 # shellcheck disable=SC2034,SC2016 # read by scripts/todo; jq variables
 TODO_PICKER_JQ='
   | . + (if $pick_show == 0 then {picker: {show: false, id: 0, text: "", month_label: "", weeks: [], hour: "", minute: "", summary: ""}}
-    else ($doc | fromjson) as $list | ($pick_id) as $pid | ($pick_sel) as $sel | ($pick_time) as $time
+    else ($pickdoc) as $list | ($pick_id) as $pid | ($pick_sel) as $sel | ($pick_time) as $time
       | ($pick_month + "-01") as $anchor | ($today) as $td
       | ((($anchor + "T12:00:00Z") | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime) as $first_noon
          | ((($first_noon | gmtime | strftime("%u") | tonumber) + 6) % 7) as $lead

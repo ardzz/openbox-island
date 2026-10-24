@@ -30,3 +30,11 @@ todo_change() {
   if (( rc == 0 )); then fifo_signal todo '@refresh'; return 0; fi
   return $(( rc == 1 ? 1 : 3 ))
 }
+
+# todo_change_doc FILTER [JQ ARGS...]: like todo_change, but print the saved list.
+todo_change_doc() {
+  local new rc=0
+  new=$(STORE_EMIT_DOC=1 store_update "$TODO_FILE" "$TODO_EMPTY" "$TODO_NORMALIZE_JQ | ($1)" "${@:2}") || rc=$?
+  if (( rc == 0 )); then printf '%s' "$new"; fifo_signal todo '@refresh'; return 0; fi
+  return $(( rc == 1 ? 1 : 3 ))
+}

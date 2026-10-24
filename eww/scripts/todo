@@ -64,70 +64,22 @@ set_due() {
 }
 
 # prompt: close the card (it cannot take keyboard focus), ask rofi for the text, add the item
-# without a deadline, then open the picker on it.
+# without a deadline, then open the picker on the id that insertion allocated.
 prompt() {
   require rofi || { printf 'todo: rofi tidak tersedia\n' >&2; return 127; }
   local text id
   "$DIR/island" dismiss
   text=$(island_rofi 'Tulis tugas, lalu Enter' -p Tugas -l 0 < /dev/null) || return 0
   [[ -n ${text//[[:space:]]/} ]] || return 0
-  id=$(jq -r '.next_id' <<< "$(store_read "$TODO_FILE" "$TODO_EMPTY")") || return 1
-  add "$text" || return
-  fifo_signal todo "@pick open $id"
-  "$DIR/island" auto 60 tugas
+  id=$(pick_add_id "$text") || return
+  pick_open_request "$id"
 }
 
 # due_cmd ID: validate ID, then open its picker in the card, holding it open for 60s.
 due_cmd() {
   local id=$((10#$1))
   jq -e --argjson id "$id" 'any(.items[]; .id == $id)' <<< "$(store_read "$TODO_FILE" "$TODO_EMPTY")" > /dev/null || return 1
-  fifo_signal todo "@pick open $id"
-  "$DIR/island" auto 60 tugas
-}
-
-# pick_cmd ARGS...: validate one picker step and hand it to the listener; usage on bad input.
-pick_cmd() {
-  case ${1:-} in
-    nav)
-      (( $# == 2 )) && [[ $2 == -1 || $2 == 1 ]] || { usage; return; }
-      fifo_signal todo "@pick nav $2" ;;
-    day)
-      (( $# == 2 )) && [[ $2 =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && date -d "$2" +%F > /dev/null 2>&1 && [[ $(date -d "$2" +%F) == "$2" ]] || { usage; return; }
-      fifo_signal todo "@pick day $2" ;;
-    hour|minute)
-      (( $# == 2 )) && [[ $2 == up || $2 == down ]] || { usage; return; }
-      fifo_signal todo "@pick $1 $2" ;;
-    time)
-      if (( $# == 2 )) && [[ $2 =~ ^([0-9]{2}):([0-9]{2})$ ]] && (( 10#${BASH_REMATCH[1]} <= 23 && 10#${BASH_REMATCH[2]} <= 59 )); then
-        fifo_signal todo "@pick time $2"
-      else
-        usage; return
-      fi ;;
-    save|clear|cancel)
-      (( $# == 1 )) || { usage; return; }
-      fifo_signal todo "@pick $1" ;;
-    *) usage; return ;;
-  esac
-}
-
-# pick_handle LINE: the listener applies one "@pick ..." line to the picker state.
-pick_handle() {
-  case $1 in
-    '@pick open '*)
-      load
-      pick_open "${1#'@pick open '}" || pick_close ;;
-    '@pick nav -1') (( pick_show )) && pick_nav -1 ;;
-    '@pick nav 1') (( pick_show )) && pick_nav 1 ;;
-    '@pick day '*) (( pick_show )) && pick_set_day "${1#'@pick day '}" ;;
-    '@pick hour up') (( pick_show )) && pick_step_hour up ;;
-    '@pick hour down') (( pick_show )) && pick_step_hour down ;;
-    '@pick minute up') (( pick_show )) && pick_step_minute up ;;
-    '@pick minute down') (( pick_show )) && pick_step_minute down ;;
-    '@pick time '*) (( pick_show )) && pick_set_time "${1#'@pick time '}" ;;
-    '@pick save') (( pick_show )) && pick_save ;;
-    '@pick clear') (( pick_show )) && pick_clear ;;
-    '@pick cancel') pick_close ;;
-  esac
+  pick_open_request "$id"
 }
 
 # load: read the list (missing or corrupt = empty) and keep the offset within it.
@@ -151,13 +103,12 @@ todo_render() {
   jq -c --argjson offset "$offset" --argjson rows "$ROWS" --argjson now "$(todo_now)" \
     --argjson pick_show "$pick_show" --argjson pick_id "$pick_id" --arg pick_sel "$pick_sel" \
     --arg pick_time "$pick_time" --arg pick_month "$pick_month" --arg today "$(pick_today)" \
-    --arg doc "$doc" \
-    "$TODO_RENDER_JQ $TODO_PICKER_JQ" <<< "$doc" 2>/dev/null
+    ". as \$pickdoc | $TODO_RENDER_JQ $TODO_PICKER_JQ" <<< "$doc" 2>/dev/null
 }
 
 todo_handle() {
   case $1 in
-    '@refresh'|'@tick') load; pick_sync ;;
+    '@refresh'|'@tick') load; pick_sync; pick_request_open ;;
     '@scroll -1') scroll -1 ;;
     '@scroll 1') scroll 1 ;;
     '@expanded 0') offset=0; pick_close ;;

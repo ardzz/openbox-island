@@ -20,6 +20,7 @@ store_read() {
 # missing) under a lock on FILE.lock and replace FILE atomically. A corrupt FILE (unparsable or failing
 # STORE_VALID_JQ) is kept as FILE.corrupt and replaced by the result for DEFAULT_JSON.
 # Fails with jq's status, saving nothing, when the filter errors or answers null, false or not one value.
+# With STORE_EMIT_DOC=1 the saved JSON is also printed to stdout.
 store_update() {
   local file=$1 default=$2 filter=$3 fd doc='' new tmp rc=0
   shift 3
@@ -38,5 +39,6 @@ store_update() {
     rc=1
   fi
   exec {fd}>&-
+  if (( rc == 0 )) && [[ ${STORE_EMIT_DOC:-} == 1 ]]; then printf '%s' "$new"; fi
   return "$rc"
 }
