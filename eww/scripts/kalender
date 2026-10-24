@@ -61,7 +61,7 @@ kalender_handle() {
 # join ID: close the card and open the meeting link of row ID in the browser.
 join() {
   local url
-  url=$(jq -r --arg id "$1" 'first(.rows[]? | select(.id == $id) | .join) // ""' "$FILE" 2>/dev/null) || url=''
+  url=$(jq -r --arg id "$1" 'first(.rows[]? | select(.id == $id) | .join | select(test("^https://[^\\s]+\\z"))) // ""' "$FILE" 2>/dev/null) || url=''
   if [[ ! $url =~ ^https://[^[:space:]]+$ ]]; then
     printf 'kalender: tidak ada link meeting untuk %s\n' "$1" >&2
     return 1

@@ -14,7 +14,8 @@ bats_require_minimum_version 1.5.0
 @test "join refuses unknown ids and links that are not plain https, before touching the card" {
   agenda now
   edit_agenda '.rows += [(.rows[0] | .id = "000000000009" | .join = "javascript:alert(1)"),
-    (.rows[0] | .id = "000000000008" | .join = ""), (.rows[0] | .id = "000000000007" | .join = "https://a b")]'
+    (.rows[0] | .id = "000000000008" | .join = ""), (.rows[0] | .id = "000000000007" | .join = "https://a b"),
+    (.rows[0] | .id = "000000000006" | .join = "https://meet.google.com/abc-defg-hij\n")]'
   run kalender join 000000000002
   [ "$status" -eq 1 ]
   run kalender join 000000000009
@@ -22,6 +23,8 @@ bats_require_minimum_version 1.5.0
   run kalender join 000000000008
   [ "$status" -eq 1 ]
   run kalender join 000000000007
+  [ "$status" -eq 1 ]
+  run kalender join 000000000006
   [ "$status" -eq 1 ]
   sleep 0.2
   [ ! -s "$FIX/calls" ]
