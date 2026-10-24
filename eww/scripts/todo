@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # todo: deflisten printing the to-do list (expanded card tab "tugas"), one JSON object per line.
-# todo add TEXT [--due EPOCH] | set-due ID EPOCH|none | prompt | due ID | toggle ID | remove ID | clear-done | scroll up|down
+# todo add TEXT [--due EPOCH] | set-due ID EPOCH|none | prompt | due ID | pick ACTION... | toggle ID | remove ID | clear-done | scroll up|down
 # The list lives in $XDG_DATA_HOME/eww-island/todo.json so it survives reboots. Commands change it
 # through lib/store.sh and send "@refresh" to the FIFO
-# $ISLAND_STATE/todo.fifo; the listener also takes "@scroll -1|1" and "@expanded 0".
+# $ISLAND_STATE/todo.fifo; the listener also takes "@scroll -1|1", "@expanded 0" and "@pick ...".
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
@@ -13,6 +13,8 @@ source "$DIR/lib/store.sh"
 source "$DIR/lib/todo/data.sh"
 # shellcheck source=lib/todo/deadline.sh
 source "$DIR/lib/todo/deadline.sh"
+# shellcheck source=lib/todo/picker.sh
+source "$DIR/lib/todo/picker.sh"
 # shellcheck source=lib/listener.sh
 source "$DIR/lib/listener.sh"
 # shellcheck source=lib/paged.sh
@@ -61,39 +63,71 @@ set_due() {
   todo_change "$SET_DUE_JQ" --argjson id "$((10#$1))" "${due[@]}"
 }
 
-# ask_due FIRST: a deadline picked in rofi after FIRST: an epoch, "none" for FIRST, or "" when cancelled.
-# An unreadable answer is reported and fails.
-ask_due() {
-  local choice epoch
-  choice=$(printf '%s\n' "$1" "${DEADLINE_PRESETS[@]}" \
-    | island_rofi 'Pilih, atau ketik mis. Rabu 14:00' -i -p Deadline) || return 0
-  [[ -n ${choice//[[:space:]]/} ]] || return 0
-  if [[ $choice == "$1" ]]; then printf 'none\n'; return 0; fi
-  if epoch=$(deadline_parse "$choice" "$(todo_now)"); then printf '%s\n' "$epoch"; return 0; fi
-  if require notify-send; then notify-send -a Tugas -- 'Deadline tidak dikenali' "$choice"; fi
-  printf 'todo: deadline tidak dikenali: %s\n' "$choice" >&2
-  return 1
-}
-
-# prompt: close the card (it cannot take keyboard focus), ask rofi for the text, then its deadline.
+# prompt: close the card (it cannot take keyboard focus), ask rofi for the text, add the item
+# without a deadline, then open the picker on it.
 prompt() {
   require rofi || { printf 'todo: rofi tidak tersedia\n' >&2; return 127; }
-  local text due
+  local text id
   "$DIR/island" dismiss
   text=$(island_rofi 'Tulis tugas, lalu Enter' -p Tugas -l 0 < /dev/null) || return 0
   [[ -n ${text//[[:space:]]/} ]] || return 0
-  due=$(ask_due 'Tanpa deadline') || due=''
-  add "$text" "${due:-none}"
+  id=$(jq -r '.next_id' <<< "$(store_read "$TODO_FILE" "$TODO_EMPTY")") || return 1
+  add "$text" || return
+  fifo_signal todo "@pick open $id"
+  "$DIR/island" auto 60 tugas
 }
 
-# due_prompt ID: close the card and set, change or clear ID's deadline from rofi.
-due_prompt() {
-  require rofi || { printf 'todo: rofi tidak tersedia\n' >&2; return 127; }
-  local id=$((10#$1)) due
+# due_cmd ID: validate ID, then open its picker in the card, holding it open for 60s.
+due_cmd() {
+  local id=$((10#$1))
   jq -e --argjson id "$id" 'any(.items[]; .id == $id)' <<< "$(store_read "$TODO_FILE" "$TODO_EMPTY")" > /dev/null || return 1
-  "$DIR/island" dismiss
-  due=$(ask_due 'Hapus deadline') || return 1
-  [[ -z $due ]] || set_due "$id" "$due"
+  fifo_signal todo "@pick open $id"
+  "$DIR/island" auto 60 tugas
+}
+
+# pick_cmd ARGS...: validate one picker step and hand it to the listener; usage on bad input.
+pick_cmd() {
+  case ${1:-} in
+    nav)
+      (( $# == 2 )) && [[ $2 == -1 || $2 == 1 ]] || { usage; return; }
+      fifo_signal todo "@pick nav $2" ;;
+    day)
+      (( $# == 2 )) && [[ $2 =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && date -d "$2" +%F > /dev/null 2>&1 && [[ $(date -d "$2" +%F) == "$2" ]] || { usage; return; }
+      fifo_signal todo "@pick day $2" ;;
+    hour|minute)
+      (( $# == 2 )) && [[ $2 == up || $2 == down ]] || { usage; return; }
+      fifo_signal todo "@pick $1 $2" ;;
+    time)
+      if (( $# == 2 )) && [[ $2 =~ ^([0-9]{2}):([0-9]{2})$ ]] && (( 10#${BASH_REMATCH[1]} <= 23 && 10#${BASH_REMATCH[2]} <= 59 )); then
+        fifo_signal todo "@pick time $2"
+      else
+        usage; return
+      fi ;;
+    save|clear|cancel)
+      (( $# == 1 )) || { usage; return; }
+      fifo_signal todo "@pick $1" ;;
+    *) usage; return ;;
+  esac
+}
+
+# pick_handle LINE: the listener applies one "@pick ..." line to the picker state.
+pick_handle() {
+  case $1 in
+    '@pick open '*)
+      load
+      pick_open "${1#'@pick open '}" || pick_close ;;
+    '@pick nav -1') (( pick_show )) && pick_nav -1 ;;
+    '@pick nav 1') (( pick_show )) && pick_nav 1 ;;
+    '@pick day '*) (( pick_show )) && pick_set_day "${1#'@pick day '}" ;;
+    '@pick hour up') (( pick_show )) && pick_step_hour up ;;
+    '@pick hour down') (( pick_show )) && pick_step_hour down ;;
+    '@pick minute up') (( pick_show )) && pick_step_minute up ;;
+    '@pick minute down') (( pick_show )) && pick_step_minute down ;;
+    '@pick time '*) (( pick_show )) && pick_set_time "${1#'@pick time '}" ;;
+    '@pick save') (( pick_show )) && pick_save ;;
+    '@pick clear') (( pick_show )) && pick_clear ;;
+    '@pick cancel') pick_close ;;
+  esac
 }
 
 # load: read the list (missing or corrupt = empty) and keep the offset within it.
@@ -114,20 +148,25 @@ scroll() {
 
 todo_render() {
   [[ -n $doc ]] || return 1
-  jq -c --argjson offset "$offset" --argjson rows "$ROWS" --argjson now "$(todo_now)" "$TODO_RENDER_JQ" <<< "$doc" 2>/dev/null
+  jq -c --argjson offset "$offset" --argjson rows "$ROWS" --argjson now "$(todo_now)" \
+    --argjson pick_show "$pick_show" --argjson pick_id "$pick_id" --arg pick_sel "$pick_sel" \
+    --arg pick_time "$pick_time" --arg pick_month "$pick_month" --arg today "$(pick_today)" \
+    --arg doc "$doc" \
+    "$TODO_RENDER_JQ $TODO_PICKER_JQ" <<< "$doc" 2>/dev/null
 }
 
 todo_handle() {
   case $1 in
-    '@refresh'|'@tick') load ;;
+    '@refresh'|'@tick') load; pick_sync ;;
     '@scroll -1') scroll -1 ;;
     '@scroll 1') scroll 1 ;;
-    '@expanded 0') offset=0 ;;
+    '@expanded 0') offset=0; pick_close ;;
+    '@pick '*) pick_handle "$1" ;;
   esac
   listen_tick=0; if (( timed )); then listen_tick=${ISLAND_TODO_TICK:-60}; fi
 }
 
-usage() { printf 'usage: todo [add TEXT [--due EPOCH] | set-due ID EPOCH|none | prompt | due ID | toggle ID | remove ID | clear-done | scroll up|down]\n' >&2; return 2; }
+usage() { printf 'usage: todo [add TEXT [--due EPOCH] | set-due ID EPOCH|none | prompt | due ID | pick ACTION... | toggle ID | remove ID | clear-done | scroll up|down]\n' >&2; return 2; }
 
 main() {
   case ${1:-} in
@@ -138,7 +177,7 @@ main() {
         *) usage; return ;;
       esac
       return 0 ;;
-    add|set-due|prompt|due|toggle|remove|clear-done|'') ;;
+    add|set-due|prompt|due|pick|toggle|remove|clear-done|'') ;;
     *) usage; return ;;
   esac
   require jq || { printf 'todo: jq tidak tersedia\n' >&2; return 127; }
@@ -151,7 +190,8 @@ main() {
       (( $# == 3 )) && [[ $2 =~ ^[0-9]{1,15}$ && ( $3 == none || $3 =~ ^[0-9]{1,12}$ ) ]] || { usage; return; }
       set_due "$2" "$3" ;;
     prompt) prompt ;;
-    due) (( $# == 2 )) && [[ $2 =~ ^[0-9]{1,15}$ ]] || { usage; return; }; due_prompt "$2" ;;
+    due) (( $# == 2 )) && [[ $2 =~ ^[0-9]{1,15}$ ]] || { usage; return; }; due_cmd "$2" ;;
+    pick) shift; pick_cmd "$@" ;;
     toggle|remove)
       [[ ${2:-} =~ ^[0-9]{1,15}$ ]] || { usage; return; }
       if [[ $1 == toggle ]]; then
@@ -161,7 +201,7 @@ main() {
       fi ;;
     clear-done) todo_change "$CLEAR_JQ" ;;
     '')
-      local doc='' total=0 timed=0 offset=0
+      local doc='' total=0 timed=0 offset=0 pick_show=0 pick_id=0 pick_sel='' pick_time='' pick_month=''
       # The first load comes as a "@tick" right after the FIFO exists, so it misses no "@refresh".
       # shellcheck disable=SC2034 # read by listen
       listen_tick=0.000001
