@@ -30,9 +30,10 @@ class WindowTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"ISLAND_CAL_DAYS": "7"}):
             self.assertEqual(main.window(at(21, 10), TZ),
                              (start, dt.datetime(2026, 10, 29, tzinfo=TZ)))
-        with mock.patch.dict(os.environ, {"ISLAND_CAL_DAYS": "x"}):
-            self.assertEqual(main.window(at(21, 10), TZ),
-                             (start, dt.datetime(2026, 11, 21, tzinfo=TZ)))
+        for bad in ("x", "0", "-3"):
+            with self.subTest(days=bad), mock.patch.dict(os.environ, {"ISLAND_CAL_DAYS": bad}):
+                self.assertEqual(main.window(at(21, 10), TZ),
+                                 (start, dt.datetime(2026, 11, 21, tzinfo=TZ)))
 
 
 class CollectTests(unittest.TestCase):

@@ -15,6 +15,7 @@ import zoneinfo
 from . import config, fetch
 
 INTERVAL = 300
+CAL_DAYS = 30
 TICK = 15
 EMPTY = "belum ada kalender di config"
 
@@ -33,7 +34,11 @@ def paths():
 
 
 def cal_days():
-    return _env_seconds("ISLAND_CAL_DAYS", 30)
+    try:
+        days = int(os.environ.get("ISLAND_CAL_DAYS", CAL_DAYS))
+    except ValueError:
+        return CAL_DAYS
+    return days if days >= 1 else CAL_DAYS
 
 
 def window(now, tz):
