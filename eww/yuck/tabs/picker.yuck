@@ -1,0 +1,61 @@
+; Deadline picker shown instead of the Tugas list while todo.picker.show: a month calendar
+; on the left, the item, time and actions on the right. Commands: scripts/todo pick ...
+; (lib/todo/picker.sh); past days get an empty onclick and only dim styling.
+(defwidget deadline-picker []
+  (box :orientation "h" :space-evenly false :spacing 12 :valign "start"
+    (box :orientation "v" :space-evenly false :spacing 2
+      (box :orientation "h" :space-evenly false :spacing 2
+        (button :class "pick-nav" :tooltip "Bulan sebelumnya"
+                :onclick "${EWW_CONFIG_DIR}/scripts/todo pick nav -1 &" "‹")
+        (label :class "pick-month" :hexpand true :xalign 0.5 :text {todo.picker.month_label})
+        (button :class "pick-nav" :tooltip "Bulan berikutnya"
+                :onclick "${EWW_CONFIG_DIR}/scripts/todo pick nav 1 &" "›"))
+      (box :orientation "h" :space-evenly false :spacing 2
+        (label :class "pick-dow" :xalign 0.5 :text "Sn")
+        (label :class "pick-dow" :xalign 0.5 :text "Sl")
+        (label :class "pick-dow" :xalign 0.5 :text "Rb")
+        (label :class "pick-dow" :xalign 0.5 :text "Km")
+        (label :class "pick-dow" :xalign 0.5 :text "Jm")
+        (label :class "pick-dow" :xalign 0.5 :text "Sb")
+        (label :class "pick-dow" :xalign 0.5 :text "Mg"))
+      (for week in {todo.picker.weeks}
+        (box :orientation "h" :space-evenly false :spacing 2
+          (for day in {week}
+            (button :class "pick-day ${day.cls}" :tooltip {day.date}
+                    :onclick {matches(day.cls, "(^| )past( |$)") ? "" : "${EWW_CONFIG_DIR}/scripts/todo pick day ${day.date} &"}
+              {day.day})))))
+    (box :orientation "v" :space-evenly false :spacing 6 :hexpand true
+      (label :class "pick-text" :text {todo.picker.text} :tooltip {todo.picker.text}
+             :xalign 0 :limit-width 30 :show-truncated true :wrap false)
+      (label :class "pick-summary" :text {todo.picker.summary} :xalign 0)
+      (box :orientation "h" :space-evenly false :spacing 6 :valign "center"
+        (label :class "pick-time-label" :text "Jam")
+        (pick-stepper :kind "hour" :value {todo.picker.hour})
+        (label :class "pick-time-sep" :text ":")
+        (pick-stepper :kind "minute" :value {todo.picker.minute}))
+      (box :orientation "h" :space-evenly false :spacing 4
+        (pick-chip :time "09:00")
+        (pick-chip :time "12:00")
+        (pick-chip :time "15:00")
+        (pick-chip :time "17:00"))
+      (box :vexpand true)
+      (box :orientation "h" :space-evenly false :spacing 6
+        (button :class "pick-action pick-clear" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick clear &"
+          "Tanpa deadline")
+        (box :hexpand true)
+        (button :class "pick-action" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick cancel &" "Batal")
+        (button :class "pick-action pick-save" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick save &"
+          "Simpan")))))
+
+; One time field: scroll or the step buttons move it (scripts/todo pick KIND up|down).
+(defwidget pick-stepper [kind value]
+  (box :orientation "v" :space-evenly false :spacing 0 :halign "center"
+    (button :class "pick-step" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} up &" "▲")
+    (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} {} &"
+      (label :class "pick-time-value" :xalign 0.5 :text value))
+    (button :class "pick-step" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} down &" "▼")))
+
+; A preset time chip; highlighted while it is the picked time.
+(defwidget pick-chip [time]
+  (button :class "pick-chip ${todo.picker.hour}:${todo.picker.minute} == time ? 'pick-chip-on' : ''}"
+          :onclick "${EWW_CONFIG_DIR}/scripts/todo pick time ${time} &" time))

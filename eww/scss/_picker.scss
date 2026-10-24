@@ -1,0 +1,143 @@
+// Deadline picker: a 7x6 day grid on the left, time and actions on the right. The grid
+// cells carry fixed sizes so all six week rows fit the 218px card with the tab header.
+.pick-nav {
+  min-width: 22px;
+  min-height: 20px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: $muted;
+}
+
+.pick-nav:hover {
+  color: $island-accent;
+  background-color: $island-track;
+}
+
+.pick-month {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.pick-dow {
+  min-width: 26px;
+  font-size: 10px;
+  color: $muted;
+}
+
+.pick-day {
+  min-width: 26px;
+  min-height: 18px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 11px;
+  font-feature-settings: "tnum";
+}
+
+.pick-day:hover {
+  background-color: $island-track;
+}
+
+.pick-day.other {
+  color: $muted;
+  opacity: 0.55;
+}
+
+.pick-day.past {
+  opacity: 0.35;
+}
+
+.pick-day.other.past {
+  opacity: 0.22;
+}
+
+.pick-day.today {
+  box-shadow: inset 0 0 0 1px $island-accent;
+  color: $island-accent;
+}
+
+.pick-day.sel {
+  background-color: $island-accent;
+  color: $island-bg;
+  font-weight: bold;
+}
+
+.pick-day.today.sel {
+  box-shadow: inset 0 0 0 1px $island-accent;
+}
+
+.pick-text {
+  font-size: 12px;
+}
+
+.pick-summary {
+  font-size: 12px;
+  font-weight: bold;
+  color: $island-accent;
+}
+
+.pick-time-label {
+  font-size: 11px;
+  color: $muted;
+}
+
+.pick-time-value {
+  min-width: 30px;
+  font-size: 14px;
+  font-weight: bold;
+  font-feature-settings: "tnum";
+}
+
+.pick-time-sep {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.pick-step {
+  padding: 0 6px;
+  font-size: 8px;
+  color: $muted;
+}
+
+.pick-step:hover {
+  color: $island-accent;
+}
+
+.pick-chip {
+  padding: 1px 8px;
+  border-radius: 9px;
+  font-size: 11px;
+  color: $muted;
+  background-color: $island-track;
+  font-feature-settings: "tnum";
+}
+
+.pick-chip:hover {
+  color: $island-accent;
+}
+
+.pick-chip-on {
+  color: $island-accent;
+  box-shadow: inset 0 0 0 1px $island-accent;
+}
+
+.pick-action {
+  padding: 3px 8px;
+  border-radius: 9px;
+  font-size: 11px;
+  color: $muted;
+  background-color: $island-track;
+}
+
+.pick-action:hover {
+  color: $island-accent;
+}
+
+.pick-clear:hover {
+  color: $red;
+}
+
+.pick-save {
+  color: $island-accent;
+  font-weight: bold;
+}

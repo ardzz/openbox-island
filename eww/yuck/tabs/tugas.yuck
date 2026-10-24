@@ -1,6 +1,15 @@
 ; Open items first, newest first; scrolling pages the list. Deadline chips and an edit
 ; button sit beside each task. The card takes no keyboard focus; "+ Tambah" uses rofi.
+; While the deadline picker is open it replaces the list (tabs/picker.yuck).
 (defwidget page-tugas []
+  (box :orientation "v" :space-evenly false :spacing 0
+    (revealer :transition "none" :reveal {!todo.picker.show}
+      (todo-list))
+    (revealer :transition "none" :reveal {todo.picker.show}
+      (deadline-picker))))
+
+; The task list itself; hidden while the deadline picker is open.
+(defwidget todo-list []
   (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/todo scroll {} &"
              :more {todo.more > 0 ? "+${todo.more} lainnya" : ""}
     (box :orientation "v" :space-evenly false :spacing 2
