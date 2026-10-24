@@ -66,10 +66,12 @@ load common
   [ "$(head -n 1 "$FAKE_EWW_LOG")" = 'update island_reveal=false island_tab=kalender' ]
 }
 
-@test "auto on an unavailable tab falls back to the first available one" {
+@test "auto on an unavailable tab leaves the island closed instead of opening another tab" {
   on_compact; music
-  run "$SCRIPTS/island" auto 0 kalender
-  [ "$(head -n 1 "$FAKE_EWW_LOG")" = 'update island_reveal=false island_tab=musik' ]
+  run "$SCRIPTS/island" auto 10 kalender
+  [ "$status" -eq 0 ]
+  [ "$(calls)" = "" ]
+  [ "$(cat "$ST/auto_until" 2>/dev/null || echo 0)" = 0 ]
 }
 
 @test "auto opens the to-do tab for a deadline while its listener is stopped" {

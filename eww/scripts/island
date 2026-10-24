@@ -126,6 +126,8 @@ main() {
       (( $# <= 3 )) && [[ $2 =~ ^[0-9]+$ ]] && [[ -z ${3:-} || $3 =~ ^[a-z]+$ ]] || { usage; return; }
       local secs
       secs=$(( 10#$2 ))
+      # An explicit tab never opens another one in its place.
+      if [[ -n ${3:-} && $("$DIR/tab" resolve "$3") != "$3" ]]; then return 0; fi
       lock; put auto_until $(( $(date +%s) + secs )); expand "${3:-musik}"; unlock
       ( sleep "$secs"; lock; collapse_if_idle ) >/dev/null 2>&1 & ;;
     close)
