@@ -55,3 +55,13 @@
 .up-more {
   font-size: 11px;
 }
+
+.up-prep {
+  margin-left: 6px;
+  font-feature-settings: "tnum";
+  color: $yellow;
+}
+
+.up-prep-done {
+  color: $island-accent;
+}

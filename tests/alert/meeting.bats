@@ -100,3 +100,32 @@ agenda() {
   [ "$(notified)" = 'Kalender|Meeting dimulai · 10:00|Standup' ]
   [ "$(opened)" = 'open 10' ]
 }
+
+@test "a soon reminder names unfinished prep, a start reminder does too" {
+  prepare
+  agenda 'Standup' '2026-10-21 10:00'
+  local todo_dir="$XDG_DATA_HOME/eww-island"
+  mkdir -p "$todo_dir"
+  jq -nc '{next_id: 100, items: [
+    {id: 1, text: "Standup · Baca catatan", done: true, created: 0, prep: "id-Standup"},
+    {id: 2, text: "Standup · Siapkan slide", done: false, created: 0, prep: "id-Standup"}]}' \
+    > "$todo_dir/todo.json"
+  tick '2026-10-21 09:50'
+  tick '2026-10-21 10:00'
+  [ "$(notified)" = $'Kalender|Meeting 10 menit lagi · 10:00|Standup · Prep 1/2 belum selesai\nKalender|Meeting dimulai · 10:00|Standup · Prep 1/2 belum selesai' ]
+}
+
+@test "the reminder body is plain when prep is done or absent" {
+  prepare
+  agenda 'Standup' '2026-10-21 10:00' 'Review' '2026-10-21 11:00'
+  local todo_dir="$XDG_DATA_HOME/eww-island"
+  mkdir -p "$todo_dir"
+  jq -nc '{next_id: 100, items: [
+    {id: 1, text: "Standup · Baca catatan", done: true, created: 0, prep: "id-Standup"},
+    {id: 2, text: "Standup · Siapkan slide", done: true, created: 0, prep: "id-Standup"}]}' \
+    > "$todo_dir/todo.json"
+  tick '2026-10-21 09:50'
+  tick '2026-10-21 10:00'
+  tick '2026-10-21 10:50'
+  [ "$(notified)" = $'Kalender|Meeting 10 menit lagi · 10:00|Standup\nKalender|Meeting dimulai · 10:00|Standup\nKalender|Meeting 10 menit lagi · 11:00|Review' ]
+}

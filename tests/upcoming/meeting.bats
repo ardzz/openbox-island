@@ -6,7 +6,7 @@ load common
   agenda "$(row 0000000000a1 "$(at 09:30)" "$(at 10:30)" Standup https://meet.google.com/abc-defg-hij)" \
     "$(row 0000000000a2 "$(at 10:05)" "$(at 10:30)" Sinkron)"
   shown
-  [ "$(jq -c .meeting <<< "$event")" = '{"show":true,"id":"0000000000a1","title":"Standup","text":"sampai 10:30","state":"now","color":"#4f8cff","join":true}' ]
+  [ "$(jq -c .meeting <<< "$event")" = '{"show":true,"id":"0000000000a1","title":"Standup","text":"sampai 10:30","state":"now","color":"#4f8cff","join":true,"prep":"","prep_done":false}' ]
 }
 
 @test "a meeting within 15 minutes counts down in whole minutes, rounded up" {
@@ -89,4 +89,28 @@ load common
   [ "$(wc -c < "$ST/agenda.json")" -gt 200000 ]
   shown
   [ "$(m show) $(m title) $(d show) $(d title)" = 'true Standup true Laporan' ]
+}
+
+@test "an ongoing meeting with two prep items one done shows 1/2 not done" {
+  agenda "$(row 0000000000a1 "$(at 09:30)" "$(at 10:30)" Standup https://meet.google.com/abc-defg-hij)"
+  todos "$(jq -nc --arg prep 0000000000a1 '{id: 1, text: "Standup · Baca catatan", done: true, created: 0, prep: $prep}')" \
+        "$(jq -nc --arg prep 0000000000a1 '{id: 2, text: "Standup · Siapkan slide", done: false, created: 0, prep: $prep}')" \
+        "$(jq -nc --arg prep 0000000000b2 '{id: 3, text: "Lain · Abaikan", done: false, created: 0, prep: $prep}')"
+  shown
+  [ "$(jq -c '[.meeting.prep, .meeting.prep_done]' <<< "$event")" = '["1/2",false]' ]
+}
+
+@test "an ongoing meeting with all prep items done shows 2/2 done" {
+  agenda "$(row 0000000000a1 "$(at 09:30)" "$(at 10:30)" Standup)"
+  todos "$(jq -nc --arg prep 0000000000a1 '{id: 1, text: "Standup · Baca catatan", done: true, created: 0, prep: $prep}')" \
+        "$(jq -nc --arg prep 0000000000a1 '{id: 2, text: "Standup · Siapkan slide", done: true, created: 0, prep: $prep}')"
+  shown
+  [ "$(jq -c '[.meeting.prep, .meeting.prep_done]' <<< "$event")" = '["2/2",true]' ]
+}
+
+@test "an ongoing meeting with no prep items shows empty prep" {
+  agenda "$(row 0000000000a1 "$(at 09:30)" "$(at 10:30)" Standup)"
+  todos "$(item 1 Laporan "$(at 17:00)")"
+  shown
+  [ "$(jq -c '[.meeting.prep, .meeting.prep_done]' <<< "$event")" = '["",false]' ]
 }

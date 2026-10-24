@@ -13,7 +13,11 @@
           (label :class "cal-dot" :style "color: ${row.color};" :text "●")
           (label :class "cal-time" :text {row.time} :xalign 0)
           (label :class "cal-title" :text {row.title} :xalign 0 :hexpand true
-                 :limit-width 34 :show-truncated true :wrap false)
+                 :limit-width 22 :show-truncated true :wrap false)
+          (revealer :transition "none" :valign "center" :reveal {row.prep != ""}
+            (label :class {row.prep_done ? "cal-prep cal-prep-done" : "cal-prep"} :text "Prep ${row.prep}"))
+          (button :class "cal-prep-edit" :tooltip "Atur prep" :onclick "${EWW_CONFIG_DIR}/scripts/prep edit ${row.id} &"
+            "󰝖")
           (revealer :transition "none" :valign "center" :reveal {row.join != "" && row.state != "past"}
             (button :class "cal-join" :onclick "${EWW_CONFIG_DIR}/scripts/kalender join ${row.id} &" "Join")))))
     (label :class "list-more cal-note" :xalign 1 :text {kalender.note} :limit-width 40 :show-truncated true)))

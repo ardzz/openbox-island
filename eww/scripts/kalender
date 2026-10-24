@@ -6,10 +6,14 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
+# shellcheck source=lib/store.sh
+source "$DIR/lib/store.sh"
 # shellcheck source=lib/listener.sh
 source "$DIR/lib/listener.sh"
 # shellcheck source=lib/paged.sh
 source "$DIR/lib/paged.sh"
+# shellcheck source=lib/todo/data.sh
+source "$DIR/lib/todo/data.sh"
 FILE="$ISLAND_STATE/agenda.json"
 ROWS=4
 EMPTY='{"ok":false,"stale":false,"updated":"","error":"","label":"Kalender","allday":[],"rows":[],"errors":[]}'
@@ -20,18 +24,27 @@ VALID_JQ='select(type == "object" and (.rows | type) == "array" and (.allday | t
 FIRST_JQ='[(.rows | length), (first(.rows | to_entries[] | select(.value.state != "past") | .key)
   // (.rows | length))] | @tsv'
 # shellcheck disable=SC2016 # jq variables
-RENDER_JQ='(.rows | '"$PAGED_JQ"') as $page
-  | {ok: (.ok == true), label, total: (.rows | length), rows: $page.rows, more: $page.more,
-     offset: $page.offset, allday_text: (.allday | join(" · ")),
-     note: ((.errors + (if .stale == true and (.updated // "") != ""
-              then ["diperbarui \(.updated)"]
-              elif (.errors | length) == 0 and .stale != true then [(.error // "")]
+RENDER_JQ='.[0] as $agenda | .[1] as $todo
+  | def per_row:
+      .id as $id
+      | ([$todo.items[]? | select(.prep == $id)]) as $prep_items
+      | (if ($prep_items | length) == 0 then ""
+         else "\([$prep_items[] | select(.done)] | length)/\($prep_items | length)" end) as $prep
+      | . + {prep: $prep, prep_done: ($prep != "" and (([$prep_items[] | select(.done | not)] | length) == 0))};
+  ($agenda.rows | '"$PAGED_JQ"') as $page
+  | {ok: ($agenda.ok == true), label: $agenda.label, total: ($agenda.rows | length),
+     rows: [$page.rows[] | per_row], more: $page.more, offset: $page.offset,
+     allday_text: ($agenda.allday | join(" · ")),
+     note: ((($agenda.errors // []) + (if $agenda.stale == true and ($agenda.updated // "") != ""
+              then ["diperbarui \($agenda.updated)"]
+              elif (($agenda.errors // []) | length) == 0 and $agenda.stale != true then [($agenda.error // "")]
               else [] end)) | join(" · "))}'
 
-# load: read the agenda (missing or malformed = EMPTY); unless scrolled, start at the first event
-# not yet over.
+# load: read the agenda (missing or malformed = EMPTY) and the Tugas list (missing or corrupt =
+# empty); unless scrolled, start at the first event not yet over.
 load() {
   doc=$(jq -ce "$VALID_JQ" "$FILE" 2>/dev/null) || doc=$EMPTY
+  todo=$(store_read "$TODO_FILE" "$TODO_EMPTY")
   read -r total first < <(jq -r "$FIRST_JQ" <<< "$doc")
   (( scrolled )) || offset=$first
 }
@@ -46,8 +59,9 @@ scroll() {
   scrolled=1
 }
 
+# Both documents go through stdin: a month of rows can outgrow one command-line argument.
 kalender_render() {
-  jq -c --argjson offset "$offset" --argjson rows "$ROWS" "$RENDER_JQ" <<< "$doc" 2>/dev/null
+  printf '%s\n%s\n' "$doc" "$todo" | jq -cs --argjson offset "$offset" --argjson rows "$ROWS" "$RENDER_JQ" 2>/dev/null
 }
 
 kalender_handle() {
@@ -89,7 +103,7 @@ main() {
       join "$2" ;;
     '')
       require jq || { printf 'kalender: jq tidak tersedia\n' >&2; return 127; }
-      local doc=$EMPTY total=0 first=0 offset=0 scrolled=0
+      local doc=$EMPTY todo=$TODO_EMPTY total=0 first=0 offset=0 scrolled=0
       load
       # shellcheck disable=SC2034 # read by listen
       listen_tick=${ISLAND_KALENDER_TICK:-2}

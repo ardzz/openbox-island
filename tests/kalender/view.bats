@@ -3,6 +3,17 @@ load ../helpers
 load common
 bats_require_minimum_version 1.5.0
 
+# prep_item ROW_ID TEXT DONE ID: one Tugas item marked as prep for ROW_ID.
+prep_item() {
+  jq -nc --arg prep "$1" --arg text "$2" --argjson done "$3" --argjson id "$4" \
+    '{id: $id, text: $text, done: $done, created: 0, prep: $prep}'
+}
+# prep_todos ITEM...: write todo.json holding ITEMs under a fresh XDG_DATA_HOME.
+prep_todos() {
+  export XDG_DATA_HOME="$BATS_TEST_TMPDIR/data"
+  mkdir -p "$XDG_DATA_HOME/eww-island"
+  printf '%s\n' "$@" | jq -sc '{next_id: 100, items: .}' > "$XDG_DATA_HOME/eww-island/todo.json"
+}
 @test "the tab starts at the first event not yet over, with today's all-day titles" {
   agenda past past now later later later
   start_listener
@@ -56,4 +67,31 @@ bats_require_minimum_version 1.5.0
   printf 'not json' > "$ST/agenda.json"
   start_listener
   [ "$(jq -c '[.ok,.rows]' <<< "$event")" = '[false,[]]' ]
+}
+
+@test "a row with two prep items one done shows 1/2 not done" {
+  agenda later later
+  prep_todos "$(prep_item 000000000001 'Weekly Report · Report progres' true 1)" \
+             "$(prep_item 000000000001 'Weekly Report · Plan minggu depan' false 2)" \
+             "$(prep_item 000000000002 'Lain · Abaikan' false 3)"
+  start_listener
+  [ "$(jq -c '[.rows[0].prep, .rows[0].prep_done]' <<< "$event")" = '["1/2",false]' ]
+  [ "$(jq -c '[.rows[1].prep, .rows[1].prep_done]' <<< "$event")" = '["0/1",false]' ]
+}
+
+@test "a row with all prep items done shows 2/2 done" {
+  agenda later
+  prep_todos "$(prep_item 000000000001 'Weekly Report · Report progres' true 1)" \
+             "$(prep_item 000000000001 'Weekly Report · Plan minggu depan' true 2)"
+  start_listener
+  [ "$(jq -c '[.rows[0].prep, .rows[0].prep_done]' <<< "$event")" = '["2/2",true]' ]
+}
+
+@test "a row with no prep items shows empty prep" {
+  agenda later later
+  prep_todos "$(prep_item 000000000002 'Lain · Abaikan' false 1)" \
+             '{"id":9,"text":"Tugas biasa","done":false,"created":0}'
+  start_listener
+  [ "$(jq -c '[.rows[0].prep, .rows[0].prep_done]' <<< "$event")" = '["",false]' ]
+  [ "$(jq -c '[.rows[1].prep, .rows[1].prep_done]' <<< "$event")" = '["0/1",false]' ]
 }

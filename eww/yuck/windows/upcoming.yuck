@@ -12,6 +12,8 @@
           (label :class "up-dot" :style {upcoming.meeting.color == "" ? "" : "color: ${upcoming.meeting.color};"} :text "●")
           (label :class "up-title" :text {upcoming.meeting.title} :limit-width 22 :show-truncated true)
           (label :class "up-when up-${upcoming.meeting.state}" :text "· ${upcoming.meeting.text}")
+          (revealer :transition "none" :valign "center" :reveal {upcoming.meeting.prep != ""}
+            (label :class {upcoming.meeting.prep_done ? "up-prep up-prep-done" : "up-prep"} :text "· Prep ${upcoming.meeting.prep}"))
           (revealer :transition "none" :valign "center" :reveal {upcoming.meeting.join}
             (button :class "cal-join" :onclick "${EWW_CONFIG_DIR}/scripts/kalender join ${upcoming.meeting.id} &" "Join")))))
     (revealer :transition "none" :reveal {upcoming.meeting.show && upcoming.deadline.show}

@@ -25,10 +25,15 @@ AGENDA_VALID_JQ='type == "object" and (.rows | type) == "array"
 UPCOMING_JQ="$TODO_CHIP_JQ"'
 def hhmm: strflocaltime("%H:%M");
 def stop: if .end > .start then .end else .start + 60 end;
-def meeting:
+def prep_for($id):
+  ([.items[]? | select(.prep == $id)]) as $prep_items
+  | if ($prep_items | length) == 0 then {prep: "", prep_done: false}
+    else {prep: "\([$prep_items[] | select(.done)] | length)/\($prep_items | length)",
+          prep_done: (([$prep_items[] | select(.done | not)] | length) == 0)} end;
+def meeting($todo):
   [if .ok == true then .rows[] else empty end | select(stop > $now)] as $live
   | (first($live[] | select(.start <= $now)) // first($live[]) // null) as $m
-  | if $m == null then {show: false, id: "", title: "", text: "", state: "", color: "", join: false}
+  | if $m == null then {show: false, id: "", title: "", text: "", state: "", color: "", join: false, prep: "", prep_done: false}
     else $m
       | (if .start <= $now then "now" elif .start - $now <= 900 then "soon"
          elif .day == "Hari ini" then "later" else "ahead" end) as $state
@@ -39,6 +44,7 @@ def meeting:
                 else (.day // "") + " " + (.start | hhmm) end),
          state: $state, color: (.color // ""),
          join: (($state == "now" or $state == "soon") and ((.join // "") | test("^https://[^\\s]+\\z")))}
+        + ($todo | prep_for($m.id))
     end;
 def deadline:
   ([.items[] | select((.done | not) and .due != null)] | sort_by(.due, -.id)) as $open
@@ -48,7 +54,7 @@ def deadline:
          more: ([$open[1:][] | select(.due - $now < 86400)] | length)}
     end;
 .[0] as $agenda | .[1] as $todo
-| ($agenda | meeting) as $meeting | ($todo | deadline) as $deadline
+| ($agenda | meeting($todo)) as $meeting | ($todo | deadline) as $deadline
 | {empty: (($meeting.show or $deadline.show) | not), meeting: $meeting, deadline: $deadline}'
 
 # load: the agenda (missing, failed or malformed = no meeting) and the Tugas list (missing or corrupt = empty).

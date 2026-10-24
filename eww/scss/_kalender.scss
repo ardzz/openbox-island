@@ -55,3 +55,25 @@
   font-size: 11px;
   color: $muted;
 }
+
+.cal-prep {
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: $yellow;
+  background-color: $island-track;
+}
+
+.cal-prep-done {
+  color: $island-accent;
+}
+
+.cal-prep-edit {
+  padding: 0 2px;
+  font-size: 16px;
+  color: $muted;
+}
+
+.cal-prep-edit:hover {
+  color: $island-accent;
+}
