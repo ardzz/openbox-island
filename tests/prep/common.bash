@@ -16,10 +16,48 @@ setup() {
   source "$SCRIPTS/lib/prep/template.sh"
   [[ ! -f $SCRIPTS/lib/prep/sync.sh ]] || source "$SCRIPTS/lib/prep/sync.sh"
   ST="$ISLAND_STATE"
-  mkdir -p "$ST" "${TODO_FILE%/*}"
+  export FIX="$BATS_TEST_TMPDIR"
+  BIN="$BATS_TEST_TMPDIR/bin"
+  export EXPECTED_CFG="$REPO/eww"
+  mkdir -p "$ST" "${TODO_FILE%/*}" "$BIN"
+  : > "$FIX/calls"
+  printf 'island: island\n' > "$FIX/active"
+  cat > "$BIN/eww" <<'EOF'
+#!/usr/bin/env bash
+if [[ $1 == --config && $2 == "$EXPECTED_CFG" ]]; then shift 2; else echo "bad config: $*" >> "$FIX/calls"; exit 1; fi
+case $1 in
+  active-windows) cat "$FIX/active"; exit 0 ;;
+  get) exit 0 ;;
+esac
+printf 'eww %s\n' "$*" >> "$FIX/calls"
+EOF
+  cat > "$BIN/xdotool" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  cat > "$BIN/rofi" <<'EOF'
+#!/usr/bin/env bash
+cat > /dev/null
+printf 'rofi %s\n' "$*" >> "$FIX/calls"
+[[ -s $FIX/rofi_answers ]] || exit 1
+head -n 1 "$FIX/rofi_answers"
+sed -i 1d "$FIX/rofi_answers"
+EOF
+  cat > "$BIN/sleep" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "$BIN/eww" "$BIN/xdotool" "$BIN/rofi" "$BIN/sleep"
+  export PATH="$BIN:$PATH"
   START=$(date -d '2026-10-22 10:00' +%s) # Thu 22 Oct 10:00
   NOW=1792551600 # Wed 2026-10-21 10:00
 }
+
+# answer TEXT: queue TEXT as the next fake-rofi answer (an empty line answers empty).
+answer() { printf '%s\n' "$1" >> "$FIX/rofi_answers"; }
+
+# expanded_card: the expanded island counts as open for island dismiss.
+expanded_card() { printf 'island: island\nisland-expanded: island-expanded\n' > "$FIX/active"; }
 
 # prep_write LINES...: write LINES to the template file (no lines = missing file).
 prep_write() {

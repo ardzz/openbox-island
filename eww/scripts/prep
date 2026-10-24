@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# prep sync: create Tugas prep items for matching meetings starting soon.
+# prep sync | edit ID: create Tugas prep items for matching meetings, or edit
+# one meeting's prep items in rofi.
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
@@ -14,11 +15,38 @@ source "$DIR/lib/prep/template.sh"
 # shellcheck source=lib/prep/sync.sh
 source "$DIR/lib/prep/sync.sh"
 
-usage() { printf 'usage: prep sync\n' >&2; return 2; }
+usage() { printf 'usage: prep sync | edit ID\n' >&2; return 2; }
+
+# edit ID: ask in rofi for ID's prep items (";" separated), save them as the
+# template for its meeting, then create the items when it starts soon.
+edit() {
+  local id=$1 title current answer tmpl
+  title=$(jq -r --arg id "$id" \
+    'if .ok == true then ((.rows // [])[] | select(.id == $id) | .title) else empty end' \
+    "$ISLAND_STATE/agenda.json" 2>/dev/null) || title=''
+  if [[ -z $title ]]; then
+    printf 'prep: acara tidak ditemukan\n' >&2
+    return 1
+  fi
+  require rofi || { printf 'prep: rofi tidak tersedia\n' >&2; return 127; }
+  current=''
+  if tmpl=$(prep_match "$title"); then
+    current=$(jq -r '.items | join("; ")' <<< "$tmpl") || return 1
+  fi
+  "$DIR/island" dismiss
+  answer=$(rofi -dmenu -p Prep -mesg "Item prep untuk $title; pisahkan dengan ;" \
+    -filter "$current" -l 0 < /dev/null) || return 0
+  prep_save "$title" "$answer" || return 1
+  prep_sync
+}
 
 main() {
   case ${1:-} in
     sync) (( $# == 1 )) || { usage; return; }; require jq || return 127; prep_sync ;;
+    edit)
+      (( $# == 2 )) && [[ $2 =~ ^[0-9a-f]{12}$ ]] || { usage; return; }
+      require jq || return 127
+      edit "$2" ;;
     *) usage ;;
   esac
 }
