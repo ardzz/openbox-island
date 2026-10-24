@@ -12,7 +12,8 @@ def _hhmm(epoch, tz):
 
 def _state(event, now):
     # A zero-length event counts as one minute long.
-    if max(event["end"], event["start"] + 60) <= now:
+    end = event["start"] + 60 if event["end"] == event["start"] else event["end"]
+    if end <= now:
         return "past"
     if event["start"] <= now:
         return "now"

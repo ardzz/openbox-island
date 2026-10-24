@@ -2,8 +2,10 @@
 
 import unittest
 
+from icalendar import Event
+
 from .fixtures import FEED, HOME, OFFICE, TZ, at, window
-from agenda_pkg.events import occurrences
+from agenda_pkg.events import join_link, occurrences
 
 
 def timed_of(day, account=OFFICE):
@@ -35,6 +37,29 @@ class EventsTests(unittest.TestCase):
         self.assertEqual(week[("Standup", at(21, 15))]["join"], "https://meet.google.com/xyz-abcd-efg")
         self.assertEqual(week[("Sync vendor", at(21, 13))]["join"], "https://us02web.zoom.us/j/123456789?pwd=abc")
         self.assertEqual(week[("Weekly Report", at(22, 14))]["join"], "https://meet.google.com/abc-defg-hij")
+
+    def test_join_links_exclude_surrounding_prose_punctuation(self):
+        urls = ("https://us02web.zoom.us/j/123?pwd=abc&token=a%2Bb",
+                "https://teams.microsoft.com/l/meetup-join/123?context=%7Babc%7D")
+        for field in ("DESCRIPTION", "LOCATION"):
+            for url in urls:
+                with self.subTest(field=field, url=url):
+                    item = Event()
+                    item.add(field, f"Join ({url}).")
+                    self.assertEqual(join_link(item), url)
+
+    def test_zoom_links_reject_suffix_lookalike_domains(self):
+        item = Event()
+        item.add("DESCRIPTION", "https://notzoom.us/j/123")
+        self.assertEqual(join_link(item), "")
+
+    def test_zoom_links_accept_exact_host_and_dot_delimited_subdomains(self):
+        for host in ("zoom.us", "us02web.zoom.us", "a.b.zoom.us"):
+            with self.subTest(host=host):
+                item = Event()
+                url = f"https://{host}/j/123?pwd=abc"
+                item.add("LOCATION", url)
+                self.assertEqual(join_link(item), url)
 
     def test_rows_carry_the_account_and_a_stable_id_per_occurrence(self):
         first, second = timed_of(21), timed_of(21)

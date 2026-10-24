@@ -36,6 +36,14 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(result["rows"][0]["state"], "now")
         self.assertEqual(doc([event("pengingat", at(21, 10), at(21, 10))], at(21, 10, 1))["rows"][0]["state"], "past")
 
+    def test_positive_sub_minute_event_ends_at_its_supplied_end(self):
+        start = at(21, 10)
+        short = event("singkat", start, start + 30)
+        self.assertEqual(doc([short], start + 29)["rows"][0]["state"], "now")
+        ended = doc([short], start + 30)
+        self.assertEqual(ended["rows"][0]["state"], "past")
+        self.assertEqual((ended["remaining"], ended["next"]), (0, None))
+
     def test_label_counts_todays_events_not_yet_over_and_next_is_the_first_of_them(self):
         result = doc([event("lewat", at(21, 8), at(21, 9)), event("jalan", at(21, 9, 30), at(21, 10, 30)),
                       event("nanti", at(21, 15), at(21, 16)), event("besok", at(22, 9), at(22, 10))],

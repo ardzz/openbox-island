@@ -8,7 +8,7 @@ import icalendar
 import recurring_ical_events
 
 JOIN = re.compile(r"https://(?:meet\.google\.com/[a-z0-9-]+"
-                  r"|[\w.-]*zoom\.us/(?:j|my|w)/[^\s<>\"'\\]+"
+                  r"|(?:[\w-]+\.)*zoom\.us/(?:j|my|w)/[^\s<>\"'\\]+"
                   r"|teams\.microsoft\.com/l/meetup-join/[^\s<>\"'\\]+)", re.IGNORECASE)
 
 
@@ -25,7 +25,7 @@ def join_link(event):
         for value in _values(event, name):
             match = JOIN.search(str(value))
             if match:
-                return match.group(0)
+                return match.group(0).rstrip(").,;:!?]\"'")
     return ""
 
 
