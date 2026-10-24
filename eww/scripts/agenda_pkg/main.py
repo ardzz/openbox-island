@@ -70,14 +70,18 @@ def publish(path, document):
     os.replace(tmp, path)
 
 
+def local_tz():
+    return dt.datetime.now().astimezone().tzinfo
+
+
 def watch(clock=time.time, stopped=None):
     """Refetch every ISLAND_CAL_INTERVAL s, republish every TICK s, print one line per tick."""
     stopped = stopped or threading.Event()
     state_path, cache = paths()
     interval = _env_seconds("ISLAND_CAL_INTERVAL", INTERVAL)
-    tz = dt.datetime.now().astimezone().tzinfo
     fetched = None
     next_fetch = 0.0
+    fetched_date = None
     try:
         importlib.import_module(__package__ + ".events")  # needs python-icalendar
         from . import render
@@ -85,12 +89,16 @@ def watch(clock=time.time, stopped=None):
         render = None
     while not stopped.is_set():
         now = clock()
+        tz = local_tz()
         if render is None:
             document = failure("python-icalendar belum terpasang")
         else:
             accounts, errors, _loose = config.load(config.config_path())
-            if now >= next_fetch:
+            today = dt.datetime.fromtimestamp(now, tz).date()
+            if now >= next_fetch or today != fetched_date:
                 fetched = collect(accounts, cache, now, tz)
+                fetched_date = today
+                now = clock()
                 fetched_at = dt.datetime.fromtimestamp(now, tz).strftime("%H:%M")
                 next_fetch = now + interval
             timed, allday, feed_errors, stale = fetched
@@ -113,10 +121,15 @@ def check():
     for error in errors:
         print(error)
     _, cache = paths()
-    tz = dt.datetime.now().astimezone().tzinfo
+    tz = local_tz()
     failed = bool(errors)
     for account in accounts:
-        timed, allday, feed_errors, _stale = collect([account], cache, time.time(), tz)
+        try:
+            timed, allday, feed_errors, _stale = collect([account], cache, time.time(), tz)
+        except ImportError:
+            failed = True
+            print(f"{account.name}: python-icalendar belum terpasang")
+            continue
         if feed_errors:
             failed = True
             print(feed_errors[0])

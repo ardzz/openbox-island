@@ -43,15 +43,22 @@ class CollectTests(unittest.TestCase):
 
 
 class WatchTests(unittest.TestCase):
-    def run_watch(self, root, now):
+    def run_watch(self, root, now, fetcher=None, clock=None, ticks=1):
         env = {"XDG_RUNTIME_DIR": f"{root}/run", "XDG_CACHE_HOME": f"{root}/cache",
                "ISLAND_CALENDARS": f"{root}/calendars", "TZ": "Asia/Jakarta"}
         Path(env["ISLAND_CALENDARS"]).write_text(f"Kantor | #4f8cff | reky@kantor.co.id | {OFFICE.url}\n")
         stopped = threading.Event()
         printed = []
-        with mock.patch.dict(os.environ, env), mock.patch.object(main.fetch, "download", lambda url: FEED), \
-                mock.patch("builtins.print", side_effect=lambda *a, **k: (printed.append(a), stopped.set())):
-            main.watch(clock=lambda: now, stopped=stopped)
+
+        def tick(*args, **kwargs):
+            printed.append(args)
+            if len(printed) >= ticks:
+                stopped.set()
+
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(main.fetch, "download", fetcher or (lambda url: FEED)), \
+                mock.patch("builtins.print", side_effect=tick), mock.patch.object(stopped, "wait"):
+            main.watch(clock=clock or (lambda: now), stopped=stopped)
         return json.loads(Path(env["XDG_RUNTIME_DIR"], "eww-island", "agenda.json").read_text()), printed
 
     def test_watch_publishes_the_agenda_and_prints_a_tick(self):
@@ -66,6 +73,34 @@ class WatchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root, mock.patch.dict("sys.modules", {"agenda_pkg.events": None}):
             document, _ = self.run_watch(root, at(21, 10))
         self.assertEqual((document["ok"], document["error"]), (False, "python-icalendar belum terpasang"))
+
+    def test_watch_renders_with_the_time_after_fetching(self):
+        now = [at(21, 14, 59)]
+
+        def fetcher(url):
+            now[0] = at(21, 15, 1)
+            return FEED
+
+        with tempfile.TemporaryDirectory() as root:
+            document, _ = self.run_watch(root, now[0], fetcher, lambda: now[0])
+        standup = next(row for row in document["rows"] if row["title"] == "Standup")
+        self.assertEqual(standup["state"], "now")
+
+    def test_watch_refetches_after_local_midnight(self):
+        tz = main.dt.datetime.now().astimezone().tzinfo
+        midnight = int(main.dt.datetime(2026, 10, 22, tzinfo=tz).timestamp())
+        now = [midnight - 1]
+        fetcher = mock.Mock(return_value=FEED)
+
+        def clock():
+            current = now[0]
+            now[0] = midnight + 1
+            return current
+
+        with tempfile.TemporaryDirectory() as root, \
+                mock.patch.dict(os.environ, {"ISLAND_CAL_INTERVAL": "86400"}):
+            self.run_watch(root, now[0], fetcher, clock, ticks=2)
+        self.assertEqual(fetcher.call_count, 2)
 
 
 class CheckTests(unittest.TestCase):
@@ -93,3 +128,15 @@ class CheckTests(unittest.TestCase):
             with mock.patch("builtins.print", side_effect=lambda *a, **k: lines.append(a[0])):
                 self.assertEqual(main.check(), 1)
         self.assertTrue(lines[0].startswith("config kalender belum ada"))
+
+    def test_check_reports_missing_libraries_for_each_account(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "calendars"
+            path.write_text(f"Kantor | #4f8cff | | {OFFICE.url}\n")
+            path.chmod(0o600)
+            env = {"ISLAND_CALENDARS": str(path), "XDG_CACHE_HOME": f"{root}/cache"}
+            with mock.patch.dict(os.environ, env), \
+                    mock.patch.dict("sys.modules", {"agenda_pkg.events": None}), \
+                    mock.patch("builtins.print") as printed:
+                self.assertEqual(main.check(), 1)
+        printed.assert_called_once_with("Kantor: python-icalendar belum terpasang")
