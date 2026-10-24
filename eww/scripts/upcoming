@@ -31,12 +31,12 @@ def meeting:
   | if $m == null then {show: false, id: "", title: "", text: "", state: "", color: "", join: false}
     else $m
       | (if .start <= $now then "now" elif .start - $now <= 900 then "soon"
-         elif .day == "Hari ini" then "later" else "tomorrow" end) as $state
+         elif .day == "Hari ini" then "later" else "ahead" end) as $state
       | {show: true, id: (.id // ""), title: (.title // ""),
          text: (if $state == "now" then "sampai " + (stop | hhmm)
                 elif $state == "soon" then "\((.start - $now + 59) / 60 | floor)m"
                 elif $state == "later" then (.start | hhmm)
-                else "Besok " + (.start | hhmm) end),
+                else (.day // "") + " " + (.start | hhmm) end),
          state: $state, color: (.color // ""),
          join: (($state == "now" or $state == "soon") and ((.join // "") | test("^https://[^\\s]+\\z")))}
     end;

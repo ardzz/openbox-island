@@ -32,9 +32,13 @@ def paths():
     return runtime / "agenda.json", cache
 
 
+def cal_days():
+    return _env_seconds("ISLAND_CAL_DAYS", 30)
+
+
 def window(now, tz):
     start = dt.datetime.fromtimestamp(now, tz).replace(hour=0, minute=0, second=0, microsecond=0)
-    return start, start + dt.timedelta(days=2)
+    return start, start + dt.timedelta(days=cal_days() + 1)
 
 
 def collect(accounts, cache, now, tz, fetcher=None):
@@ -149,7 +153,7 @@ def check():
             failed = True
             print(feed_errors[0])
         else:
-            print(f"{account.name}: OK, {len(timed)} event berjam, {len(allday)} seharian (hari ini & besok)")
+            print(f"{account.name}: OK, {len(timed)} event berjam, {len(allday)} seharian ({cal_days()} hari ke depan)")
     return 1 if failed else 0
 
 

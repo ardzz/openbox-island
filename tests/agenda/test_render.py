@@ -1,5 +1,6 @@
 """The agenda document: rows, states, labels, next event and all-day titles."""
 
+import datetime as dt
 import unittest
 
 from .fixtures import TZ, at
@@ -16,14 +17,18 @@ def doc(timed, now, allday=(), errors=()):
 
 
 class RenderTests(unittest.TestCase):
-    def test_rows_cover_today_and_tomorrow_in_time_order(self):
+    def test_rows_cover_today_onwards_in_time_order_with_day_labels(self):
+        bulan_depan = int(dt.datetime(2026, 11, 2, 9, tzinfo=TZ).timestamp())
+        bulan_depan_end = int(dt.datetime(2026, 11, 2, 10, tzinfo=TZ).timestamp())
         result = doc([event("Besok", at(22, 9), at(22, 10)), event("Pagi", at(21, 8), at(21, 9)),
-                      event("Lusa", at(23, 9), at(23, 10)), event("Siang", at(21, 13), at(21, 14))],
+                      event("Lusa", at(23, 9), at(23, 10)), event("Siang", at(21, 13), at(21, 14)),
+                      event("Bulan depan", bulan_depan, bulan_depan_end),
+                      event("Kemarin", at(20, 9), at(20, 10))],
                      at(21, 10))
-        self.assertEqual([row["title"] for row in result["rows"]], ["Pagi", "Siang", "Besok"])
+        self.assertEqual([row["title"] for row in result["rows"]], ["Pagi", "Siang", "Besok", "Lusa", "Bulan depan"])
         self.assertEqual([row["time"] for row in result["rows"]],
-                         ["08:00–09:00", "13:00–14:00", "Besok 09:00–10:00"])
-        self.assertEqual([row["day"] for row in result["rows"]], ["Hari ini", "Hari ini", "Besok"])
+                         ["08:00–09:00", "13:00–14:00", "Besok 09:00–10:00", "Jum 23 Okt 09:00–10:00", "Sen 2 Nov 09:00–10:00"])
+        self.assertEqual([row["day"] for row in result["rows"]], ["Hari ini", "Hari ini", "Besok", "Jum 23 Okt", "Sen 2 Nov"])
 
     def test_states_mark_past_running_soon_and_later(self):
         result = doc([event("a", at(21, 9), at(21, 10)), event("b", at(21, 9, 30), at(21, 10, 30)),

@@ -1,5 +1,6 @@
 """The watch loop and check command over fake feeds."""
 
+import datetime as dt
 import json
 import os
 from pathlib import Path
@@ -19,7 +20,30 @@ def fake_fetch(url):
     return FEED
 
 
+class WindowTests(unittest.TestCase):
+    def test_window_spans_today_and_the_next_cal_days(self):
+        start = dt.datetime(2026, 10, 21, tzinfo=TZ)
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ISLAND_CAL_DAYS", None)
+            self.assertEqual(main.window(at(21, 10), TZ),
+                             (start, dt.datetime(2026, 11, 21, tzinfo=TZ)))
+        with mock.patch.dict(os.environ, {"ISLAND_CAL_DAYS": "7"}):
+            self.assertEqual(main.window(at(21, 10), TZ),
+                             (start, dt.datetime(2026, 10, 29, tzinfo=TZ)))
+        with mock.patch.dict(os.environ, {"ISLAND_CAL_DAYS": "x"}):
+            self.assertEqual(main.window(at(21, 10), TZ),
+                             (start, dt.datetime(2026, 11, 21, tzinfo=TZ)))
+
+
 class CollectTests(unittest.TestCase):
+    def test_collect_expands_weekly_series_across_the_default_window(self):
+        with tempfile.TemporaryDirectory() as cache:
+            timed, _, errors, _ = main.collect([OFFICE], cache, at(21, 10), TZ, lambda url: FEED)
+        self.assertEqual(errors, [])
+        dates = sorted({dt.datetime.fromtimestamp(event["start"], TZ).date().isoformat()
+                        for event in timed if event["title"] == "Weekly Report"})
+        self.assertEqual(dates, ["2026-10-22", "2026-10-28", "2026-11-04", "2026-11-11", "2026-11-18"])
+
     def test_collect_merges_accounts_and_reports_failures_by_name(self):
         with tempfile.TemporaryDirectory() as cache:
             timed, allday, errors, stale = main.collect([OFFICE, HOME], cache, at(21, 10), TZ, fake_fetch)

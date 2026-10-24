@@ -32,11 +32,15 @@ load common
   [ "$(m title) $(m state)" = 'Workshop now' ]
 }
 
-@test "with nothing left today, tomorrow's first meeting shows" {
+@test "with nothing left today, the next meeting on a later day shows with its day" {
+  agenda "$(row 0000000000e1 "$(at 08:00)" "$(at 09:00)" Pagi)" \
+    "$(row 0000000000e2 "$(at 09:00 5)" "$(at 09:30 5)" Standup https://meet.google.com/abc-defg-hij 'Sen 26 Okt')"
+  shown
+  [ "$(m title) | $(m state) | $(m text) | $(m join)" = 'Standup | ahead | Sen 26 Okt 09:00 | false' ]
   agenda "$(row 0000000000e1 "$(at 08:00)" "$(at 09:00)" Pagi)" \
     "$(row 0000000000e2 "$(at 09:00 1)" "$(at 09:30 1)" Standup https://meet.google.com/abc-defg-hij Besok)"
   shown
-  [ "$(m title) | $(m state) | $(m text) | $(m join)" = 'Standup | tomorrow | Besok 09:00 | false' ]
+  [ "$(m title) | $(m state) | $(m text) | $(m join)" = 'Standup | ahead | Besok 09:00 | false' ]
 }
 
 @test "a zero-length meeting counts as one minute long" {
