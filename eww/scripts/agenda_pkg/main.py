@@ -10,6 +10,7 @@ import sys
 import tempfile
 import threading
 import time
+import zoneinfo
 
 from . import config, fetch
 
@@ -41,7 +42,7 @@ def collect(accounts, cache, now, tz, fetcher=None):
     timed, allday, errors, stale = [], [], [], False
     start, end = window(now, tz)
     for account in accounts:
-        raw, error = fetch.refresh(cache, account.url, fetcher or fetch.download)
+        raw, error = fetch.refresh(cache, account.url, fetcher or fetch.download, check=events.parse)
         if error:
             errors.append(f"{account.name}: {error}")
             stale = stale or raw is not None
@@ -71,7 +72,13 @@ def publish(path, document):
 
 
 def local_tz():
-    return dt.datetime.now().astimezone().tzinfo
+    key = os.environ.get("TZ", "").removeprefix(":")
+    if not key:
+        key = os.path.realpath("/etc/localtime").partition("/zoneinfo/")[2]
+    try:
+        return zoneinfo.ZoneInfo(key)
+    except (ValueError, zoneinfo.ZoneInfoNotFoundError):
+        return dt.datetime.now().astimezone().tzinfo
 
 
 def watch(clock=time.time, stopped=None):
@@ -82,6 +89,7 @@ def watch(clock=time.time, stopped=None):
     fetched = None
     next_fetch = 0.0
     fetched_date = None
+    fetched_at = ""
     try:
         importlib.import_module(__package__ + ".events")  # needs python-icalendar
         from . import render
@@ -99,7 +107,8 @@ def watch(clock=time.time, stopped=None):
                 fetched = collect(accounts, cache, now, tz)
                 fetched_date = today
                 now = clock()
-                fetched_at = dt.datetime.fromtimestamp(now, tz).strftime("%H:%M")
+                if not fetched[2]:
+                    fetched_at = dt.datetime.fromtimestamp(now, tz).strftime("%H:%M")
                 next_fetch = now + interval
             timed, allday, feed_errors, stale = fetched
             document = render.agenda(timed, allday, errors + feed_errors, int(now), tz,

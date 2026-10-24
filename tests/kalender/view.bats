@@ -34,11 +34,11 @@ bats_require_minimum_version 1.5.0
   [ "$(titles)" = '["r3","r4","r5","r6"]' ]
 }
 
-@test "the note shows feed errors first, else an outdated agenda's update time" {
+@test "the note shows feed errors alongside an outdated agenda's update time" {
   agenda later
   edit_agenda '.errors = ["Pribadi: HTTP 401"] | .stale = true'
   start_listener
-  [ "$(jq -r .note <<< "$event")" = 'Pribadi: HTTP 401' ]
+  [ "$(jq -r .note <<< "$event")" = 'Pribadi: HTTP 401 · diperbarui 09:55' ]
   edit_agenda '.errors = []'
   next_event 2
   [ "$(jq -r .note <<< "$event")" = 'diperbarui 09:55' ]

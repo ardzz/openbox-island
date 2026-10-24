@@ -23,9 +23,10 @@ FIRST_JQ='[(.rows | length), (first(.rows | to_entries[] | select(.value.state !
 RENDER_JQ='(.rows | '"$PAGED_JQ"') as $page
   | {ok: (.ok == true), label, total: (.rows | length), rows: $page.rows, more: $page.more,
      offset: $page.offset, allday_text: (.allday | join(" · ")),
-     note: (if (.errors | length) > 0 then (.errors | join(" · "))
-            elif (.error // "") != "" then .error
-            elif .stale == true then "diperbarui \(.updated)" else "" end)}'
+     note: ((.errors + (if .stale == true and (.updated // "") != ""
+              then ["diperbarui \(.updated)"]
+              elif (.errors | length) == 0 and .stale != true then [(.error // "")]
+              else [] end)) | join(" · "))}'
 
 # load: read the agenda (missing or malformed = EMPTY); unless scrolled, start at the first event
 # not yet over.

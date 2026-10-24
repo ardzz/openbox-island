@@ -43,6 +43,10 @@ def _local(value, tz):
     return value.replace(tzinfo=tz) if value.tzinfo is None else value
 
 
+def parse(raw):
+    return icalendar.Calendar.from_ical(raw)
+
+
 def occurrences(raw, account, start, end, tz):
     """(timed, allday) of one feed between the aware datetimes START and END.
 
@@ -50,7 +54,7 @@ def occurrences(raw, account, start, end, tz):
     allday: {title, account, color, first, last} with ISO dates, LAST exclusive.
     Cancelled occurrences and ones the account's email declined are left out.
     """
-    calendar = icalendar.Calendar.from_ical(raw)
+    calendar = parse(raw)
     timed, allday = [], []
     for event in recurring_ical_events.of(calendar, skip_bad_series=True).between(start, end):
         if str(event.get("STATUS", "")).upper() == "CANCELLED" or declined(event, account.email):

@@ -106,3 +106,12 @@ class FetchTests(unittest.TestCase):
                 self.assertEqual(fetch.refresh(root, OFFICE.url, lambda url: FEED), (FEED, ""))
             self.assertEqual(path.read_bytes(), b"previous")
             self.assertEqual(list(Path(root).glob("*.tmp")), [])
+
+    def test_failed_content_check_preserves_cache_without_exposing_the_exception(self):
+        with tempfile.TemporaryDirectory() as root:
+            fetch.refresh(root, OFFICE.url, lambda url: FEED)
+            check = mock.Mock(side_effect=RuntimeError(OFFICE.url))
+            result = fetch.refresh(root, OFFICE.url, lambda url: b"broken", check=check)
+            self.assertEqual(result, (FEED, "kalender tidak bisa dibaca"))
+            self.assertEqual(fetch.cache_file(root, OFFICE.url).read_bytes(), FEED)
+        check.assert_called_once_with(b"broken")

@@ -35,11 +35,16 @@ def download(url, timeout=15):
         return validate(handle.read(MAX_BYTES + 1))
 
 
-def refresh(root, url, fetch=download):
+def refresh(root, url, fetch=download, check=None):
     """(raw bytes or None, error or ""). A success replaces the cached copy atomically."""
     path = cache_file(root, url)
     try:
         raw = fetch(url)
+        if check is not None:
+            try:
+                check(raw)
+            except Exception:
+                raise FeedError("kalender tidak bisa dibaca") from None
     except urllib.error.HTTPError as error:
         message = f"HTTP {error.code}"
         error.close()

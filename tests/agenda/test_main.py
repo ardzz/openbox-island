@@ -41,6 +41,15 @@ class CollectTests(unittest.TestCase):
             _, _, errors, _ = main.collect([OFFICE], cache, at(21, 10), TZ, broken)
         self.assertEqual(errors, ["Kantor: kalender tidak bisa dibaca"])
 
+    def test_invalid_refetch_preserves_the_good_cache(self):
+        with tempfile.TemporaryDirectory() as cache:
+            expected = main.collect([OFFICE], cache, at(21, 10), TZ, lambda url: FEED)
+            broken = lambda url: b"BEGIN:VCALENDAR\r\nthis is not ical\r\nEND:VCALENDAR\r\n"
+            timed, allday, errors, stale = main.collect([OFFICE], cache, at(21, 10), TZ, broken)
+            self.assertEqual(main.fetch.cache_file(cache, OFFICE.url).read_bytes(), FEED)
+        self.assertEqual((timed, allday), expected[:2])
+        self.assertEqual((errors, stale), (["Kantor: kalender tidak bisa dibaca"], True))
+
 
 class WatchTests(unittest.TestCase):
     def run_watch(self, root, now, fetcher=None, clock=None, ticks=1):
@@ -87,7 +96,7 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(standup["state"], "now")
 
     def test_watch_refetches_after_local_midnight(self):
-        tz = main.dt.datetime.now().astimezone().tzinfo
+        tz = TZ
         midnight = int(main.dt.datetime(2026, 10, 22, tzinfo=tz).timestamp())
         now = [midnight - 1]
         fetcher = mock.Mock(return_value=FEED)
@@ -101,6 +110,36 @@ class WatchTests(unittest.TestCase):
                 mock.patch.dict(os.environ, {"ISLAND_CAL_INTERVAL": "86400"}):
             self.run_watch(root, now[0], fetcher, clock, ticks=2)
         self.assertEqual(fetcher.call_count, 2)
+
+    def test_failed_refresh_keeps_the_last_successful_update_time(self):
+        now = [at(21, 9, 55)]
+        calls = []
+
+        def fetcher(url):
+            calls.append(url)
+            if len(calls) > 1:
+                raise urllib.error.URLError("offline")
+            return FEED
+
+        def clock():
+            current = now[0]
+            now[0] += 60
+            return current
+
+        with tempfile.TemporaryDirectory() as root, \
+                mock.patch.dict(os.environ, {"ISLAND_CAL_INTERVAL": "1"}):
+            document, _ = self.run_watch(root, now[0], fetcher, clock, ticks=2)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(document["updated"], "09:56")
+        self.assertTrue(document["stale"])
+
+    def test_local_timezone_preserves_daylight_saving_rules(self):
+        with mock.patch.dict(os.environ, {"TZ": "Europe/Berlin"}):
+            tz = main.local_tz()
+        self.assertEqual(getattr(tz, "key", None), "Europe/Berlin")
+        before = main.dt.datetime(2026, 10, 24, 12, tzinfo=tz)
+        after = main.dt.datetime(2026, 10, 26, 12, tzinfo=tz)
+        self.assertNotEqual(before.utcoffset(), after.utcoffset())
 
 
 class CheckTests(unittest.TestCase):
