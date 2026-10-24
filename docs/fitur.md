@@ -18,7 +18,7 @@ Scroll ke atas/bawah di atas island ringkas mengubah volume keluaran default seb
 
 ### Layar penuh
 
-- Layar penuh: selama window aktif dalam mode layar penuh (`_NET_WM_STATE_FULLSCREEN`) menutupi monitor island (monitor 0), kedua window island ditutup; hover, ganti lagu, alert, dan notifikasi tidak membukanya. Notifikasi tetap masuk riwayat dunst (tab Notifikasi). Keluar dari layar penuh atau pindah ke window lain mengembalikan pill ringkas. Dipantau oleh `scripts/fullscreen` lewat event `xprop -spy` (`_NET_ACTIVE_WINDOW` dan `_NET_WM_STATE` window aktif), tanpa polling; dijalankan `island.sh` di samping daemon (bukan `deflisten`, karena eww menghentikan listener saat window-nya ditutup) dan berhenti bersama daemon. `ISLAND_FULLSCREEN_HIDE=0` saat menjalankan `island.sh` mematikannya.
+- Layar penuh: selama window aktif dalam mode layar penuh (`_NET_WM_STATE_FULLSCREEN`) menutupi monitor island (monitor 0), ketiga window island ditutup (pill ringkas, kartu, dan [pill kiri](#pill-kiri)); hover, ganti lagu, alert, dan notifikasi tidak membukanya. Notifikasi tetap masuk riwayat dunst (tab Notifikasi). Keluar dari layar penuh atau pindah ke window lain mengembalikan pill ringkas. Dipantau oleh `scripts/fullscreen` lewat event `xprop -spy` (`_NET_ACTIVE_WINDOW` dan `_NET_WM_STATE` window aktif), tanpa polling; dijalankan `island.sh` di samping daemon (bukan `deflisten`, karena eww menghentikan listener saat window-nya ditutup) dan berhenti bersama daemon. `ISLAND_FULLSCREEN_HIDE=0` saat menjalankan `island.sh` mematikannya.
 
 ## Tab
 
@@ -155,6 +155,16 @@ Tombol **Join** tersedia pada acara yang memiliki tautan rapat dan belum berakhi
 Pengingat dikirim sebagai notifikasi aplikasi **Kalender** 10 menit sebelum rapat (`Meeting 10 menit lagi · HH:MM`) dan saat mulai (`Meeting dimulai · HH:MM`), lalu kartu membuka tab Kalender selama 10 detik. Atur waktunya lewat [variabel lingkungan](konfigurasi.md#variabel-lingkungan); `ISLAND_MEETING_BEFORE` kosong mematikan pengingat sebelum rapat.
 
 Alamat iCal rahasia adalah kata sandi: siapa pun yang memilikinya dapat membaca kalender. Simpan hanya di berkas konfigurasi di luar repo, jangan masukkan ke commit atau screenshot. Cache kalender tersimpan di `~/.cache/eww-island/calendar`.
+
+## Pill kiri
+
+Pill hitam di pojok kiri atas layar, bergaya sama dengan pill status bar: selalu menampilkan rapat yang perlu diperhatikan dari agenda Kalender dan deadline Tugas terbuka yang paling dekat, masing-masing sebagai segmen tersendiri. Jika keduanya ada, keduanya tampil dipisah garis tipis. Pill ini adalah window `island-upcoming` yang dibuka `island.sh` bersama pill ringkas dan ikut disembunyikan bersamanya saat layar penuh (lihat [Layar penuh](#layar-penuh)), lalu dibuka lagi saat island kembali.
+
+- Rapat diambil dari data agenda yang sama dengan tab Kalender (hanya bila kalender terbaca baik), dari acara yang belum berakhir, dalam urutan jadwal: yang sedang berlangsung tampil `sampai HH:MM` (jam berakhirnya) berwarna aksen; yang mulai dalam 15 menit tampil hitungan mundur `Nm` (menit dibulatkan ke atas) berwarna kuning; keduanya menawarkan tombol **Join** bila acara punya tautan rapat https. Rapat berikutnya hari ini tampil jam mulainya `HH:MM`; bila hari ini sudah habis, rapat pertama besok tampil `Besok HH:MM`.
+- Deadline menampilkan tugas terbuka dengan deadline paling awal, dengan label dan warna yang sama seperti chip pada tab Tugas: merah `terlambat` bila sudah lewat, kuning bila kurang dari 24 jam. Bila ada deadline terbuka lain yang jatuh tempo dalam 24 jam, jumlahnya tampil sebagai `+N` di sebelahnya.
+- Bila tidak ada rapat maupun deadline, pill menampilkan `Kosong hari ini`.
+- Klik segmen rapat membuka kartu pada tab Kalender, klik segmen deadline membuka kartu pada tab Tugas; kartu terbuka selama 10 detik lalu mengikuti aturan hover seperti biasa. Klik **Join** membuka tautan rapat.
+- Isi dibaca ulang dari berkas agenda dan daftar Tugas setiap `ISLAND_UPCOMING_TICK` detik (bawaan 5), dan hanya berubah tampilan bila isinya berubah.
 
 ## Pintasan
 

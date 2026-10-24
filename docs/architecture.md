@@ -4,12 +4,13 @@ Panduan untuk mengubah atau menambah fitur. Nama fungsi, variabel, dan path ditu
 
 ## 1. Ringkasan
 
-Island adalah konfigurasi eww terpisah (`~/.config/eww-island`) dengan dua jendela di monitor 0, menempel di tepi atas tengah:
+Island adalah konfigurasi eww terpisah (`~/.config/eww-island`) dengan tiga jendela di monitor 0: dua menempel di tepi atas tengah dan satu di pojok kiri atas:
 
 | Jendela | File | Ukuran | Isi |
 |---|---|---|---|
 | `island` | `eww/yuck/windows/island.yuck` | 508×44 | pill ringkas: `stack` berisi `pill-idle`, `pill-media`, `pill-alert`, `pill-notify` |
 | `island-expanded` | `eww/yuck/windows/expanded.yuck` | 508×218 | kartu bertab (`tab-card`) di dalam `revealer` slidedown |
+| `island-upcoming` | `eww/yuck/windows/upcoming.yuck` | shrink-wrap ×44 | pill kiri: rapat yang perlu diperhatikan dan deadline Tugas terdekat |
 
 `scripts/island` membuka/menutup `island-expanded` (hover, `auto`, `dismiss`) dan mengatur `island_reveal` serta `island_tab`.
 
@@ -20,9 +21,9 @@ flowchart LR
   L[openbox/island.sh] -->|eww daemon| D[eww daemon]
   L -->|setsid| FS[scripts/fullscreen]
   L -->|dunst-osd.conf drop-in| DU[dunst]
-  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, kalender, status, rec,<br/>ytm, weather, shortcuts watch"]
+  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, kalender, status, rec,<br/>ytm, weather, shortcuts watch, upcoming"]
   S -->|satu baris JSON| D
-  D --> W[yuck: island / island-expanded]
+  D --> W[yuck: island / island-expanded / island-upcoming]
   W -->|onclick / onscroll / onhover| C["scripts/island, tab, todo, kalender,<br/>notif, notify, scroll, shortcuts"]
   C -->|fifo_signal NAME.fifo| S
   C -->|eww update| D
@@ -34,10 +35,11 @@ flowchart LR
   K -->|satu baris JSON| D
 ```
 
-- `openbox/island.sh`: menghentikan daemon lama, menulis `_colors.scss`, menjalankan `eww daemon`, membuka `island`, menjalankan `scripts/fullscreen DAEMON_PID`, memasang `eww/dunst-osd.conf` ke `dunstrc.d`. `island.sh stop` menghentikan semuanya.
+- `openbox/island.sh`: menghentikan daemon lama, menulis `_colors.scss`, menjalankan `eww daemon`, membuka `island` lalu `island-upcoming`, menjalankan `scripts/fullscreen DAEMON_PID`, memasang `eww/dunst-osd.conf` ke `dunstrc.d`. `island.sh stop` menghentikan semuanya.
 - `scripts/fullscreen` bukan deflisten: eww menghentikan deflisten yang variabelnya tidak dipakai jendela terbuka, padahal watcher ini justru menutup kedua jendela.
 - `scripts/notify-hook` dijalankan dunst untuk tiap notifikasi; ia hanya mengirim baris ke `notify.fifo` dan `@refresh` ke `notif.fifo`.
 - `scripts/agenda watch` mengambil feed iCal dan menulis `$ISLAND_STATE/agenda.json` setiap 15 detik; `scripts/kalender` membaca data itu untuk daftar, scroll, dan Join. Produsen berjalan sebagai monitor sumber alert `meeting`, bukan deflisten khusus kartu: deflisten yang hanya dipakai kartu berhenti saat kartu ditutup, padahal pengingat harus tetap berjalan.
+- `scripts/upcoming` (deflisten pill kiri) membaca `$ISLAND_STATE/agenda.json` dan berkas Tugas yang sama setiap `ISLAND_UPCOMING_TICK` detik, lalu mencetak satu baris JSON hanya bila isi pill berubah.
 - State runtime ada di `$ISLAND_STATE` (`$XDG_RUNTIME_DIR/eww-island`): FIFO `NAME.fifo`, lock, cache.
 
 ## 2. Struktur folder

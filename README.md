@@ -66,6 +66,13 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 - Expands for 4 s on track change, then collapses.
 - Scrolling over the compact pill changes the default output volume by ±5%.
 
+**Left pill**
+- A second, smaller pill in the top-left corner always shows the meeting to mind from the Kalender agenda — `sampai HH:MM` while it runs, a yellow `Nm` countdown (with **Join**) in its last 15 minutes, its start time later today, or `Besok HH:MM` tomorrow — next to the nearest open To-do deadline with the same chip label as the To-do tab (red `terlambat` when overdue, yellow under 24 h, plus `+N` for other deadlines due within 24 h). With neither, it reads `Kosong hari ini`. Clicking the meeting opens the Kalender tab, clicking the deadline opens the To-do tab, and the pill hides and returns with the island in fullscreen.
+
+<p align="center">
+  <img src="docs/assets/screenshots/pill-upcoming.png" alt="Left pill: upcoming meeting with Join and nearest deadline" width="400">
+</p>
+
 Full behaviour reference: [docs/fitur.md](docs/fitur.md) (Indonesian).
 
 ## Demo
@@ -218,14 +225,14 @@ Full setup is in [docs/konfigurasi.md](docs/konfigurasi.md). It covers optional 
 
 ## Architecture
 
-The island is a separate eww configuration (`~/.config/eww-island`) with two windows: the `island` pill and the `island-expanded` card. Data flows from **listeners → eww variables → yuck**: each `deflisten` runs one script that prints a JSON line per change, and widgets render those variables. User actions call scripts that update state and signal the listeners through FIFOs or `eww update`. Shared shell framework lives in `eww/scripts/lib/`: `core`, `store` (locked atomic JSON), `paged` (scrolling windows), `listener` (FIFO-driven loops) and `monitor` (event monitors and workers). Tabs come from a numbered registry in `eww/scripts/lib/tabs/`, and `tools/` holds the lint gate, preview renderer and showcase generator.
+The island is a separate eww configuration (`~/.config/eww-island`) with three windows: the `island` pill, the `island-expanded` card and the top-left `island-upcoming` pill. Data flows from **listeners → eww variables → yuck**: each `deflisten` runs one script that prints a JSON line per change, and widgets render those variables. User actions call scripts that update state and signal the listeners through FIFOs or `eww update`. Shared shell framework lives in `eww/scripts/lib/`: `core`, `store` (locked atomic JSON), `paged` (scrolling windows), `listener` (FIFO-driven loops) and `monitor` (event monitors and workers). Tabs come from a numbered registry in `eww/scripts/lib/tabs/`, and `tools/` holds the lint gate, preview renderer and showcase generator.
 
 ```mermaid
 flowchart LR
   L[openbox/island.sh] --> D[eww daemon]
   D -->|deflisten| S[listener scripts]
   S -->|JSON line| D
-  D --> W[yuck: island / island-expanded]
+  D --> W[yuck: island / island-expanded / island-upcoming]
   W -->|onclick / onscroll / onhover| C[action scripts]
   C -->|FIFO signal| S
   C -->|eww update| D

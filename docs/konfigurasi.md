@@ -94,4 +94,5 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_MEETING_BEFORE` | `10` | Menit sebelum rapat untuk pengingat; nilai kosong menonaktifkannya | `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_MEETING_AUTO` | `10` | Lama kartu Kalender terbuka saat pengingat rapat (detik) | `eww/scripts/lib/alert/meeting.sh` | [kalender](fitur.md#kalender) |
 | `ISLAND_KALENDER_TICK` | `2` | Interval pembacaan data lokal untuk tab Kalender (detik) | `eww/scripts/kalender` | [kalender](fitur.md#kalender) |
+| `ISLAND_UPCOMING_TICK` | `5` | Detik antar pembacaan ulang agenda dan Tugas untuk pill kiri | `eww/scripts/upcoming` | [pill-kiri](fitur.md#pill-kiri) |
 | `OB_YTM_AUTH` | `~/.config/ytm-player/auth.json` | Login ytm-player untuk status tombol suka (lirik YouTube Music tetap memakai `${XDG_CONFIG_HOME:-$HOME/.config}/ytm-player/auth.json`) | `eww/scripts/ytm_like.py` | [tombol-suka-youtube-music](#tombol-suka-youtube-music) |
