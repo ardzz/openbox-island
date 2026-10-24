@@ -14,6 +14,8 @@ source "$DIR/lib/todo/deadline.sh"
 source "$DIR/lib/prep/template.sh"
 # shellcheck source=lib/prep/sync.sh
 source "$DIR/lib/prep/sync.sh"
+# shellcheck source=lib/rofi.sh
+source "$DIR/lib/rofi.sh"
 
 usage() { printf 'usage: prep sync | edit ID\n' >&2; return 2; }
 
@@ -38,7 +40,7 @@ edit() {
   mesg=$(jq -rn --arg title "$title" \
     '"Item prep untuk " + ($title | @html) + "; pisahkan dengan ;"') || return 1
   "$DIR/island" dismiss
-  answer=$(rofi -dmenu -p Prep -mesg "$mesg" \
+  answer=$(island_rofi 'item; item' -p Prep -mesg "$mesg" \
     -filter "$current" -l 0 < /dev/null) || return 0
   prep_save "$title" "$answer" || return 1
   if (( ${prep_save_over:-0} )); then

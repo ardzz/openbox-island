@@ -1,0 +1,81 @@
+/* The island's rofi look: a black panel dropping from the notch, like the expanded card.
+ * scripts/lib/rofi.sh overrides fg, muted, track and font from the bar palette when one exists. */
+* {
+  island-bg: #000000;
+  accent: #3ee6c4;
+  fg: #d8d8d8;
+  muted: #d8d8d899;
+  track: #d8d8d82e;
+  font: "Sans 10";
+  background-color: transparent;
+  text-color: @fg;
+  margin: 0;
+  padding: 0;
+  spacing: 0;
+  border: 0;
+}
+
+window {
+  location: north;
+  anchor: north;
+  width: 480px;
+  padding: 14px 20px 16px;
+  border-radius: 0 0 22px 22px;
+  background-color: @island-bg;
+}
+
+mainbox {
+  children: [inputbar, message, listview];
+  spacing: 10px;
+}
+
+inputbar {
+  children: [prompt, entry];
+  spacing: 10px;
+}
+
+prompt {
+  padding: 2px 10px;
+  border-radius: 9px;
+  background-color: @accent;
+  text-color: @island-bg;
+  font: "Sans Bold 8";
+  vertical-align: 0.5;
+}
+
+entry {
+  placeholder-color: @muted;
+  cursor: text;
+  vertical-align: 0.5;
+}
+
+textbox {
+  text-color: @muted;
+  font: "Sans 8";
+}
+
+listview {
+  lines: 6;
+  dynamic: true;
+  fixed-height: false;
+  scrollbar: false;
+  spacing: 2px;
+}
+
+element {
+  children: [element-text];
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+element selected.normal {
+  background-color: @track;
+  text-color: @accent;
+}
+
+element-text {
+  text-color: inherit;
+  highlight: bold;
+  cursor: inherit;
+}

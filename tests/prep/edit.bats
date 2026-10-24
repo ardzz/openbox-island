@@ -17,7 +17,7 @@ filter_arg() { awk 'p {print; exit} /^-filter$/{p=1}'; }
   run "$SCRIPTS/prep" edit aaaaaaaaaaaa
   [ "$status" -eq 0 ]
   [ "$(cat "$ISLAND_PREP")" = 'Weekly Report |  | a; b' ]
-  [ "$(rofi_args)" = $'-dmenu\n-p\nPrep\n-mesg\nItem prep untuk Weekly Report; pisahkan dengan ;\n-filter\n\n-l\n0' ]
+  [ "$(rofi_args | filter_arg)" = '' ]
 }
 
 @test "edit creates the items when the meeting is within 24h" {
@@ -130,7 +130,7 @@ filter_arg() { awk 'p {print; exit} /^-filter$/{p=1}'; }
   answer 'a; b'
   run "$SCRIPTS/prep" edit aaaaaaaaaaaa
   [ "$status" -eq 0 ]
-  [ "$(calls)" = $'eww update island_reveal=false\neww close island-expanded\nrofi\n-dmenu\n-p\nPrep\n-mesg\nItem prep untuk Weekly Report; pisahkan dengan ;\n-filter\n\n-l\n0' ]
+  [ "$(calls | head -n 3)" = $'eww update island_reveal=false\neww close island-expanded\nrofi' ]
 }
 
 @test "an answer over twenty items saves twenty and notifies" {

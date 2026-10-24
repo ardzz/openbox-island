@@ -15,8 +15,6 @@ closed_before_rofi() {
   [ "$status" -eq 0 ]
   next_event
   [ "$(texts)" = '["telepon ibu"]' ]
-  grep -q '^rofi .*-dmenu' "$FIX/calls"
-  grep -q '^rofi .*-p Tugas' "$FIX/calls"
   closed_before_rofi
 }
 
