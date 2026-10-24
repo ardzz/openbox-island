@@ -8,7 +8,7 @@
         (label :class "cal-allday" :xalign 0 :text "Seharian · ${kalender.allday_text}"
                :limit-width 70 :show-truncated true :wrap false))
       (for row in {kalender.rows}
-        (box :class "cal-row cal-${row.state}" :orientation "h" :space-evenly false :spacing 8
+        (box :class "cal-row cal-${row.state}" :orientation "h" :space-evenly false :spacing 0
              :tooltip "${row.title} · ${row.account}"
           (label :class "cal-dot" :style "color: ${row.color};" :text "●")
           (label :class "cal-time" :text {row.time} :xalign 0)

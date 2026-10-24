@@ -4,6 +4,15 @@
   border-radius: 8px;
 }
 
+/* Gaps inside a row; margins (not box spacing) so hidden revealers reserve nothing. */
+.cal-row .cal-time,
+.cal-row .cal-title,
+.cal-row .cal-prep,
+.cal-row .cal-join,
+.cal-row .cal-prep-edit {
+  margin-left: 8px;
+}
+
 .cal-row:hover {
   background-color: $island-track;
 }
