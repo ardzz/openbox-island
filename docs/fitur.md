@@ -162,8 +162,8 @@ Pill hitam di pojok kiri atas layar, bergaya sama dengan pill status bar: selalu
 
 - Rapat diambil dari data agenda yang sama dengan tab Kalender (hanya bila kalender terbaca baik), dari acara yang belum berakhir, dalam urutan jadwal: yang sedang berlangsung tampil `sampai HH:MM` (jam berakhirnya) berwarna aksen; yang mulai dalam 15 menit tampil hitungan mundur `Nm` (menit dibulatkan ke atas) berwarna kuning; keduanya menawarkan tombol **Join** bila acara punya tautan rapat https. Rapat berikutnya hari ini tampil jam mulainya `HH:MM`; bila hari ini sudah habis, rapat berikutnya pada hari lain tampil dengan hari dan jam mulainya (misalnya `Besok 09:00` atau `Sen 26 Okt 09:00`).
 - Deadline menampilkan tugas terbuka dengan deadline paling awal, dengan label dan warna yang sama seperti chip pada tab Tugas: merah `terlambat` bila sudah lewat, kuning bila kurang dari 24 jam. Bila ada deadline terbuka lain yang jatuh tempo dalam 24 jam, jumlahnya tampil sebagai `+N` di sebelahnya.
-- Bila tidak ada rapat maupun deadline, pill menampilkan `Kosong hari ini`.
-- Klik segmen rapat membuka kartu pada tab Kalender, klik segmen deadline membuka kartu pada tab Tugas; kartu terbuka selama 10 detik lalu mengikuti aturan hover seperti biasa. Klik **Join** membuka tautan rapat.
+- Bila tidak ada rapat maupun deadline, pill menampilkan `Kosong hari ini`; kliknya membuka tab Kalender.
+- Klik segmen rapat membuka kartu pada tab Kalender, klik segmen deadline membuka kartu pada tab Tugas; kartu terbuka selama 10 detik lalu mengikuti aturan hover seperti biasa. Bila tab yang dituju sedang tidak tersedia (misalnya Kalender belum dikonfigurasi), klik tidak membuka apa pun, bukan tab lain. Klik **Join** membuka tautan rapat.
 - Isi dibaca ulang dari berkas agenda dan daftar Tugas setiap `ISLAND_UPCOMING_TICK` detik (bawaan 5), dan hanya berubah tampilan bila isinya berubah.
 
 ## Pintasan
