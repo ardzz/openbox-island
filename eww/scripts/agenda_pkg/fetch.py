@@ -1,6 +1,7 @@
 """Fetch ICS feeds into an on-disk cache; a failed fetch falls back to the last good copy."""
 
 import hashlib
+import http.client
 import os
 from pathlib import Path
 import tempfile
@@ -44,14 +45,25 @@ def refresh(root, url, fetch=download):
         error.close()
     except FeedError as error:
         message = str(error)
-    except (OSError, ValueError):
+    except (OSError, ValueError, http.client.HTTPException):
         message = "gagal mengambil"
     else:
-        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(raw)
-        os.replace(tmp, path)
+        tmp = None
+        try:
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path.parent.chmod(0o700)
+            fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(raw)
+            os.replace(tmp, path)
+        except OSError:
+            pass
+        finally:
+            if tmp is not None:
+                try:
+                    Path(tmp).unlink(missing_ok=True)
+                except OSError:
+                    pass
         return raw, ""
     try:
         return path.read_bytes(), message

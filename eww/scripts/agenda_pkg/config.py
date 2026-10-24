@@ -34,7 +34,7 @@ def parse(text):
             continue
         fields = [field.strip() for field in line.split("|")]
         if (len(fields) != 4 or not fields[0] or not COLOR.match(fields[1])
-                or not fields[3].startswith("https://")):
+                or not re.fullmatch(r"https://\S+", fields[3])):
             errors.append(f"baris {number} config kalender tidak valid")
             continue
         accounts.append(Account(fields[0], fields[1], fields[2].lower(), fields[3]))
