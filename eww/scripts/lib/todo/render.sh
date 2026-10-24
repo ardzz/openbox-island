@@ -3,8 +3,9 @@
 
 # A list -> the tab against $now: open items with a deadline soonest first, other open items newest
 # first, then done items latest finished first. Open rows with a deadline carry a chip label and class.
-# shellcheck disable=SC2034 # read by scripts/todo
-TODO_RENDER_JQ='
+# Deadline chips against $now, shared with scripts/upcoming: an item -> {due_label, due_class}.
+# shellcheck disable=SC2034,SC2016 # read by scripts/todo and scripts/upcoming; jq variables
+TODO_CHIP_JQ='
 def day0: strflocaltime("%Y-%m-%d") | strptime("%Y-%m-%d") | mktime;
 def chip:
   if .done or .due == null then {due_label: "", due_class: ""}
@@ -18,7 +19,9 @@ def chip:
           + ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"][(.due | strflocaltime("%m") | tonumber) - 1]
         end),
        due_class: (if .due - $now < 86400 then "due-soon" else "" end)}
-  end;
+  end;'
+# shellcheck disable=SC2034,SC2016 # read by scripts/todo; jq variables
+TODO_RENDER_JQ="$TODO_CHIP_JQ"'
 (.items | map(select((.done | not) and .due != null)) | sort_by(.due, -.id)) as $timed
 | (.items | map(select((.done | not) and .due == null)) | sort_by(-.id)) as $open
 | (.items | map(select(.done)) | sort_by(-(.done_at // 0), -.id)) as $done

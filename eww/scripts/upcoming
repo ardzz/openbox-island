@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# upcoming: deflisten printing the left pill: the meeting to mind from $ISLAND_STATE/agenda.json
+# (written by scripts/agenda watch) and the nearest open Tugas deadline. Both files are re-read every
+# ISLAND_UPCOMING_TICK s (5); a line is printed only when the pill changes.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
+# shellcheck source=lib/store.sh
+source "$DIR/lib/store.sh"
+# shellcheck source=lib/listener.sh
+source "$DIR/lib/listener.sh"
+# shellcheck source=lib/paged.sh
+source "$DIR/lib/paged.sh"
+# shellcheck source=lib/todo/data.sh
+source "$DIR/lib/todo/data.sh"
+# shellcheck source=lib/todo/render.sh
+source "$DIR/lib/todo/render.sh"
+AGENDA="$ISLAND_STATE/agenda.json"
+NO_AGENDA='{"ok":false,"rows":[]}'
+AGENDA_VALID_JQ='type == "object" and (.rows | type) == "array"
+  and all(.rows[]; type == "object" and (.start | type) == "number" and (.end | type) == "number")'
+# shellcheck disable=SC2016 # jq variables
+UPCOMING_JQ="$TODO_CHIP_JQ"'
+def hhmm: strflocaltime("%H:%M");
+def stop: if .end > .start then .end else .start + 60 end;
+def meeting:
+  [if .ok == true then .rows[] else empty end | select(stop > $now)] as $live
+  | (first($live[] | select(.start <= $now)) // first($live[]) // null) as $m
+  | if $m == null then {show: false, id: "", title: "", text: "", state: "", color: "", join: false}
+    else $m
+      | (if .start <= $now then "now" elif .start - $now <= 900 then "soon"
+         elif .day == "Hari ini" then "later" else "tomorrow" end) as $state
+      | {show: true, id: (.id // ""), title: (.title // ""),
+         text: (if $state == "now" then "sampai " + (stop | hhmm)
+                elif $state == "soon" then "\((.start - $now + 59) / 60 | floor)m"
+                elif $state == "later" then (.start | hhmm)
+                else "Besok " + (.start | hhmm) end),
+         state: $state, color: (.color // ""),
+         join: (($state == "now" or $state == "soon") and ((.join // "") | test("^https://[^\\s]+\\z")))}
+    end;
+def deadline:
+  ([.items[] | select((.done | not) and .due != null)] | sort_by(.due, -.id)) as $open
+  | if ($open | length) == 0 then {show: false, title: "", label: "", class: "", more: 0}
+    else ($open[0] | chip) as $chip
+      | {show: true, title: $open[0].text, label: $chip.due_label, class: $chip.due_class,
+         more: ([$open[1:][] | select(.due - $now < 86400)] | length)}
+    end;
+($agenda | meeting) as $meeting | ($todo | deadline) as $deadline
+| {empty: (($meeting.show or $deadline.show) | not), meeting: $meeting, deadline: $deadline}'
+
+# load: the agenda (missing, failed or malformed = no meeting) and the Tugas list (missing or corrupt = empty).
+load() {
+  agenda=$(STORE_VALID_JQ=$AGENDA_VALID_JQ store_read "$AGENDA" "$NO_AGENDA")
+  todo=$(store_read "$TODO_FILE" "$TODO_EMPTY")
+}
+
+upcoming_render() {
+  jq -cn --argjson now "$(todo_now)" --argjson agenda "$agenda" --argjson todo "$todo" "$UPCOMING_JQ" 2>/dev/null
+}
+
+upcoming_handle() { if [[ $1 == '@tick' ]]; then load; fi; }
+
+main() {
+  (( $# == 0 )) || { printf 'usage: upcoming\n' >&2; return 2; }
+  require jq || { printf 'upcoming: jq tidak tersedia\n' >&2; return 127; }
+  local agenda=$NO_AGENDA todo=$TODO_EMPTY
+  load
+  # shellcheck disable=SC2034 # read by listen
+  listen_tick=${ISLAND_UPCOMING_TICK:-5}
+  LISTEN_SETTLE=0 listen upcoming upcoming_render upcoming_handle
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
