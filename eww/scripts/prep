@@ -20,7 +20,7 @@ usage() { printf 'usage: prep sync | edit ID\n' >&2; return 2; }
 # edit ID: ask in rofi for ID's prep items (";" separated), save them as the
 # template for its meeting, then create the items when it starts soon.
 edit() {
-  local id=$1 title current answer tmpl
+  local id=$1 title current answer tmpl mesg
   title=$(jq -r --arg id "$id" \
     'if .ok == true then ((.rows // [])[] | select(.id == $id) | .title) else empty end' \
     "$ISLAND_STATE/agenda.json" 2>/dev/null) || title=''
@@ -33,8 +33,12 @@ edit() {
   if tmpl=$(prep_match "$title"); then
     current=$(jq -r '.items | join("; ")' <<< "$tmpl") || return 1
   fi
+  # A prefill starting with "-" would be read as a rofi option; items are trimmed anyway.
+  [[ $current == -* ]] && current=" $current"
+  mesg=$(jq -rn --arg title "$title" \
+    '"Item prep untuk " + ($title | @html) + "; pisahkan dengan ;"') || return 1
   "$DIR/island" dismiss
-  answer=$(rofi -dmenu -p Prep -mesg "Item prep untuk $title; pisahkan dengan ;" \
+  answer=$(rofi -dmenu -p Prep -mesg "$mesg" \
     -filter "$current" -l 0 < /dev/null) || return 0
   prep_save "$title" "$answer" || return 1
   if (( ${prep_save_over:-0} )); then

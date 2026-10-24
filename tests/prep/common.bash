@@ -38,7 +38,8 @@ EOF
   cat > "$BIN/rofi" <<'EOF'
 #!/usr/bin/env bash
 cat > /dev/null
-printf 'rofi %s\n' "$*" >> "$FIX/calls"
+printf 'rofi\n' >> "$FIX/calls"
+printf '%s\n' "$@" >> "$FIX/calls"
 [[ -s $FIX/rofi_answers ]] || exit 1
 head -n 1 "$FIX/rofi_answers"
 sed -i 1d "$FIX/rofi_answers"
