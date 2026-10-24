@@ -110,6 +110,34 @@ class ToIcsTests(unittest.TestCase):
         self.assertIn(b"UID:only-id", raw)
         self.assertEqual(occurrences(raw)[0][0]["uid"], "only-id")
 
+    def test_naive_datetime_uses_its_timezone(self):
+        jakarta = {"dateTime": "2026-10-21T08:00:00", "timeZone": "Asia/Jakarta"}
+        jakarta_end = {"dateTime": "2026-10-21T08:30:00", "timeZone": "Asia/Jakarta"}
+        items = [
+            item(start=dict(jakarta), end=dict(jakarta_end)),
+            item(id="mv1", iCalUID="series@google.com", summary="Rutin",
+                 recurringEventId="series",
+                 start={"dateTime": "2026-10-21T10:00:00", "timeZone": "Asia/Jakarta"},
+                 end={"dateTime": "2026-10-21T10:30:00", "timeZone": "Asia/Jakarta"},
+                 originalStartTime={"dateTime": "2026-10-21T08:00:00",
+                                    "timeZone": "Asia/Jakarta"}),
+            item(id="mv2", iCalUID="series@google.com", summary="Rutin",
+                 recurringEventId="series",
+                 start={"dateTime": "2026-10-22T10:00:00", "timeZone": "Asia/Jakarta"},
+                 end={"dateTime": "2026-10-22T10:30:00", "timeZone": "Asia/Jakarta"},
+                 originalStartTime={"dateTime": "2026-10-22T08:00:00",
+                                    "timeZone": "Asia/Jakarta"}),
+            item(id="bad", iCalUID="bad@google.com", summary="Zona rusak",
+                 start={"dateTime": "2026-10-21T09:00:00", "timeZone": "Mars/Olympus"},
+                 end={"dateTime": "2026-10-21T09:30:00", "timeZone": "Mars/Olympus"}),
+        ]
+        timed, _ = occurrences(google.to_ics(items))
+        by_title = {(e["title"], e["start"]): e for e in timed}
+        self.assertEqual(by_title[("Standup", at(21, 8))]["end"], at(21, 8, 30))
+        rutin = sorted(e["start"] for e in timed if e["title"] == "Rutin")
+        self.assertEqual(rutin, [at(21, 10), at(22, 10)])
+        self.assertFalse(any(e["title"] == "Zona rusak" for e in timed))
+
 
 if __name__ == "__main__":
     unittest.main()

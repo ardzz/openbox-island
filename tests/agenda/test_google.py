@@ -57,6 +57,10 @@ class HelperTests(unittest.TestCase):
             with self.assertRaisesRegex(fetch.FeedError,
                                         "^google-client\\.json tidak valid$"):
                 google.load_client(path)
+            path.write_bytes(b'\xff\xfe{')
+            with self.assertRaisesRegex(fetch.FeedError,
+                                        "^google-client\\.json tidak valid$"):
+                google.load_client(path)
 
     def test_load_tokens_missing_or_invalid_is_empty(self):
         with tempfile.TemporaryDirectory() as root:
@@ -212,6 +216,35 @@ class CollectTests(unittest.TestCase):
             self.assertEqual((errors, stale, [row["title"] for row in timed]),
                              (["Kantor: login ulang (agenda login Kantor)"], True,
                               ["Tetap Ada"]))
+
+    def test_malformed_google_response_keeps_stale_and_continues(self):
+        good = {"items": [item(summary="Tetap Ada")]}
+        other = config.Account("Lain", "#34c759", "", "google:primary")
+        malformed = [
+            ["bukan", "objek"],
+            {"items": [item(summary="Rusak", attendees=123)]},
+        ]
+        for payload in malformed:
+            with self.subTest(payload=repr(payload)[:40]), \
+                    tempfile.TemporaryDirectory() as root:
+                cache = str(Path(root) / "cache")
+                env = write_env(root, tokens={"Kantor": "refresh-token-1",
+                                              "Lain": "refresh-2"})
+                with mock.patch.dict(os.environ, env), \
+                        mock.patch.object(google, "request", fake_request([good])):
+                    first, _, errors, _ = self.collect(cache)
+                self.assertEqual((errors, [r["title"] for r in first]),
+                                 ([], ["Tetap Ada"]))
+                fake = fake_request([payload, good])
+                with mock.patch.dict(os.environ, env), \
+                        mock.patch.object(google, "request", fake):
+                    timed, _, errors, stale = main.collect(
+                        [ACCOUNT, other], cache, at(21, 7), TZ)
+                self.assertEqual(errors, ["Kantor: respons Google tidak valid"])
+                self.assertTrue(stale)
+                titles = {(r["account"], r["title"]) for r in timed}
+                self.assertIn(("Kantor", "Tetap Ada"), titles)
+                self.assertIn(("Lain", "Tetap Ada"), titles)
 
 
 class CheckTests(unittest.TestCase):

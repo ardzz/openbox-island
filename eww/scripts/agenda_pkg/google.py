@@ -6,6 +6,7 @@ import shlex
 import urllib.error
 import urllib.parse
 import urllib.request
+import zoneinfo
 
 import icalendar
 
@@ -34,7 +35,7 @@ def load_client(path):
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise fetch.FeedError("google-client.json belum ada") from None
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         raise fetch.FeedError("google-client.json tidak valid") from None
     try:
         installed = json.loads(text)["installed"]
@@ -134,13 +135,18 @@ def _moment(value):
     if value.get("dateTime"):
         try:
             moment = dt.datetime.fromisoformat(value["dateTime"])
-        except ValueError:
+        except (TypeError, ValueError):
             return None
-        return moment if moment.tzinfo is not None else None
+        if moment.tzinfo is None:
+            try:
+                return moment.replace(tzinfo=zoneinfo.ZoneInfo(value["timeZone"]))
+            except (KeyError, TypeError, ValueError, zoneinfo.ZoneInfoNotFoundError):
+                return None
+        return moment
     if value.get("date"):
         try:
             return dt.date.fromisoformat(value["date"])
-        except ValueError:
+        except (TypeError, ValueError):
             return None
     return None
 
@@ -196,4 +202,9 @@ def to_ics(items):
 def download(account, start, end):
     cal_id = calendar_id(account)
     token = access_token(account, load_client(client_path()))
-    return to_ics(list_events(token, cal_id, start, end))
+    try:
+        return to_ics(list_events(token, cal_id, start, end))
+    except (urllib.error.HTTPError, fetch.FeedError):
+        raise
+    except (TypeError, AttributeError, KeyError, ValueError):
+        raise fetch.FeedError("respons Google tidak valid") from None
