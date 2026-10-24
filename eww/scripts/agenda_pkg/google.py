@@ -13,6 +13,7 @@ import icalendar
 from . import config, fetch
 
 PREFIX = "google:"
+AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/{}/events"
 
@@ -30,7 +31,7 @@ def tokens_path():
 
 
 def load_client(path):
-    """(client_id, client_secret, token_uri) from the installed-app client file."""
+    """(client_id, client_secret, token_uri, auth_uri) from the installed-app client file."""
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -43,11 +44,12 @@ def load_client(path):
         if not isinstance(client_id, str) or not isinstance(client_secret, str):
             raise TypeError
         token_uri = installed.get("token_uri", TOKEN_URL)
-        if not isinstance(token_uri, str):
+        auth_uri = installed.get("auth_uri", AUTH_URL)
+        if not isinstance(token_uri, str) or not isinstance(auth_uri, str):
             raise TypeError
     except (ValueError, KeyError, TypeError, AttributeError):
         raise fetch.FeedError("google-client.json tidak valid") from None
-    return client_id, client_secret, token_uri
+    return client_id, client_secret, token_uri, auth_uri
 
 
 def load_tokens(path):
@@ -91,7 +93,7 @@ def _is_invalid_grant(error):
 
 
 def access_token(account, client):
-    client_id, client_secret, token_uri = client
+    client_id, client_secret, token_uri = client[:3]
     refresh = load_tokens(tokens_path()).get(account.name)
     if not refresh:
         raise fetch.FeedError(f"belum login (agenda login {shlex.quote(account.name)})")

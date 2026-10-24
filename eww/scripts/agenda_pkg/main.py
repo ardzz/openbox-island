@@ -184,6 +184,9 @@ def main(argv=None):
     sys.stdout.reconfigure(encoding="utf-8")
     if argv == ["check"]:
         sys.exit(check())
+    if len(argv) == 2 and argv[0] == "login":
+        from . import login
+        sys.exit(login.run(argv[1]))
     if argv == ["watch"]:
         # Raise instead of setting an Event: Event.set() from a handler deadlocks when the signal
         # lands while the main thread holds that Event's lock.
@@ -194,5 +197,5 @@ def main(argv=None):
         except (BrokenPipeError, SystemExit):
             pass
         return
-    print("pemakaian: agenda watch | check", file=sys.stderr)
+    print("pemakaian: agenda watch | check | login NAMA", file=sys.stderr)
     sys.exit(2)

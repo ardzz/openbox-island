@@ -42,10 +42,12 @@ class HelperTests(unittest.TestCase):
             path.write_text(json.dumps(
                 {"installed": {"client_id": "id1", "client_secret": "s3cr3t"}}))
             self.assertEqual(google.load_client(path),
-                             ("id1", "s3cr3t", "https://oauth2.googleapis.com/token"))
+                             ("id1", "s3cr3t", "https://oauth2.googleapis.com/token",
+                              "https://accounts.google.com/o/oauth2/auth"))
             path.write_text(json.dumps(CLIENT))
             self.assertEqual(google.load_client(path),
-                             ("cid", "raise-this-secret", "https://tokens.example/token"))
+                             ("cid", "raise-this-secret", "https://tokens.example/token",
+                              "https://accounts.example/auth"))
             with self.assertRaisesRegex(fetch.FeedError,
                                         "^google-client\\.json belum ada$"):
                 google.load_client(Path(root) / "nope.json")
