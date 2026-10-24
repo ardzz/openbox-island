@@ -8,7 +8,7 @@
 COPY='' RUN=''
 PREVIEW_BACKDROP_WINDOW='(defwindow preview-backdrop
   :monitor 0
-  :geometry (geometry :x "0px" :y "300px" :width "520px" :height "230px" :anchor "top center")
+  :geometry (geometry :x "0px" :y "300px" :width "100%" :height "230px" :anchor "top center")
   :wm-ignore true
   (box :class "preview-backdrop"))'
 # A pointer resting over the region must not leave tooltips in the picture.

@@ -1,0 +1,31 @@
+; The left pill: the meeting to mind and the nearest Tugas deadline, styled like the bar's status
+; pill. Each part opens its tab in the card for a while; Join opens the meeting link.
+(defwindow island-upcoming
+  :monitor 0
+  ; Fixed wide: with a shrink-wrap width eww allocates every label its minimum (ellipsized).
+  :geometry (geometry :x "1%" :y "0px" :width "640px" :height "44px" :anchor "top left")
+  :wm-ignore true
+  (box :class "upcoming" :orientation "h" :halign "start" :valign "start" :space-evenly false :spacing 0
+    (revealer :transition "none" :reveal {upcoming.meeting.show}
+      (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 kalender &"
+        (box :orientation "h" :space-evenly false :spacing 6 :tooltip {upcoming.meeting.title}
+          (label :class "up-dot" :style "color: ${upcoming.meeting.color};" :text "●")
+          (label :class "up-title" :text {upcoming.meeting.title} :limit-width 22 :show-truncated true)
+          (label :class "up-when up-${upcoming.meeting.state}" :text "· ${upcoming.meeting.text}")
+          (revealer :transition "none" :valign "center" :reveal {upcoming.meeting.join}
+            (button :class "cal-join" :onclick "${EWW_CONFIG_DIR}/scripts/kalender join ${upcoming.meeting.id} &" "Join")))))
+    (revealer :transition "none" :reveal {upcoming.meeting.show && upcoming.deadline.show}
+      (label :class "up-sep" :text "│"))
+    (revealer :transition "none" :reveal {upcoming.deadline.show}
+      (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 tugas &"
+        (box :orientation "h" :space-evenly false :spacing 6 :tooltip {upcoming.deadline.title}
+          (label :class "up-icon" :text "󰃰")
+          (label :class "up-title" :text {upcoming.deadline.title} :limit-width 22 :show-truncated true)
+          (label :class "up-when ${upcoming.deadline.class}" :text "· ${upcoming.deadline.label}")
+          (revealer :transition "none" :reveal {upcoming.deadline.more > 0}
+            (label :class "up-more" :text "+${upcoming.deadline.more}")))))
+    (revealer :transition "none" :reveal {upcoming.empty}
+      (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 kalender &"
+        (box :orientation "h" :space-evenly false :spacing 6
+          (label :class "up-icon up-muted" :text "󰃭")
+          (label :class "up-muted" :text "Kosong hari ini"))))))

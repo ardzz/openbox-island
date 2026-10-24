@@ -1,0 +1,48 @@
+.upcoming {
+  margin-top: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background-color: $island-bg;
+  color: $fg;
+  font-size: 13px;
+}
+
+.up-dot {
+  font-size: 10px;
+}
+
+.up-icon {
+  font-size: 15px;
+}
+
+.up-sep {
+  margin: 0 10px;
+  color: $muted;
+}
+
+.up-when {
+  font-feature-settings: "tnum";
+}
+
+.up-now {
+  color: $island-accent;
+}
+
+.up-soon,
+.up-when.due-soon {
+  color: $yellow;
+}
+
+.up-when.due-late {
+  color: $red;
+}
+
+.up-more,
+.up-muted {
+  color: $muted;
+}
+
+.up-more {
+  font-size: 11px;
+}

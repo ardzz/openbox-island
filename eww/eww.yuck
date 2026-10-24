@@ -19,3 +19,4 @@
 (include "./yuck/tabs.yuck")
 (include "./yuck/windows/island.yuck")
 (include "./yuck/windows/expanded.yuck")
+(include "./yuck/windows/upcoming.yuck")

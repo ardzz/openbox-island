@@ -3,8 +3,8 @@
 # The window opens 300px down on the current DISPLAY, over a solid backdrop, from a private copy
 # of CONFIG_DIR whose listeners and polls are frozen to plain variables and whose animations are
 # off, so only the sample decides the picture.
-# SAMPLE: "window=island|island-expanded", optional "tab=<id>", then "var=<json>" lines;
-# @ASSETS@ in a value stands for the absolute path of the sample's assets/ folder.
+# SAMPLE: "window=island|island-expanded|island-upcoming", optional "tab=<id>", then "var=<json>"
+# lines; @ASSETS@ in a value stands for the absolute path of the sample's assets/ folder.
 set -euo pipefail
 # shellcheck source=lib/preview.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/preview.sh"
@@ -24,12 +24,13 @@ main() {
   [[ -f $sample ]] || usage "SAMPLE tidak ada: $sample"
   preview_sample "$sample" || usage
   case $SAMPLE_WINDOW in
-    island) crop=520x46 ;;
+    island) crop=520x46+700+300 ;;
     island-expanded)
-      crop=520x230
+      crop=520x230+700+300
       SAMPLE_UPDATES+=(island_reveal=true)
       if [[ -n $SAMPLE_TAB ]]; then SAMPLE_UPDATES+=("island_tab=$SAMPLE_TAB"); fi ;;
-    *) usage "window harus island atau island-expanded: '$SAMPLE_WINDOW'" ;;
+    island-upcoming) crop=640x46+0+300 ;;
+    *) usage "window harus island, island-expanded atau island-upcoming: '$SAMPLE_WINDOW'" ;;
   esac
 
   trap preview_cleanup EXIT
@@ -39,7 +40,7 @@ main() {
   # After open: a stack built with a selection already set shows no page (eww 0.5).
   if (( ${#SAMPLE_UPDATES[@]} )); then ew update "${SAMPLE_UPDATES[@]}"; fi
   sleep "$SETTLE"
-  import -window root -crop "$crop+700+300" +repage "$out"
+  import -window root -crop "$crop" +repage "$out"
 }
 
 main "$@"

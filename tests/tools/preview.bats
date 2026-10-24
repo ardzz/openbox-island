@@ -105,6 +105,14 @@ run_dir() { awk -F'|' 'NR == 1 { print $2 }' "$LOG"; }
   [ "$(awk -F'|' '$3 ~ /^open/ { n = NR } END { print n }' "$LOG")" -lt "$(awk -F'|' '$3 ~ /^update/ { print NR }' "$LOG")" ]
   grep -q 'import|-window root -crop 520x230+700+300 ' "$LOG"
 }
+@test "the left pill renders in the top-left corner" {
+  printf 'window=island-upcoming\nupcoming={"empty":true}\n' > "$T/samples/left.vars"
+  run "$PREVIEW" "$CFG" "$T/samples/left.vars" "$T/out.png"
+  [ "$status" -eq 0 ]
+  [ "$(calls open)" = $'open preview-backdrop\nopen island-upcoming' ]
+  grep -q 'import|-window root -crop 640x46+0+300 ' "$LOG"
+}
+
 
 @test "a failing open still kills the daemon and removes the temp dirs" {
   FAKE_OPEN_FAIL=1 run "$PREVIEW" "$CFG" "$T/samples/pill.vars" "$T/out.png"
