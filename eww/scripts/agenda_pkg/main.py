@@ -16,6 +16,7 @@ from . import config, fetch
 
 INTERVAL = 300
 TICK = 15
+EMPTY = "belum ada kalender di config"
 
 
 def _env_seconds(name, default):
@@ -98,10 +99,12 @@ def watch(clock=time.time, stopped=None):
     while not stopped.is_set():
         now = clock()
         tz = local_tz()
+        accounts, errors, _loose = config.load(config.config_path())
         if render is None:
             document = failure("python-icalendar belum terpasang")
+        elif not accounts and not errors:
+            document = failure(EMPTY)
         else:
-            accounts, errors, _loose = config.load(config.config_path())
             today = dt.datetime.fromtimestamp(now, tz).date()
             if now >= next_fetch or today != fetched_date:
                 fetched = collect(accounts, cache, now, tz)
@@ -124,6 +127,9 @@ def check():
     accounts, errors, loose = config.load(path)
     if not path.exists():
         print(f"config kalender belum ada: {path}")
+        return 1
+    if not accounts and not errors:
+        print(f"{EMPTY}: {path}")
         return 1
     if loose:
         print(f"peringatan: {path} bisa dibaca pengguna lain; jalankan chmod 600")

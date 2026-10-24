@@ -52,10 +52,11 @@ class CollectTests(unittest.TestCase):
 
 
 class WatchTests(unittest.TestCase):
-    def run_watch(self, root, now, fetcher=None, clock=None, ticks=1):
+    def run_watch(self, root, now, fetcher=None, clock=None, ticks=1,
+                  config=f"Kantor | #4f8cff | reky@kantor.co.id | {OFFICE.url}\n"):
         env = {"XDG_RUNTIME_DIR": f"{root}/run", "XDG_CACHE_HOME": f"{root}/cache",
                "ISLAND_CALENDARS": f"{root}/calendars", "TZ": "Asia/Jakarta"}
-        Path(env["ISLAND_CALENDARS"]).write_text(f"Kantor | #4f8cff | reky@kantor.co.id | {OFFICE.url}\n")
+        Path(env["ISLAND_CALENDARS"]).write_text(config)
         stopped = threading.Event()
         printed = []
 
@@ -82,6 +83,11 @@ class WatchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root, mock.patch.dict("sys.modules", {"agenda_pkg.events": None}):
             document, _ = self.run_watch(root, at(21, 10))
         self.assertEqual((document["ok"], document["error"]), (False, "python-icalendar belum terpasang"))
+
+    def test_watch_publishes_a_failure_while_the_config_lists_no_calendars(self):
+        with tempfile.TemporaryDirectory() as root:
+            document, _ = self.run_watch(root, at(21, 10), config="# Kantor | #4f8cff | | https://x\n")
+        self.assertEqual((document["ok"], document["error"]), (False, "belum ada kalender di config"))
 
     def test_watch_renders_with_the_time_after_fetching(self):
         now = [at(21, 14, 59)]
@@ -167,6 +173,16 @@ class CheckTests(unittest.TestCase):
             with mock.patch("builtins.print", side_effect=lambda *a, **k: lines.append(a[0])):
                 self.assertEqual(main.check(), 1)
         self.assertTrue(lines[0].startswith("config kalender belum ada"))
+
+    def test_check_fails_while_the_config_lists_no_calendars(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "calendars"
+            path.write_text("# Kantor | #4f8cff | | https://x\n")
+            path.chmod(0o600)
+            with mock.patch.dict(os.environ, {"ISLAND_CALENDARS": str(path)}), \
+                    mock.patch("builtins.print") as printed:
+                self.assertEqual(main.check(), 1)
+        printed.assert_called_once_with(f"belum ada kalender di config: {path}")
 
     def test_check_reports_missing_libraries_for_each_account(self):
         with tempfile.TemporaryDirectory() as root:
