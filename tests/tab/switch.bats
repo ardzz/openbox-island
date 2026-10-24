@@ -12,7 +12,7 @@ load common
 
 @test "select rejects an unknown tab without touching eww or the saved choice" {
   both; saved musik
-  run "$SCRIPTS/tab" select kalender
+  run "$SCRIPTS/tab" select rahasia
   [ "$status" -eq 2 ]
   [ "$(cat "$ST/tab")" = musik ]
   [ "$(calls)" = "" ]
