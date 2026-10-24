@@ -62,6 +62,7 @@ eww/scripts/lib/<area>/    modul per area: alert, status, notify, tabs, viz, wea
 eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sources/: lrclib, netease, ytmusic)
 eww/scripts/agenda_pkg/    produsen kalender: config, fetch/cache iCal, Google Calendar API (google.py, login.py), recurring events, render JSON
 eww/scripts/prep           CLI prep: `sync` satu sinkronisasi, `edit ID` lewat rofi
+eww/rofi/island.rasi       tema rofi untuk form Tugas, deadline, dan prep; lib/rofi.sh (`island_rofi`) memakainya dengan palet bar
 eww/scripts/lib/prep/      template.sh (format template) dan sync.sh (membuat item Tugas)
 eww/scripts/lib/alert/prep.sh sumber alert `prep` (interval `ISLAND_PREP_INTERVAL`)
 eww/{players,shortcuts}    konfigurasi pengguna; cava.conf, dunst-osd.conf, _colors.scss
