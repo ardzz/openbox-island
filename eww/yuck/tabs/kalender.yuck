@@ -2,7 +2,7 @@
 ; (scroll up). Join opens the meeting link after closing the card.
 (defwidget page-kalender []
   (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/kalender scroll {} &"
-             :more {kalender.more > 0 ? "+${kalender.more} lainnya" : kalender.total == 0 ? "Tidak ada jadwal hari ini & besok" : ""}
+             :more {kalender.more > 0 ? "+${kalender.more} lainnya" : kalender.total == 0 && kalender.allday_text == "" ? "Tidak ada jadwal hari ini & besok" : ""}
     (box :orientation "v" :space-evenly false :spacing 2
       (revealer :transition "none" :reveal {kalender.allday_text != ""}
         (label :class "cal-allday" :xalign 0 :text "Seharian · ${kalender.allday_text}"
