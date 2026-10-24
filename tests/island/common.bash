@@ -50,6 +50,7 @@ music() { mkdir -p "$ST"; echo '{"state":"playing","title":"Lagu"}' > "$ST/media
 no_music() { mkdir -p "$ST"; echo '{"state":"none","title":""}' > "$ST/media.json"; }
 weather() { echo '{"ok":true}' > "$FAKE_WEATHER"; }
 saved() { mkdir -p "$ST"; echo "$1" > "$ST/tab"; }
+agenda_ok() { mkdir -p "$ST"; echo '{"ok":true}' > "$ST/agenda.json"; }
 shortcuts() { printf 'x | Kunci | true\n' > "$ISLAND_SHORTCUTS"; }
 stub_hover_sleep() {
   export FAKE_SLEEP_LOG="$BATS_TEST_TMPDIR/sleep.log"

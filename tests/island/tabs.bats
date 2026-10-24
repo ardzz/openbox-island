@@ -58,3 +58,22 @@ load common
   run "$SCRIPTS/island" hover
   [ "$(calls)" = "$OPEN" ]
 }
+
+@test "auto opens the card on a given tab when it is available" {
+  on_compact; music; agenda_ok
+  run "$SCRIPTS/island" auto 0 kalender
+  [ "$status" -eq 0 ]
+  [ "$(head -n 1 "$FAKE_EWW_LOG")" = 'update island_reveal=false island_tab=kalender' ]
+}
+
+@test "auto on an unavailable tab falls back to the first available one" {
+  on_compact; music
+  run "$SCRIPTS/island" auto 0 kalender
+  [ "$(head -n 1 "$FAKE_EWW_LOG")" = 'update island_reveal=false island_tab=musik' ]
+}
+
+@test "auto rejects a malformed tab name without touching eww" {
+  run "$SCRIPTS/island" auto 5 'x y'
+  [ "$status" -eq 2 ]
+  [ ! -s "$FAKE_EWW_LOG" ]
+}
