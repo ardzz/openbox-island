@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# kalender: deflisten printing the Kalender tab from $ISLAND_STATE/agenda.json, which scripts/agenda
+# watch (the meeting alert source) rewrites every 15 s. kalender scroll up|down | join ID
+# The listener re-reads the file every ISLAND_KALENDER_TICK s (2) and takes "@scroll -1|1" and
+# "@expanded 0" on $ISLAND_STATE/kalender.fifo. Until scrolled it starts at the first event not yet over.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
+# shellcheck source=lib/listener.sh
+source "$DIR/lib/listener.sh"
+# shellcheck source=lib/paged.sh
+source "$DIR/lib/paged.sh"
+FILE="$ISLAND_STATE/agenda.json"
+ROWS=4
+EMPTY='{"ok":false,"stale":false,"updated":"","error":"","label":"Kalender","allday":[],"rows":[],"errors":[]}'
+# shellcheck disable=SC2016 # jq variables
+VALID_JQ='select(type == "object" and (.rows | type) == "array" and (.allday | type) == "array"
+  and (.errors | type) == "array")'
+# Rows count, then the index of the first row not yet over (the count when all are over).
+FIRST_JQ='[(.rows | length), (first(.rows | to_entries[] | select(.value.state != "past") | .key)
+  // (.rows | length))] | @tsv'
+# shellcheck disable=SC2016 # jq variables
+RENDER_JQ='(.rows | '"$PAGED_JQ"') as $page
+  | {ok: (.ok == true), label, total: (.rows | length), rows: $page.rows, more: $page.more,
+     offset: $page.offset, allday_text: (.allday | join(" · ")),
+     note: (if (.errors | length) > 0 then (.errors | join(" · "))
+            elif (.error // "") != "" then .error
+            elif .stale == true then "diperbarui \(.updated)" else "" end)}'
+
+# load: read the agenda (missing or malformed = EMPTY); unless scrolled, start at the first event
+# not yet over.
+load() {
+  doc=$(jq -ce "$VALID_JQ" "$FILE" 2>/dev/null) || doc=$EMPTY
+  read -r total first < <(jq -r "$FIRST_JQ" <<< "$doc")
+  (( scrolled )) || offset=$first
+}
+
+# scroll STEP: move the shown rows by STEP within the agenda and keep them there.
+scroll() {
+  local top=$(( total > ROWS ? total - ROWS : 0 ))
+  (( offset <= top )) || offset=$top
+  offset=$(( offset + $1 ))
+  (( offset >= 0 )) || offset=0
+  (( offset <= top )) || offset=$top
+  scrolled=1
+}
+
+kalender_render() {
+  jq -c --argjson offset "$offset" --argjson rows "$ROWS" "$RENDER_JQ" <<< "$doc" 2>/dev/null
+}
+
+kalender_handle() {
+  case $1 in
+    '@tick') load ;;
+    '@scroll -1') scroll -1 ;;
+    '@scroll 1') scroll 1 ;;
+    '@expanded 0') scrolled=0; load ;;
+  esac
+}
+
+# join ID: close the card and open the meeting link of row ID in the browser.
+join() {
+  local url
+  url=$(jq -r --arg id "$1" 'first(.rows[]? | select(.id == $id) | .join) // ""' "$FILE" 2>/dev/null) || url=''
+  if [[ ! $url =~ ^https://[^[:space:]]+$ ]]; then
+    printf 'kalender: tidak ada link meeting untuk %s\n' "$1" >&2
+    return 1
+  fi
+  require xdg-open || { printf 'kalender: xdg-open tidak tersedia\n' >&2; return 127; }
+  "$DIR/island" dismiss
+  setsid -f xdg-open "$url" < /dev/null > /dev/null 2>&1
+}
+
+usage() { printf 'usage: kalender [scroll up|down | join ID]\n' >&2; return 2; }
+
+main() {
+  case ${1:-} in
+    scroll)
+      (( $# == 2 )) || { usage; return; }
+      case $2 in
+        up) fifo_signal kalender '@scroll -1' ;;
+        down) fifo_signal kalender '@scroll 1' ;;
+        *) usage ;;
+      esac ;;
+    join)
+      (( $# == 2 )) && [[ $2 =~ ^[0-9a-f]{12}$ ]] || { usage; return; }
+      require jq || { printf 'kalender: jq tidak tersedia\n' >&2; return 127; }
+      join "$2" ;;
+    '')
+      require jq || { printf 'kalender: jq tidak tersedia\n' >&2; return 127; }
+      local doc=$EMPTY total=0 first=0 offset=0 scrolled=0
+      load
+      # shellcheck disable=SC2034 # read by listen
+      listen_tick=${ISLAND_KALENDER_TICK:-2}
+      LISTEN_SETTLE=0 listen kalender kalender_render kalender_handle ;;
+    *) usage ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
