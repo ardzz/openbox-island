@@ -158,6 +158,28 @@ class ToIcsTests(unittest.TestCase):
                 with self.assertRaises((TypeError, ValueError, KeyError)):
                     google.to_ics([entry])
 
+    def test_other_offset_keeps_its_instant(self):
+        # 08:00+02:00 is 13:00 WIB; a naive local reading would shift it by 5h.
+        items = [
+            item(start={"dateTime": "2026-10-21T08:00:00+02:00"},
+                 end={"dateTime": "2026-10-21T08:30:00+02:00"}),
+            item(id="mv1", iCalUID="series@google.com", summary="Rutin",
+                 recurringEventId="series",
+                 start={"dateTime": "2026-10-21T10:00:00+02:00"},
+                 end={"dateTime": "2026-10-21T10:30:00+02:00"},
+                 originalStartTime={"dateTime": "2026-10-21T08:00:00+02:00"}),
+            item(id="mv2", iCalUID="series@google.com", summary="Rutin",
+                 recurringEventId="series",
+                 start={"dateTime": "2026-10-22T10:00:00+02:00"},
+                 end={"dateTime": "2026-10-22T10:30:00+02:00"},
+                 originalStartTime={"dateTime": "2026-10-22T08:00:00+02:00"}),
+        ]
+        timed, _ = occurrences(google.to_ics(items))
+        by_title = {(e["title"], e["start"]): e for e in timed}
+        self.assertEqual(by_title[("Standup", at(21, 13))]["end"], at(21, 13, 30))
+        rutin = sorted(e["start"] for e in timed if e["title"] == "Rutin")
+        self.assertEqual(rutin, [at(21, 15), at(22, 15)])
+
 
 if __name__ == "__main__":
     unittest.main()

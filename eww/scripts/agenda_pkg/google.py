@@ -144,7 +144,7 @@ def _moment(value):
         moment = dt.datetime.fromisoformat(value["dateTime"])
         if moment.tzinfo is None:
             moment = moment.replace(tzinfo=zoneinfo.ZoneInfo(value["timeZone"]))
-        return moment
+        return moment.astimezone(dt.timezone.utc)
     if value.get("date") is not None:
         return dt.date.fromisoformat(value["date"])
     raise ValueError("timestamp tanpa dateTime/date")

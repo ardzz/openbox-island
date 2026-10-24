@@ -163,6 +163,7 @@ def run(name, open_browser=webbrowser.open, timeout=300):
             "grant_type": "authorization_code", "code_verifier": verifier})
     except urllib.error.HTTPError as error:
         print(f"login gagal: HTTP {error.code}")
+        error.close()
         return 1
     refresh = payload.get("refresh_token") if isinstance(payload, dict) else None
     if not refresh:
