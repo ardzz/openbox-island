@@ -9,6 +9,18 @@ prep_file() { printf '%s' "${ISLAND_PREP:-$PREP_FILE}"; }
 # prep_lower TEXT: TEXT with ASCII A-Z folded to a-z (jq ascii_downcase semantics).
 prep_lower() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
 
+# prep_subject TITLE: the form titles are compared in: ASCII-lowercased, "|" as space.
+# A saved pattern is always a substring of this, even for titles containing "|".
+prep_subject() { prep_lower "${1//|/ }"; }
+
+# prep_pattern TITLE: the pattern prep_save generates from a meeting title:
+# "|" as space, any leading whitespace/"#" stripped so the line is not a comment.
+prep_pattern() {
+  local p=${1//|/ }
+  p=${p#"${p%%[![:space:]#]*}"}
+  printf '%s' "$p"
+}
+
 # prep_trim VAR: strip leading and trailing whitespace from VAR in place.
 prep_trim() {
   local -n v=$1
@@ -78,10 +90,11 @@ prep_templates() {
   jq -cn '[inputs]' <<< "$records"
 }
 
-# prep_match TITLE: the first template whose pattern is a substring of TITLE, or status 1.
+# prep_match TITLE: the first template whose pattern is a substring of the
+# normalised TITLE, or status 1.
 prep_match() {
   local title records rec pattern
-  title=$(prep_lower "$1") || return 1
+  title=$(prep_subject "$1") || return 1
   records=$(prep_records) || return 1
   while IFS= read -r rec; do
     [[ -n $rec ]] || continue
@@ -116,7 +129,7 @@ prep_save() {
     printf 'prep: berkas template tidak bisa dibaca\n' >&2
     return 1
   fi
-  title_lower=$(prep_lower "$title") || return 1
+  title_lower=$(prep_subject "$title") || return 1
   all=$(jq -cn --arg text "$2" \
     '$text | split(";") | map(gsub("^\\s+|\\s+\\z"; "")) | map(select(length > 0))') || return 1
   if [[ $(jq -n --argjson items "$all" '$items | length') -gt 20 ]]; then
@@ -148,7 +161,7 @@ prep_save() {
   fi
   if (( ! found )); then
     [[ $items == '[]' ]] && return 0
-    out+=("${title//|/ } |  | $joined")
+    out+=("$(prep_pattern "$title") |  | $joined")
   fi
   mkdir -p -- "${file%/*}" || return 1
   tmp=$(mktemp "${file}.XXXXXX") || return 1

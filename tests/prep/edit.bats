@@ -6,18 +6,10 @@ bats_require_minimum_version 1.5.0
 calls() { cat "$FIX/calls"; }
 
 # rofi_args: the argv elements of the (last) rofi call, one per line.
-rofi_args() {
-  calls | awk '/^rofi$/{last=NR} {lines[NR]=$0} END { for (i=last+1; i<=NR; i++) print lines[i] }'
-}
+rofi_args() { calls | awk '/^rofi$/{l=NR} {a[NR]=$0} END { for (i=l+1; i<=NR; i++) print a[i] }'; }
 
 # filter_arg: the argument after -filter on stdin (keeps a leading space visible).
-filter_arg() {
-  local line prev=''
-  while IFS= read -r line; do
-    if [[ $prev == -filter ]]; then printf '%s' "$line"; return 0; fi
-    prev=$line
-  done
-}
+filter_arg() { awk 'p {print; exit} /^-filter$/{p=1}'; }
 
 @test "edit without a template asks with an empty filter and saves the answer as a new line" {
   agenda_rows "$(row aaaaaaaaaaaa 'Weekly Report' "$(at '2026-10-22 09:00')")"
@@ -171,4 +163,32 @@ filter_arg() {
   [ "$(rofi_args | filter_arg)" = ' -no-custom' ]
   [ "$(cat "$ISLAND_PREP")" = 'Weekly | 2j | -no-custom' ]
   [ ! -e "$TODO_FILE" ]
+}
+
+@test "a title with a pipe gets a template that matches its own occurrences" {
+  agenda_rows "$(row aaaaaaaaaaaa 'Retro | Sesi A' "$(at '2026-10-22 09:00')")"
+  answer 'a; b'
+  run "$SCRIPTS/prep" edit aaaaaaaaaaaa
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '[.items[].text]' "$TODO_FILE")" = '["Retro | Sesi A · a","Retro | Sesi A · b"]' ]
+  [ "$(cat "$ISLAND_PREP")" = 'Retro   Sesi A |  | a; b' ]
+  answer 'a; b; c'
+  run "$SCRIPTS/prep" edit aaaaaaaaaaaa
+  [ "$status" -eq 0 ]
+  [ "$(rofi_args | filter_arg)" = 'a; b' ]
+  [ "$(cat "$ISLAND_PREP")" = 'Retro   Sesi A |  | a; b; c' ]
+}
+
+@test "a title starting with a hash gets a template that is not a comment" {
+  agenda_rows "$(row aaaaaaaaaaaa '#standup tim' "$(at '2026-10-22 09:00')")"
+  answer 'a; b'
+  run "$SCRIPTS/prep" edit aaaaaaaaaaaa
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '[.items[].text]' "$TODO_FILE")" = '["#standup tim · a","#standup tim · b"]' ]
+  [ "$(cat "$ISLAND_PREP")" = 'standup tim |  | a; b' ]
+  answer 'a'
+  run "$SCRIPTS/prep" edit aaaaaaaaaaaa
+  [ "$status" -eq 0 ]
+  [ "$(rofi_args | filter_arg)" = 'a; b' ]
+  [ "$(cat "$ISLAND_PREP")" = 'standup tim |  | a' ]
 }
