@@ -8,7 +8,7 @@
   (box :class "upcoming" :orientation "h" :halign "start" :valign "start" :space-evenly false :spacing 0
     (revealer :transition "none" :reveal {upcoming.meeting.show}
       (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 kalender &"
-        (box :orientation "h" :space-evenly false :spacing 6 :tooltip {upcoming.meeting.title}
+        (box :orientation "h" :space-evenly false :spacing 0 :tooltip {upcoming.meeting.title}
           (label :class "up-dot" :style "color: ${upcoming.meeting.color};" :text "●")
           (label :class "up-title" :text {upcoming.meeting.title} :limit-width 22 :show-truncated true)
           (label :class "up-when up-${upcoming.meeting.state}" :text "· ${upcoming.meeting.text}")
@@ -18,7 +18,7 @@
       (label :class "up-sep" :text "│"))
     (revealer :transition "none" :reveal {upcoming.deadline.show}
       (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 tugas &"
-        (box :orientation "h" :space-evenly false :spacing 6 :tooltip {upcoming.deadline.title}
+        (box :orientation "h" :space-evenly false :spacing 0 :tooltip {upcoming.deadline.title}
           (label :class "up-icon" :text "󰃰")
           (label :class "up-title" :text {upcoming.deadline.title} :limit-width 22 :show-truncated true)
           (label :class "up-when ${upcoming.deadline.class}" :text "· ${upcoming.deadline.label}")
@@ -26,6 +26,6 @@
             (label :class "up-more" :text "+${upcoming.deadline.more}")))))
     (revealer :transition "none" :reveal {upcoming.empty}
       (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 kalender &"
-        (box :orientation "h" :space-evenly false :spacing 6
+        (box :orientation "h" :space-evenly false :spacing 0
           (label :class "up-icon up-muted" :text "󰃭")
           (label :class "up-muted" :text "Kosong hari ini"))))))
