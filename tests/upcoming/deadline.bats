@@ -45,3 +45,11 @@ load common
   next_event 2
   [ "$(d title)" = Laporan ]
 }
+
+@test "a row with a malformed field hides the meeting and still shows the deadline" {
+  todos "$(item 1 Laporan "$(at 17:00)")"
+  printf '{"ok":true,"rows":[{"id":"0000000000a1","start":%s,"end":%s,"title":"Standup","color":"#4f8cff","join":123,"day":"Hari ini"}]}\n' \
+    "$(at 09:30)" "$(at 10:30)" > "$ST/agenda.json"
+  shown
+  [ "$(m show) $(d show)" = 'false true' ]
+}

@@ -18,7 +18,9 @@ source "$DIR/lib/todo/render.sh"
 AGENDA="$ISLAND_STATE/agenda.json"
 NO_AGENDA='{"ok":false,"rows":[]}'
 AGENDA_VALID_JQ='type == "object" and (.rows | type) == "array"
-  and all(.rows[]; type == "object" and (.start | type) == "number" and (.end | type) == "number")'
+  and all(.rows[]; type == "object" and (.start | type) == "number" and (.end | type) == "number"
+    and (.id | type) == "string" and (.title | type) == "string" and (.color | type) == "string"
+    and (.join | type) == "string" and (.day | type) == "string")'
 # shellcheck disable=SC2016 # jq variables
 UPCOMING_JQ="$TODO_CHIP_JQ"'
 def hhmm: strflocaltime("%H:%M");
