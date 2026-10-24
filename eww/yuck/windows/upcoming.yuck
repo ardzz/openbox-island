@@ -9,7 +9,7 @@
     (revealer :transition "none" :reveal {upcoming.meeting.show}
       (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/island auto 10 kalender &"
         (box :orientation "h" :space-evenly false :spacing 0 :tooltip {upcoming.meeting.title}
-          (label :class "up-dot" :style "color: ${upcoming.meeting.color};" :text "●")
+          (label :class "up-dot" :style {upcoming.meeting.color == "" ? "" : "color: ${upcoming.meeting.color};"} :text "●")
           (label :class "up-title" :text {upcoming.meeting.title} :limit-width 22 :show-truncated true)
           (label :class "up-when up-${upcoming.meeting.state}" :text "· ${upcoming.meeting.text}")
           (revealer :transition "none" :valign "center" :reveal {upcoming.meeting.join}
