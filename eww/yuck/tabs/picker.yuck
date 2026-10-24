@@ -57,5 +57,5 @@
 
 ; A preset time chip; highlighted while it is the picked time.
 (defwidget pick-chip [time]
-  (button :class "pick-chip ${todo.picker.hour}:${todo.picker.minute} == time ? 'pick-chip-on' : ''}"
+  (button :class {todo.picker.hour + ":" + todo.picker.minute == time ? "pick-chip pick-chip-on" : "pick-chip"}
           :onclick "${EWW_CONFIG_DIR}/scripts/todo pick time ${time} &" time))
