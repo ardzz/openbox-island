@@ -4,8 +4,11 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 import urllib.error
@@ -169,3 +172,21 @@ class WatchTests(unittest.TestCase):
         before = main.dt.datetime(2026, 10, 24, 12, tzinfo=tz)
         after = main.dt.datetime(2026, 10, 26, 12, tzinfo=tz)
         self.assertNotEqual(before.utcoffset(), after.utcoffset())
+
+
+class SignalTests(unittest.TestCase):
+    def test_sigterm_ends_watch_at_once_even_while_it_is_busy(self):
+        # The island stops its alert worker with SIGTERM; a watch that outlives it keeps writing agenda.json.
+        script = ("import os, signal, time\n"
+                  "from agenda_pkg import main\n"
+                  "def busy(*args, **kwargs):\n"
+                  "    os.kill(os.getpid(), signal.SIGTERM)\n"
+                  "    time.sleep(5)\n"
+                  "main.watch = busy\n"
+                  "main.main(['watch'])\n")
+        scripts = Path(__file__).resolve().parents[2] / "eww" / "scripts"
+        env = dict(os.environ, PYTHONPATH=str(scripts))
+        started = time.monotonic()
+        done = subprocess.run([sys.executable, "-c", script], env=env, timeout=10, capture_output=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertLess(time.monotonic() - started, 3)

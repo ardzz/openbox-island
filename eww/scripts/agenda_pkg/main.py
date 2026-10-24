@@ -163,18 +163,23 @@ def check():
     return 1 if failed else 0
 
 
+def _stop(_signum, _frame):
+    raise SystemExit(0)
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     sys.stdout.reconfigure(encoding="utf-8")
     if argv == ["check"]:
         sys.exit(check())
     if argv == ["watch"]:
-        stopped = threading.Event()
+        # Raise instead of setting an Event: Event.set() from a handler deadlocks when the signal
+        # lands while the main thread holds that Event's lock.
         for signum in (signal.SIGINT, signal.SIGTERM):
-            signal.signal(signum, lambda _signum, _frame: stopped.set())
+            signal.signal(signum, _stop)
         try:
-            watch(stopped=stopped)
-        except BrokenPipeError:
+            watch()
+        except (BrokenPipeError, SystemExit):
             pass
         return
     print("pemakaian: agenda watch | check", file=sys.stderr)
