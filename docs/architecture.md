@@ -20,20 +20,24 @@ flowchart LR
   L[openbox/island.sh] -->|eww daemon| D[eww daemon]
   L -->|setsid| FS[scripts/fullscreen]
   L -->|dunst-osd.conf drop-in| DU[dunst]
-  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, status, rec,<br/>ytm, weather, shortcuts watch"]
+  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, kalender, status, rec,<br/>ytm, weather, shortcuts watch"]
   S -->|satu baris JSON| D
   D --> W[yuck: island / island-expanded]
-  W -->|onclick / onscroll / onhover| C["scripts/island, tab, todo,<br/>notif, notify, scroll, shortcuts"]
+  W -->|onclick / onscroll / onhover| C["scripts/island, tab, todo, kalender,<br/>notif, notify, scroll, shortcuts"]
   C -->|fifo_signal NAME.fifo| S
   C -->|eww update| D
   DU -->|script| H[scripts/notify-hook]
   H -->|notify.fifo, notif.fifo| S
   FS -->|island hide / show| C
+  S -->|monitor sumber meeting| A[scripts/agenda watch]
+  A -->|agenda.json setiap 15 detik| K[scripts/kalender]
+  K -->|satu baris JSON| D
 ```
 
 - `openbox/island.sh`: menghentikan daemon lama, menulis `_colors.scss`, menjalankan `eww daemon`, membuka `island`, menjalankan `scripts/fullscreen DAEMON_PID`, memasang `eww/dunst-osd.conf` ke `dunstrc.d`. `island.sh stop` menghentikan semuanya.
 - `scripts/fullscreen` bukan deflisten: eww menghentikan deflisten yang variabelnya tidak dipakai jendela terbuka, padahal watcher ini justru menutup kedua jendela.
 - `scripts/notify-hook` dijalankan dunst untuk tiap notifikasi; ia hanya mengirim baris ke `notify.fifo` dan `@refresh` ke `notif.fifo`.
+- `scripts/agenda watch` mengambil feed iCal dan menulis `$ISLAND_STATE/agenda.json` setiap 15 detik; `scripts/kalender` membaca data itu untuk daftar, scroll, dan Join. Produsen berjalan sebagai monitor sumber alert `meeting`, bukan deflisten khusus kartu: deflisten yang hanya dipakai kartu berhenti saat kartu ditutup, padahal pengingat harus tetap berjalan.
 - State runtime ada di `$ISLAND_STATE` (`$XDG_RUNTIME_DIR/eww-island`): FIFO `NAME.fifo`, lock, cache.
 
 ## 2. Struktur folder
@@ -53,6 +57,7 @@ eww/scripts/<nama>         entry point: deflisten atau perintah dari yuck
 eww/scripts/lib/*.sh       framework bersama (core, store, paged, listener, monitor)
 eww/scripts/lib/<area>/    modul per area: alert, status, notify, tabs, viz, weather, media, ytm
 eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sources/: lrclib, netease, ytmusic)
+eww/scripts/agenda_pkg/    produsen kalender: config, fetch/cache iCal, recurring events, render JSON
 eww/{players,shortcuts}    konfigurasi pengguna; cava.conf, dunst-osd.conf, _colors.scss
 tools/check                gerbang ukuran file, shellcheck, py_compile
 tools/preview              render satu jendela dari sampel ke PNG; sampel di tools/samples/*.vars

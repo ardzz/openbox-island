@@ -11,6 +11,7 @@
 (include "./yuck/pill/alert.yuck")
 (include "./yuck/pill/notify.yuck")
 (include "./yuck/tabs/musik.yuck")
+(include "./yuck/tabs/kalender.yuck")
 (include "./yuck/tabs/cuaca.yuck")
 (include "./yuck/tabs/notif.yuck")
 (include "./yuck/tabs/tugas.yuck")

@@ -54,7 +54,8 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 - Temporary pill alerts for volume and mute, microphone, audio output switch, brightness, charging, battery (including Lenovo conservation mode), low battery, Wi-Fi, Bluetooth, VPN and Tailscale, new screenshots (with a thumbnail), CPU/GPU temperature, Caps Lock, and ACPI power profile.
 
 **Tabs**
-- The expanded card has **Music**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. Each tab appears only while it has content; To-do is always available and supports optional deadlines with reminders the day before and on the day.
+- The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. Each tab appears only while it has content; To-do is always available and supports optional deadlines with reminders the day before and on the day.
+- Kalender combines today's and tomorrow's iCal events, with account colours, all-day summaries, Join buttons and meeting reminders.
 
 **Indicators**
 - Dots on the pill for screen recording (red, with elapsed time), microphone in use (yellow) and camera in use (green), plus a crossed-out bell while dunst Do Not Disturb is on.
@@ -107,6 +108,11 @@ All images below are rendered from sample states in `tools/samples/`.
   </tr>
   <tr>
     <td align="center"><img src="docs/assets/screenshots/card-notif-scrolled.png" alt="Notification center scrolled" width="400"><br><sub>Scrolled to older notifications</sub></td>
+    <td></td>
+  </tr>
+  <tr><th colspan="2">Kalender</th></tr>
+  <tr>
+    <td align="center"><img src="docs/assets/screenshots/card-kalender.png" alt="Calendar agenda with all-day events and meeting links" width="400"><br><sub>Today's agenda and meeting links</sub></td>
     <td></td>
   </tr>
   <tr><th colspan="2">To-do</th></tr>
@@ -196,6 +202,8 @@ ln -s "$PWD/openbox/island.sh" ~/.config/openbox/island.sh
 ```
 
 The visualizer also needs an active PipeWire session with `pipewire-pulse`.
+
+Kalender optionally needs `python-icalendar` and `python-recurring-ical-events` (Arch packages). See [calendar setup](docs/fitur.md#menyiapkan-kalender) for the private iCal configuration.
 
 **Start and stop**
 

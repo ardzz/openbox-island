@@ -1,6 +1,6 @@
 # Fitur
 
-Perilaku island: pill ringkas dan kartu, musik, lirik, visualizer, alert, notifikasi, indikator, serta tab Cuaca, Tugas, dan Pintasan.
+Perilaku island: pill ringkas dan kartu, musik, lirik, visualizer, alert, notifikasi, indikator, serta tab Kalender, Cuaca, Tugas, dan Pintasan.
 
 [README](../README.md) · [Fitur](fitur.md) · [Konfigurasi](konfigurasi.md) · [Debug dan tes](debug.md) · [Arsitektur](architecture.md)
 
@@ -22,7 +22,7 @@ Scroll ke atas/bawah di atas island ringkas mengubah volume keluaran default seb
 
 ## Tab
 
-- Tab: kartu yang membesar punya tab **Musik** (kartu media), **Cuaca** (kartu cuaca), **Notifikasi** (pusat notifikasi, lihat di bawah), **Tugas** (daftar tugas, lihat di bawah), dan **Pintasan** (tombol pintasan, lihat di bawah). Tab hanya tersedia selama ada isinya: Musik selama ada player yang memutar atau dijeda, Cuaca selama cuaca tersedia, Notifikasi selama riwayat dunst berisi notifikasi, Pintasan selama `eww/shortcuts` berisi minimal satu pintasan; Tugas selalu tersedia. Jika lebih dari satu tab tersedia, baris tab kecil tampil di atas kartu: tab aktif tebal di atas chip abu gelap, tab lain redup. Klik tab untuk memilihnya; scroll ke atas/bawah di atas baris tab berpindah ke tab sebelumnya/berikutnya (memutar, satu perpindahan per 0,5 detik agar satu gerakan touchpad tidak melompati beberapa tab). Hover membuka tab yang terakhir dipilih, atau tab pertama yang tersedia bila tab itu kosong. Ganti lagu selalu membuka tab Musik tanpa mengubah pilihan tersimpan; saat musik berhenti, kartu yang tetap terbuka pindah ke Cuaca.
+- Tab: kartu yang membesar punya tab **Musik** (kartu media), **Kalender** (agenda hari ini dan besok), **Cuaca** (kartu cuaca), **Notifikasi** (pusat notifikasi, lihat di bawah), **Tugas** (daftar tugas, lihat di bawah), dan **Pintasan** (tombol pintasan, lihat di bawah). Tab hanya tersedia selama ada isinya: Musik selama ada player yang memutar atau dijeda, Kalender selama data kalender tersedia, Cuaca selama cuaca tersedia, Notifikasi selama riwayat dunst berisi notifikasi, Pintasan selama `eww/shortcuts` berisi minimal satu pintasan; Tugas selalu tersedia. Jika lebih dari satu tab tersedia, baris tab kecil tampil di atas kartu: tab aktif tebal di atas chip abu gelap, tab lain redup. Klik tab untuk memilihnya; scroll ke atas/bawah di atas baris tab berpindah ke tab sebelumnya/berikutnya (memutar, satu perpindahan per 0,5 detik agar satu gerakan touchpad tidak melompati beberapa tab). Hover membuka tab yang terakhir dipilih, atau tab pertama yang tersedia bila tab itu kosong. Ganti lagu selalu membuka tab Musik tanpa mengubah pilihan tersimpan; saat musik berhenti, kartu yang tetap terbuka pindah ke Cuaca.
 
 ## Musik
 
@@ -129,6 +129,32 @@ Deadline bersifat opsional. Setelah **+ Tambah** meminta teks, rofi menawarkan *
 Chip deadline tampil di samping teks: redup untuk deadline yang masih jauh (misalnya `Jum 17:00`), kuning jika kurang dari 24 jam (misalnya `besok 09:00`), dan merah dengan label `terlambat` jika sudah lewat. Tugas tanpa deadline tidak menampilkan chip. Dari terminal: `scripts/todo add TEKS --due EPOCH`, `scripts/todo set-due ID EPOCH|none`, atau `scripts/todo due ID` untuk membuka rofi.
 
 Pengingat H-1 dan hari H dikirim pukul 09:00 secara bawaan sebagai notifikasi aplikasi **Tugas**, dengan judul `Deadline besok · HH:MM` atau `Deadline hari ini · HH:MM`; notifikasinya tetap tersimpan di tab **Notifikasi**. Jika beberapa pengingat terlewat, hanya yang terbaru dikirim. Tugas selesai tidak diingatkan; mengubah deadline mengaktifkan ulang pengingat. Waktu dan interval dapat diatur lewat [variabel lingkungan](konfigurasi.md#variabel-lingkungan).
+
+## Kalender
+
+Tab **Kalender** menampilkan jadwal hari ini dan besok dari beberapa kalender iCal, dengan titik warna per akun. Empat baris tampil sekaligus; posisi awal dimulai dari acara pertama yang belum berakhir. Scroll ke atas untuk melihat acara sebelumnya atau ke bawah untuk melihat sisanya. Acara yang sudah lewat redup, acara berlangsung disorot, dan waktu acara yang segera dimulai berwarna kuning. Acara seharian diringkas dalam satu baris. Acara yang ditolak disembunyikan jika EMAIL akun diisi.
+
+### Menyiapkan kalender
+
+1. Pasang paket Arch: `sudo pacman -S --needed python-icalendar python-recurring-ical-events`.
+2. Untuk setiap kalender Google, buka Settings → pilih kalender → Integrate calendar → salin **Secret address in iCal format**.
+3. Buat direktori `~/.config/openbox-island`, lalu berkas `~/.config/openbox-island/calendars` dengan satu akun per baris:
+
+   ```text
+   # NAME | #RRGGBB | EMAIL | URL
+   Kantor | #4f8cff | nama@example.com | https://calendar.google.com/calendar/ical/ALAMAT-RAHASIA/basic.ics
+   Pribadi | #34c759 | | https://calendar.google.com/calendar/ical/ALAMAT-RAHASIA-LAIN/basic.ics
+   ```
+
+   Ganti URL contoh dengan alamat rahasia kalender masing-masing. EMAIL boleh kosong; baris berawalan `#` adalah komentar.
+4. Batasi akses: `chmod 600 ~/.config/openbox-island/calendars`.
+5. Jalankan `~/.config/eww-island/scripts/agenda check`. Setiap akun menampilkan `NAME: OK, …` atau error, tanpa mencetak URL. Jalankan ulang island setelah konfigurasi siap.
+
+Tombol **Join** tersedia pada acara yang memiliki tautan rapat dan belum berakhir. Klik menutup kartu lebih dulu, lalu membuka tautan. Data diambil ulang setiap 300 detik; tab membaca data lokal setiap 2 detik. Saat offline, feed cache tetap dipakai dengan catatan `diperbarui HH:MM`.
+
+Pengingat dikirim sebagai notifikasi aplikasi **Kalender** 10 menit sebelum rapat (`Meeting 10 menit lagi · HH:MM`) dan saat mulai (`Meeting dimulai · HH:MM`), lalu kartu membuka tab Kalender selama 10 detik. Atur waktunya lewat [variabel lingkungan](konfigurasi.md#variabel-lingkungan); `ISLAND_MEETING_BEFORE` kosong mematikan pengingat sebelum rapat.
+
+Alamat iCal rahasia adalah kata sandi: siapa pun yang memilikinya dapat membaca kalender. Simpan hanya di berkas konfigurasi di luar repo, jangan masukkan ke commit atau screenshot. Cache kalender tersimpan di `~/.cache/eww-island/calendar`.
 
 ## Pintasan
 

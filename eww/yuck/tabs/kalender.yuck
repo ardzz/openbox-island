@@ -1,0 +1,19 @@
+; Today and tomorrow from scripts/agenda: the first event not yet over on top, earlier ones above
+; (scroll up). Join opens the meeting link after closing the card.
+(defwidget page-kalender []
+  (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/kalender scroll {} &"
+             :more {kalender.more > 0 ? "+${kalender.more} lainnya" : kalender.total == 0 ? "Tidak ada jadwal hari ini & besok" : ""}
+    (box :orientation "v" :space-evenly false :spacing 2
+      (revealer :transition "none" :reveal {kalender.allday_text != ""}
+        (label :class "cal-allday" :xalign 0 :text "Seharian · ${kalender.allday_text}"
+               :limit-width 70 :show-truncated true :wrap false))
+      (for row in {kalender.rows}
+        (box :class "cal-row cal-${row.state}" :orientation "h" :space-evenly false :spacing 8
+             :tooltip "${row.title} · ${row.account}"
+          (label :class "cal-dot" :style "color: ${row.color};" :text "●")
+          (label :class "cal-time" :text {row.time} :xalign 0)
+          (label :class "cal-title" :text {row.title} :xalign 0 :hexpand true
+                 :limit-width 34 :show-truncated true :wrap false)
+          (revealer :transition "none" :valign "center" :reveal {row.join != "" && row.state != "past"}
+            (button :class "cal-join" :onclick "${EWW_CONFIG_DIR}/scripts/kalender join ${row.id} &" "Join")))))
+    (label :class "list-more cal-note" :xalign 1 :text {kalender.note} :limit-width 40 :show-truncated true)))

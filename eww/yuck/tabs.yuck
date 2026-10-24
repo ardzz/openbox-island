@@ -4,6 +4,7 @@
   (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/tab {} &"
     (box :class "tabs" :orientation "h" :halign "center" :space-evenly false :spacing 4
       (tab-chip :id "musik" :label "Musik" :available {media.state != "none"})
+      (tab-chip :id "kalender" :label {kalender.label} :available {kalender.ok})
       (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok})
       (tab-chip :id "notif" :label {notif_center.label} :available {notif_center.total > 0})
       (tab-chip :id "tugas" :label {todo.label} :available true)
@@ -14,6 +15,7 @@
   (box :class "pill pill-expanded" :orientation "v" :space-evenly false
     (tab-header)
     (tab-page :id "musik" (page-musik))
+    (tab-page :id "kalender" (page-kalender))
     (tab-page :id "cuaca" (page-cuaca))
     (tab-page :id "notif" (page-notif))
     (tab-page :id "tugas" (page-tugas))

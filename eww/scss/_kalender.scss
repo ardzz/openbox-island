@@ -1,0 +1,57 @@
+.cal-row {
+  min-height: 28px;
+  padding: 0 4px;
+  border-radius: 8px;
+}
+
+.cal-row:hover {
+  background-color: $island-track;
+}
+
+.cal-past {
+  color: $muted;
+}
+
+.cal-now {
+  background-color: mix($island-accent, $island-bg, 12%);
+}
+
+.cal-now .cal-title {
+  font-weight: bold;
+}
+
+.cal-soon .cal-time {
+  color: $yellow;
+}
+
+.cal-time {
+  font-size: 11px;
+  font-feature-settings: "tnum";
+}
+
+.cal-title {
+  font-size: 12px;
+}
+
+.cal-dot {
+  font-size: 10px;
+}
+
+.cal-join {
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: bold;
+  background-color: $island-accent;
+  color: $island-bg;
+}
+
+.cal-join:hover {
+  background-color: mix($island-accent, $fg, 80%);
+}
+
+.cal-allday,
+.cal-note {
+  font-size: 11px;
+  color: $muted;
+}
