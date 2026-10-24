@@ -84,7 +84,7 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_CONSERVATION_INTERVAL` | `5` | Interval baca mode konservasi (detik) | `eww/scripts/lib/alert/conservation.sh` | [aktivitas](fitur.md#aktivitas) |
 | `ISLAND_VPN_INTERVAL` | `10` | Interval pemeriksaan VPN/Tailscale (detik) | `eww/scripts/lib/alert/vpn.sh` | [aktivitas](fitur.md#aktivitas) |
 | `ISLAND_REC_INTERVAL` | `2` | Interval pemeriksaan `/proc` untuk perekaman layar saat tidak merekam (detik) | `eww/scripts/rec` | [indikator](fitur.md#indikator) |
-| `ISLAND_DEADLINE_TIME` | `17:00` | Waktu deadline untuk tanggal yang diketik tanpa jam | `eww/scripts/lib/todo/deadline.sh` | [deadline](fitur.md#deadline) |
+| `ISLAND_DEADLINE_TIME` | `17:00` | Waktu bawaan penanggal deadline (dan tenggat template prep `Nh`) | `eww/scripts/lib/todo/picker.sh` | [deadline](fitur.md#deadline) |
 | `ISLAND_DEADLINE_EVE` | `09:00` | Jam pengingat H-1; nilai kosong menonaktifkannya | `eww/scripts/lib/todo/deadline.sh` | [deadline](fitur.md#deadline) |
 | `ISLAND_DEADLINE_DAY` | `09:00` | Jam pengingat hari H; nilai kosong menonaktifkannya | `eww/scripts/lib/todo/deadline.sh` | [deadline](fitur.md#deadline) |
 | `ISLAND_DEADLINE_INTERVAL` | `30` | Interval pemeriksaan pengingat deadline (detik) | `eww/scripts/lib/alert/deadline.sh` | [deadline](fitur.md#deadline) |

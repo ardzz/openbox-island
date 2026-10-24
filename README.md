@@ -54,7 +54,7 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 - Temporary pill alerts for volume and mute, microphone, audio output switch, brightness, charging, battery (including Lenovo conservation mode), low battery, Wi-Fi, Bluetooth, VPN and Tailscale, new screenshots (with a thumbnail), CPU/GPU temperature, Caps Lock, and ACPI power profile.
 
 **Tabs**
-- The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. Each tab appears only while it has content; To-do is always available and supports optional deadlines with reminders the day before and on the day.
+- The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. Each tab appears only while it has content; To-do is always available and supports optional deadlines — set in an in-card date picker (month calendar, time steppers and presets) — with reminders the day before and on the day.
 - Kalender lists iCal events — or Google Calendar API accounts (`google:<calendarId>`, see below) — from today through the next 30 days, with account colours, all-day summaries, Join buttons and meeting reminders.
 - Meeting prep templates turn recurring meetings into To-do items before each occurrence: a `Prep N/M` chip on the Kalender tab, `· Prep N/M` on the left pill, and a reminder body that names unfinished prep.
 
@@ -130,7 +130,7 @@ All images below are rendered from sample states in `tools/samples/`.
   </tr>
   <tr>
     <td align="center"><img src="docs/assets/screenshots/card-todo-empty.png" alt="Empty to-do list" width="400"><br><sub>Empty</sub></td>
-    <td></td>
+    <td align="center"><img src="docs/assets/screenshots/card-todo-picker.png" alt="Deadline picker in the To-do tab" width="400"><br><sub>Deadline picker</sub></td>
   </tr>
   <tr><th colspan="2">Shortcuts</th></tr>
   <tr>

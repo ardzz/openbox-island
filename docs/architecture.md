@@ -53,16 +53,18 @@ eww/yuck/vars.yuck         semua deflisten/defvar/defpoll (satu baris per deflis
 eww/yuck/widgets/          widget bersama: cover, skeleton, equalizer, indicators, thumb, tab, list-page
 eww/yuck/pill/             halaman pill ringkas: idle, media, alert, notify
 eww/yuck/tabs/<id>.yuck    satu halaman tab: page-<id>
+eww/yuck/tabs/picker.yuck  penanggal deadline (deadline-picker) di tab Tugas, menggantikan daftar selama terbuka
 eww/yuck/tabs.yuck         tab-header (chip) dan tab-card (halaman), urutan sama dengan lib/tabs
 eww/yuck/windows/          defwindow island dan island-expanded
 eww/scss/_*.scss           gaya per area (lihat peta di §4.5)
 eww/scripts/<nama>         entry point: deflisten atau perintah dari yuck
 eww/scripts/lib/*.sh       framework bersama (core, store, paged, listener, monitor)
 eww/scripts/lib/<area>/    modul per area: alert, status, notify, tabs, viz, weather, media, ytm
+eww/scripts/lib/todo/      modul Tugas: deadline.sh (epoch/pengingat), picker.sh (state penanggal + JSON `picker`)
 eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sources/: lrclib, netease, ytmusic)
 eww/scripts/agenda_pkg/    produsen kalender: config, fetch/cache iCal, Google Calendar API (google.py, login.py), recurring events, render JSON
 eww/scripts/prep           CLI prep: `sync` satu sinkronisasi, `edit ID` lewat rofi
-eww/rofi/island.rasi       tema rofi untuk form Tugas, deadline, dan prep; lib/rofi.sh (`island_rofi`) memakainya dengan palet bar
+eww/rofi/island.rasi       tema rofi untuk form teks Tugas dan prep; lib/rofi.sh (`island_rofi`) memakainya dengan palet bar
 eww/scripts/lib/prep/      template.sh (format template) dan sync.sh (membuat item Tugas)
 eww/scripts/lib/alert/prep.sh sumber alert `prep` (interval `ISLAND_PREP_INTERVAL`)
 eww/{players,shortcuts}    konfigurasi pengguna; cava.conf, dunst-osd.conf, _colors.scss
@@ -204,7 +206,7 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 | `_base`, `_pill` | dasar; notch, ear, ukuran halaman pill, indikator |
 | `_alert`, `_notify`, `_weather`, `_music` | per area (pill dan tab) |
 | `_components` | cover, skeleton, footer `list-more`/`list-action` |
-| `_card`, `_notif`, `_todo`, `_shortcuts` | kartu expanded dan tab-tabnya |
+| `_card`, `_notif`, `_todo`, `_picker`, `_shortcuts` | kartu expanded dan tab-tabnya; `_picker` = penanggal deadline di tab Tugas |
 
 Partial baru: buat `eww/scss/_<area>.scss`, tambah `@import "scss/<area>";` di `eww/eww.scss`.
 
