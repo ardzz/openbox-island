@@ -56,6 +56,7 @@ battery_signal() {
   start_listener
   [ "$(headphone "$first")" = '["bt","ULT WEAR",90,false,"ULT WEAR · 90%"]' ]
   [ "$(jq -r '.headphone.icon' <<< "$first")" = $'\U000F0970' ]
+  [ "$(jq -r '.headphone.battery_icon' <<< "$first")" = $'\U000F0079' ]
   [ "$(count_calls bt-calls "info $BT_MAC")" -ge 1 ]
 }
 
@@ -64,6 +65,7 @@ battery_signal() {
   bt_info 'ULT WEAR' 15
   start_listener
   [ "$(headphone "$first")" = '["bt","ULT WEAR",15,true,"ULT WEAR · 15%"]' ]
+  [ "$(jq -r '.headphone.battery_icon' <<< "$first")" = $'\U000F007A' ]
 }
 
 @test "headphone: an unknown battery shows the name only and the MAC falls back to the sink name" {
@@ -71,6 +73,7 @@ battery_signal() {
   bt_info 'ULT WEAR (Reky)'
   start_listener
   [ "$(headphone "$first")" = '["bt","ULT WEAR (Reky)",null,false,"ULT WEAR (Reky)"]' ]
+  [ "$(jq -r '.headphone.battery_icon' <<< "$first")" = '' ]
   [ "$(count_calls bt-calls "info $BT_MAC")" -ge 1 ]
 }
 

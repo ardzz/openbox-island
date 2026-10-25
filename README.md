@@ -48,13 +48,13 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 **Notifications**
 - Every dunst notification, critical ones included, appears in the island instead of a dunst popup; critical notifications get a red accent.
 - Clicking a notification dismisses it and focuses or launches its app.
-- A Notifications tab works as a notification center built on dunst history, and its label shows the unread count.
+- A Notifications tab works as a notification center built on dunst history; an accent dot on its tab icon marks notifications you have not seen yet.
 
 **Alerts**
 - Temporary pill alerts for volume and mute, microphone, audio output switch, brightness, charging, battery (including Lenovo conservation mode), low battery, Wi-Fi, Bluetooth, VPN and Tailscale, new screenshots (with a thumbnail), CPU/GPU temperature, Caps Lock, and ACPI power profile.
 
 **Tabs**
-- The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. Each tab appears only while it has content; To-do is always available and supports optional deadlines — set in an in-card date picker (month calendar, time steppers and presets) — with reminders the day before and on the day.
+- The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. The tab header shows one icon per tab; the selected tab adds its name and an accent count badge (events left today, notifications, open to-dos). Each tab appears only while it has content; To-do is always available and supports optional deadlines — set in an in-card date picker (month calendar, time steppers and presets) — with reminders the day before and on the day.
 - Kalender lists iCal events — or Google Calendar API accounts (`google:<calendarId>`, see below) — from today through the next 30 days, with account colours, all-day summaries, Join buttons and meeting reminders.
 - Meeting prep templates turn recurring meetings into To-do items before each occurrence: a `Prep N/M` chip on the Kalender tab, `· Prep N/M` on the left pill, and a reminder body that names unfinished prep.
 
@@ -204,7 +204,7 @@ Requires an Openbox session on X11 with eww 0.5 and dunst.
 
 ```bash
 git clone https://github.com/ardzz/openbox-island.git && cd openbox-island
-sudo pacman -S --needed playerctl jq curl xdotool xorg-xprop xorg-xrandr cava pipewire-audio libpulse inotify-tools python dbus light upower networkmanager
+sudo pacman -S --needed playerctl jq curl xdotool xorg-xprop xorg-xrandr cava pipewire-audio libpulse inotify-tools python dbus light upower networkmanager inter-font ttf-nerd-fonts-symbols
 ln -s "$PWD/eww" ~/.config/eww-island
 ln -s "$PWD/openbox/island.sh" ~/.config/openbox/island.sh
 ```

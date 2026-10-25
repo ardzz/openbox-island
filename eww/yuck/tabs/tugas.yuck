@@ -3,7 +3,8 @@
 ; While the deadline picker is open it replaces the list (tabs/picker.yuck).
 (defwidget page-tugas []
   (box :orientation "v" :space-evenly false :spacing 0
-    (revealer :transition "none" :reveal {!todo.picker.show}
+    ; Only the shown one takes the card height, so the list keeps its footer at the bottom.
+    (revealer :transition "none" :reveal {!todo.picker.show} :vexpand {!todo.picker.show}
       (todo-list))
     (revealer :transition "none" :reveal {todo.picker.show}
       (deadline-picker))))
@@ -12,7 +13,7 @@
 (defwidget todo-list []
   (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/todo scroll {} &"
              :more {todo.more > 0 ? "+${todo.more} lainnya" : ""}
-    (box :orientation "v" :space-evenly false :spacing 2
+    (box :orientation "v" :space-evenly false :spacing 0
       (revealer :transition "none" :reveal {todo.total == 0}
         (label :class "todo-empty" :text "Belum ada tugas"))
       (for row in {todo.rows}

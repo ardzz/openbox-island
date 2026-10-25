@@ -1,12 +1,12 @@
-// To-do list: four one-line rows; done rows are struck through and muted.
+// To-do list: four one-line rows that touch; done rows are struck through and muted.
 .todo-row {
-  min-height: 28px;
-  padding: 0 4px;
-  border-radius: 8px;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 10px;
 }
 
 .todo-row:hover {
-  background-color: $island-track;
+  background-color: $island-fill;
 }
 
 .todo-check,
@@ -30,10 +30,17 @@
 }
 
 .todo-due {
-  padding: 0 6px;
-  border-radius: 6px;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
   font-size: 11px;
+  font-weight: 500;
+  font-feature-settings: "tnum";
   color: $muted;
+  background-color: $island-fill;
+}
+
+.todo-row:hover .todo-due {
   background-color: $island-track;
 }
 

@@ -3,21 +3,24 @@
 (defwidget page-kalender []
   (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/kalender scroll {} &"
              :more {kalender.more > 0 ? "+${kalender.more} lainnya" : kalender.total == 0 && kalender.allday_text == "" ? "Tidak ada jadwal mendatang" : ""}
-    (box :orientation "v" :space-evenly false :spacing 2
+    (box :orientation "v" :space-evenly false :spacing 0
       (revealer :transition "none" :reveal {kalender.allday_text != ""}
-        (label :class "cal-allday" :xalign 0 :text "Seharian · ${kalender.allday_text}"
-               :limit-width 70 :show-truncated true :wrap false))
+        (box :class "cal-allday" :orientation "h" :space-evenly false :spacing 0
+          (label :class "cal-allday-tag" :valign "center" :text "Seharian")
+          (label :class "cal-allday-text" :xalign 0 :text {kalender.allday_text}
+                 :limit-width 60 :show-truncated true :wrap false)))
       (for row in {kalender.rows}
         (box :class "cal-row cal-${row.state}" :orientation "h" :space-evenly false :spacing 0
              :tooltip "${row.title} · ${row.account}"
-          (label :class "cal-dot" :style "color: ${row.color};" :text "●")
+          (box :class "cal-dot" :valign "center" :style "background-color: ${row.color};")
           (label :class "cal-time" :text {row.time} :xalign 0)
           (label :class "cal-title" :text {row.title} :xalign 0 :hexpand true
                  :limit-width 22 :show-truncated true :wrap false)
           (revealer :transition "none" :valign "center" :reveal {row.prep != ""}
             (label :class {row.prep_done ? "cal-prep cal-prep-done" : "cal-prep"} :text "Prep ${row.prep}"))
-          (button :class "cal-prep-edit" :tooltip "Atur prep" :onclick "${EWW_CONFIG_DIR}/scripts/prep edit ${row.id} &"
-            "󰝖")
           (revealer :transition "none" :valign "center" :reveal {row.join != "" && row.state != "past"}
-            (button :class "cal-join" :onclick "${EWW_CONFIG_DIR}/scripts/kalender join ${row.id} &" "Join")))))
+            (button :class "cal-join" :onclick "${EWW_CONFIG_DIR}/scripts/kalender join ${row.id} &" "Join"))
+          ; Last, so the prep button keeps one column whether or not the row has Join.
+          (button :class "cal-prep-edit" :tooltip "Atur prep" :onclick "${EWW_CONFIG_DIR}/scripts/prep edit ${row.id} &"
+            "󰝖"))))
     (label :class "list-more cal-note" :xalign 1 :text {kalender.note} :limit-width 40 :show-truncated true)))

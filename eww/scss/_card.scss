@@ -1,23 +1,78 @@
-// The expanded card: the tab header sits below the 8px screen-edge strip.
+// The expanded card: the tab header sits below the 8px screen-edge strip; sides and bottom keep the
+// pill's 16px inset, so 448px of content. Corner-touching tiles use radius 12 (28 - 16).
 .pill-expanded {
-  min-width: 440px;
-  padding: 8px 20px 14px;
-  border-radius: 0 0 22px 22px;
+  min-width: 448px;
+  padding: 8px $inset $inset;
+  border-radius: 0 0 28px 28px;
 }
 
 .tabs {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
+// The shown page is at least 164px tall, so every tab gives the card the same height and paged
+// lists keep their footer at the bottom (2px under the 218px window for rounding).
+.tab-body {
+  min-height: 164px;
+}
+
+// Header chips: an idle tab shows its icon; the selected one adds its name and a count badge.
 .tab {
-  padding: 2px 10px;
-  border-radius: 9px;
+  min-height: 20px;
+  border-radius: 10px;
   color: $muted;
-  font-size: 11px;
 }
 
-.tab-active {
+.tab:hover {
+  background-color: $island-fill;
+}
+
+.tab-icon {
+  min-width: 28px;
+  font-size: 14px;
+}
+
+.tab-active,
+.tab-active:hover {
+  padding: 0 10px 0 8px;
   background-color: $island-track;
   color: $fg;
-  font-weight: bold;
+}
+
+.tab-active .tab-icon {
+  min-width: 0;
+}
+
+// The badge sits 3px from the chip's round end, so the two curves stay concentric.
+.tab-active.tab-counted {
+  padding-right: 3px;
+}
+
+// Margins (not box spacing) so the hidden name and badge reserve nothing.
+.tab-name {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tab-count {
+  min-height: 14px;
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background-color: $island-accent;
+  color: $island-bg;
+  font-size: 10px;
+  font-weight: 600;
+  font-feature-settings: "tnum";
+}
+
+// News on an idle tab's icon (unread notifications), ringed in black to stand off the glyph.
+.tab-dot {
+  min-width: 6px;
+  min-height: 6px;
+  margin: 2px 6px 0 0;
+  border-radius: 3px;
+  background-color: $island-accent;
+  box-shadow: 0 0 0 2px $island-bg;
 }

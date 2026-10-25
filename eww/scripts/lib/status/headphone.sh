@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Headphone source of scripts/status, fed by pactl and bluez. Source it after core.sh; do not execute.
 
-HEADPHONE_NONE='{"kind":"none","icon":"","name":"","battery":null,"low":false,"label":""}'
+HEADPHONE_NONE='{"kind":"none","icon":"","name":"","battery":null,"battery_icon":"","low":false,"label":""}'
+# Battery glyphs for the Musik tab, emptiest first: md-battery_10, _30, _60 and md-battery (full).
+HEADPHONE_BATTERY_ICONS=$'\U000F007A \U000F007C \U000F007F \U000F0079'
 BLUEZ_RE="PropertiesChanged \\('org\\.bluez\\.(Battery1', \\{.*'Percentage'|Device1', \\{.*'Connected')"
 
 # headphone_snapshot: the default sink as a bluetooth headset, wired headphones or nothing.
@@ -35,9 +37,12 @@ headphone_snapshot() {
     wired) icon=$ICON_HEADPHONES ;;
     *) headphone_idle; return ;;
   esac
-  jq -cn --arg kind "$kind" --arg icon "$icon" --arg name "$name" --arg battery "$battery" '
-    ($battery | if . == "" then null else tonumber end) as $b |
+  jq -cn --arg kind "$kind" --arg icon "$icon" --arg name "$name" --arg battery "$battery" \
+    --arg icons "$HEADPHONE_BATTERY_ICONS" '
+    ($battery | if . == "" then null else tonumber end) as $b | ($icons | split(" ")) as $i |
     {source:"headphone",headphone:{kind:$kind,icon:$icon,name:$name,battery:$b,
+      battery_icon:(if $b == null then "" elif $b >= 75 then $i[3] elif $b >= 50 then $i[2]
+        elif $b >= 25 then $i[1] else $i[0] end),
       low:($b != null and $b <= 20),label:($name + (if $b == null then "" else " · \($b)%" end))}}'
 }
 

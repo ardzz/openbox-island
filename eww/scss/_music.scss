@@ -68,7 +68,7 @@
 }
 
 .title {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 14px;
 }
 
@@ -95,14 +95,30 @@
   font-size: 12px;
 }
 
+// Up next: a queue glyph stands in for the "Berikutnya:" label.
+.up-next-icon {
+  margin-right: 6px;
+  color: $muted;
+  font-size: 14px;
+}
+
 // The margin sits inside the device revealer so a hidden device leaves no gap.
 .device {
   color: $muted;
   margin-left: 8px;
 }
 
+// Margins (not box spacing) so a hidden battery reserves nothing.
 .device-name {
+  margin-left: 6px;
   font-size: 12px;
+}
+
+// Battery as a level glyph and the percentage, after the name.
+.device-battery {
+  margin-left: 6px;
+  font-size: 12px;
+  font-feature-settings: "tnum";
 }
 
 .device-icon {

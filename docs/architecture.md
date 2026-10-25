@@ -193,7 +193,7 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 |---|---|---|
 | `list-page` | `onscroll more`; child 0 = baris, child 1 = aksi footer | daftar berhalaman (notif, tugas) |
 | `thumb` | `kind image icon` | gambar atau ikon; kelas `KIND-thumb`/`KIND-icon` |
-| `tab-chip` / `tab-page` | `id label available` / `id` | header dan isi tab |
+| `tab-chip` / `tab-page` | `id icon name count dot available` / `id` | header (ikon; tab aktif + nama + badge `count` bila > 0; `dot` = titik baru di ikon) dan isi tab (tinggi minimum 164px) |
 | `skeleton` | `class width` | placeholder teks yang sedang dimuat |
 | `cover` | `size` | cover art `media.art` |
 | `equalizer`, `indicators` | – | bar `viz`; titik rec/mic/kamera/DND |
@@ -202,7 +202,7 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 
 | Partial | Isi |
 |---|---|
-| `_tokens` | `$island-bg`, `$island-accent`, `$island-track`, `$red`, `$muted`, `$ear` |
+| `_tokens` | `$island-bg`, `$island-accent`, `$island-fill`, `$island-track`, `$island-accent-soft`, `$red`, `$muted`, `$ear`, `$inset` |
 | `_base`, `_pill` | dasar; notch, ear, ukuran halaman pill, indikator |
 | `_alert`, `_notify`, `_weather`, `_music` | per area (pill dan tab) |
 | `_components` | cover, skeleton, footer `list-more`/`list-action` |
@@ -227,13 +227,14 @@ Nama `jadwal`, `fan`, dan `catatan` di bawah hanya contoh.
    (defwidget page-jadwal []
      (list-page :onscroll "${EWW_CONFIG_DIR}/scripts/jadwal scroll {} &"
                 :more {jadwal.more > 0 ? "+${jadwal.more} lainnya" : ""}
-       (box :orientation "v" :space-evenly false :spacing 2
+       (box :orientation "v" :space-evenly false :spacing 0
          (for row in {jadwal.rows} (label :class "jadwal-row" :xalign 0 :text {row.text})))
        (box)))
    ```
 3. `eww/yuck/tabs.yuck`, pada posisi yang sama dengan NN:
    ```lisp
-   (tab-chip :id "jadwal" :label "Jadwal" :available {jadwal.total > 0})   ; di tab-header
+   (tab-chip :id "jadwal" :icon "󰃭" :name "Jadwal" :count {jadwal.total} :dot false
+             :available {jadwal.total > 0})                                    ; di tab-header
    (tab-page :id "jadwal" (page-jadwal))                                   ; di tab-card
    ```
    Tambah tes di `tests/tab/registry.bats` dan sampel `tools/samples/card-jadwal.vars` (`window=island-expanded`, `tab=jadwal`).

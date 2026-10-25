@@ -2,7 +2,7 @@
 ; Each row and its skeleton share one slot so the page keeps its spacing and height.
 (defwidget page-musik []
   (box :class "page" :orientation "v" :space-evenly false :spacing 8
-    (box :orientation "h" :space-evenly false :spacing 14
+    (box :orientation "h" :space-evenly false :spacing 12
       (cover :size "large")
       (box :orientation "v" :space-evenly false :valign "center" :spacing 0
         (revealer :transition "none" :reveal {media.state != "loading"}
@@ -17,7 +17,7 @@
       (revealer :transition "none" :reveal {media.state != "loading"}
         (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"
                :text {lyrics.text} :tooltip {lyrics.text} :xalign 0.5 :justify "center"
-               :width 438 :hexpand false :limit-width 56 :show-truncated true :wrap false))
+               :width 448 :hexpand false :limit-width 56 :show-truncated true :wrap false))
       (revealer :transition "none" :reveal {media.state == "loading"}
         (box :halign "center" (skeleton :class "skeleton-lyrics" :width 260))))
     (box :orientation "v" :space-evenly false :spacing 0
@@ -28,26 +28,32 @@
                     :value {media.length > 0 ? pos.pos * 100 / media.length : 0})
           (label :class "time" :text {media.length_text})))
       (revealer :transition "none" :reveal {media.state == "loading"}
-        (box :class "skeleton-row" (skeleton :class "skeleton-progress" :width 438))))
+        (box :class "skeleton-row" (skeleton :class "skeleton-progress" :width 448))))
     (musik-next-device)
     (musik-controls)))
 
 ; Up next and the headphone share one row so the card keeps its height; the device is centred when alone.
+; A queue glyph marks up next and a level glyph the battery, in place of words.
 (defwidget musik-next-device []
   (revealer :transition "none" :reveal {(ytm.active && ytm.next_title != "") || status.headphone.kind != "none"}
-    (box :orientation "h" :space-evenly false :spacing 0 :width 438 :hexpand false
+    (box :orientation "h" :space-evenly false :spacing 0 :width 448 :hexpand false
       (box :hexpand {ytm.active && ytm.next_title != ""}
         (revealer :transition "none" :reveal {ytm.active && ytm.next_title != ""}
-          (label :class "up-next" :xalign 0 :wrap false :show-truncated true
-                 :limit-width {status.headphone.kind != "none" ? 36 : 62}
-                 :text "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"
-                 :tooltip "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}")))
+          (box :orientation "h" :space-evenly false :spacing 0
+               :tooltip "Berikutnya: ${ytm.next_title} — ${ytm.next_artist}"
+            (label :class "up-next-icon" :text "󰲸")
+            (label :class "up-next" :xalign 0 :wrap false :show-truncated true
+                   :limit-width {status.headphone.kind != "none" ? 34 : 60}
+                   :text "${ytm.next_title} — ${ytm.next_artist}"))))
       (revealer :transition "none" :reveal {status.headphone.kind != "none"} :hexpand {!(ytm.active && ytm.next_title != "")}
-        (box :class "device" :orientation "h" :space-evenly false :spacing 6 :tooltip {status.headphone.label}
+        (box :class "device" :orientation "h" :space-evenly false :spacing 0 :tooltip {status.headphone.label}
              :halign {ytm.active && ytm.next_title != "" ? "end" : "center"}
           (label :class "device-icon ${status.headphone.low ? 'headphone-low' : ''}" :text {status.headphone.icon})
-          (label :class "device-name" :text {status.headphone.label} :show-truncated true
-                 :limit-width {ytm.active && ytm.next_title != "" ? 22 : 40}))))))
+          (label :class "device-name" :text {status.headphone.name} :show-truncated true
+                 :limit-width {ytm.active && ytm.next_title != "" ? 18 : 36})
+          (revealer :transition "none" :reveal {status.headphone.battery_icon != ""}
+            (label :class "device-battery ${status.headphone.low ? 'headphone-low' : ''}"
+                   :text "${status.headphone.battery_icon} ${status.headphone.battery}%")))))))
 
 ; Previous, play/pause, next; YouTube Music adds dislike and like around them.
 (defwidget musik-controls []

@@ -74,7 +74,7 @@ cat "$STATUS_FIXTURE/bt-info"
 EOF
   chmod +x "$BIN/pactl" "$BIN/inotifywait" "$BIN/dunstctl" "$BIN/dbus-monitor" "$BIN/gdbus" "$BIN/bluetoothctl"
   export PATH="$BIN"
-  HP_NONE='"headphone":{"kind":"none","icon":"","name":"","battery":null,"low":false,"label":""}'
+  HP_NONE='"headphone":{"kind":"none","icon":"","name":"","battery":null,"battery_icon":"","low":false,"label":""}'
   EMPTY='{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false,'"$HP_NONE"'}'
 }
 

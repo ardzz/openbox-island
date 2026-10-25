@@ -1,11 +1,12 @@
 // Weather in the idle pill and on the Cuaca tab.
 .weather-icon {
-  font-size: 15px;
+  font-size: 16px;
 }
 
-.weather-temp,
-.forecast-temp {
+.weather-temp {
   font-size: 13px;
+  font-weight: 500;
+  font-feature-settings: "tnum";
 }
 
 .weather-city-small {
@@ -16,7 +17,6 @@
 .weather-desc,
 .weather-region,
 .weather-sun,
-.weather-details,
 .forecast-day {
   color: $muted;
 }
@@ -26,31 +26,81 @@
 }
 
 .weather-big-temp {
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  font-feature-settings: "tnum";
 }
 
 .weather-city {
-  font-weight: bold;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .weather-region,
-.weather-sun,
-.weather-details {
+.weather-sun {
   font-size: 12px;
+}
+
+.weather-sun {
+  font-feature-settings: "tnum";
+}
+
+// Feels-like, humidity, wind and UV as icon + value chips instead of a dotted sentence.
+.weather-chip {
+  min-height: 20px;
+  padding: 0 8px 0 6px;
+  border-radius: 10px;
+  background-color: $island-fill;
+}
+
+.weather-chip-text {
+  font-size: 11px;
+  font-weight: 500;
+  font-feature-settings: "tnum";
+}
+
+.weather-chip-icon {
+  margin-right: 4px;
+  color: $muted;
+  font-size: 12px;
+}
+
+// Forecast days: three tiles on the same 3-column grid as Pintasan, touching the card bottom.
+.forecast-tile {
+  min-height: 74px;
+  border-radius: 12px;
+  background-color: $island-fill;
 }
 
 .forecast-day,
 .forecast-rain {
   font-size: 11px;
+  font-weight: 500;
 }
 
 .forecast-icon {
-  font-size: 15px;
+  font-size: 16px;
+}
+
+.forecast-max,
+.forecast-min {
+  font-size: 13px;
+  font-feature-settings: "tnum";
+}
+
+.forecast-max {
+  font-weight: 600;
+}
+
+.forecast-min {
+  margin-left: 4px;
+  color: $muted;
 }
 
 .forecast-rain {
   color: $island-accent;
+  font-feature-settings: "tnum";
 }
 
 // Weather icon colour follows the condition and heat (tone from scripts/weather).

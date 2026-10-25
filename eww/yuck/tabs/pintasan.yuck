@@ -4,8 +4,8 @@
     (for row in {shortcuts}
       (box :orientation "h" :halign "center" :space-evenly false :spacing 8
         (for s in {row}
-          (button :class "shortcut ${s.state == 'dnd' && status.dnd ? 'on' : ''}" :width 140
+          (button :class "shortcut ${s.state == 'dnd' && status.dnd ? 'on' : ''}" :width 144
                   :tooltip {s.label} :onclick "${EWW_CONFIG_DIR}/scripts/shortcuts run ${s.id} &"
-            (box :orientation "v" :valign "center" :space-evenly false :spacing 2
+            (box :orientation "v" :valign "center" :space-evenly false :spacing 6
               (label :class "shortcut-icon" :text {s.icon})
               (label :class "shortcut-label" :text {s.label} :limit-width 18 :show-truncated true))))))))

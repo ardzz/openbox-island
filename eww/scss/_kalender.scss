@@ -1,7 +1,8 @@
+// Rows touch (no box spacing); their 8px padding puts the content on the footer's text line.
 .cal-row {
-  min-height: 28px;
-  padding: 0 4px;
-  border-radius: 8px;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 10px;
 }
 
 /* Gaps inside a row; margins (not box spacing) so hidden revealers reserve nothing. */
@@ -14,7 +15,7 @@
 }
 
 .cal-row:hover {
-  background-color: $island-track;
+  background-color: $island-fill;
 }
 
 .cal-past {
@@ -22,18 +23,20 @@
 }
 
 .cal-now {
-  background-color: mix($island-accent, $island-bg, 12%);
+  background-color: $island-accent-soft;
 }
 
 .cal-now .cal-title {
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .cal-soon .cal-time {
   color: $yellow;
 }
 
+// A fixed column so same-day titles line up; a time with a date ("Sen 26 Okt …") pushes past it.
 .cal-time {
+  min-width: 72px;
   font-size: 11px;
   font-feature-settings: "tnum";
 }
@@ -42,15 +45,20 @@
   font-size: 12px;
 }
 
+// Account colour comes from the row's style.
 .cal-dot {
-  font-size: 10px;
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 4px;
 }
 
+// The primary chip: accent fill, black text (also Simpan in the deadline picker).
 .cal-join {
+  min-height: 20px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 11px;
-  font-weight: bold;
+  font-weight: 600;
   background-color: $island-accent;
   color: $island-bg;
 }
@@ -59,17 +67,40 @@
   background-color: mix($island-accent, $fg, 80%);
 }
 
-.cal-allday,
+.cal-allday-text,
 .cal-note {
   font-size: 11px;
   color: $muted;
 }
 
-.cal-prep {
+// All-day events: a "Seharian" tag, then the titles, on the rows' text line.
+.cal-allday {
+  margin: 0 8px;
+  color: $muted;
+}
+
+.cal-allday-tag {
+  min-height: 16px;
+  margin-right: 6px;
   padding: 0 6px;
-  border-radius: 6px;
+  border-radius: 8px;
+  background-color: $island-fill;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.cal-prep {
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
   font-size: 11px;
+  font-weight: 500;
+  font-feature-settings: "tnum";
   color: $yellow;
+  background-color: $island-fill;
+}
+
+.cal-row:hover .cal-prep {
   background-color: $island-track;
 }
 

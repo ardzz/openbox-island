@@ -3,7 +3,7 @@
   (eventbox :onclick "${EWW_CONFIG_DIR}/scripts/notify click ${notify.id} &"
             :tooltip "${notify.summary}${notify.body != "" ? " · " + notify.body : ""}"
     (box :class "pill pill-notify ${notify.critical ? 'notify-critical' : ''}" :orientation "h"
-         :space-evenly false :spacing 10
+         :space-evenly false :spacing 12
       (thumb :kind "notify" :image {notify.image} :icon {notify.icon})
       (box :orientation "v" :space-evenly false :spacing 1 :valign "center" :hexpand true
         (label :class "notify-summary" :text {notify.summary} :xalign 0

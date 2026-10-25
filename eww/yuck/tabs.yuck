@@ -3,12 +3,17 @@
 (defwidget tab-header []
   (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/tab {} &"
     (box :class "tabs" :orientation "h" :halign "center" :space-evenly false :spacing 4
-      (tab-chip :id "musik" :label "Musik" :available {media.state != "none"})
-      (tab-chip :id "kalender" :label {kalender.label} :available {kalender.ok})
-      (tab-chip :id "cuaca" :label "Cuaca" :available {weather.ok})
-      (tab-chip :id "notif" :label {notif_center.label} :available {notif_center.total > 0})
-      (tab-chip :id "tugas" :label {todo.label} :available true)
-      (tab-chip :id "pintasan" :label "Pintasan" :available {shortcuts != "[]"}))))
+      (tab-chip :id "musik" :icon "󰎈" :name "Musik" :count 0 :dot false
+                :available {media.state != "none"})
+      (tab-chip :id "kalender" :icon "󰃭" :name "Kalender" :count {kalender.count} :dot false
+                :available {kalender.ok})
+      (tab-chip :id "cuaca" :icon "󰖕" :name "Cuaca" :count 0 :dot false :available {weather.ok})
+      ; The badge counts the history; the dot marks notifications not seen yet.
+      (tab-chip :id "notif" :icon "󰂜" :name "Notifikasi" :count {notif_center.total}
+                :dot {notif_center.unread > 0} :available {notif_center.total > 0})
+      (tab-chip :id "tugas" :icon "󰗡" :name "Tugas" :count {todo.open} :dot false :available true)
+      (tab-chip :id "pintasan" :icon "󱇙" :name "Pintasan" :count 0 :dot false
+                :available {shortcuts != "[]"}))))
 
 ; The expanded card: header, then the pages; only the selected page is revealed.
 (defwidget tab-card []

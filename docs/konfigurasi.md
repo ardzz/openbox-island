@@ -28,7 +28,7 @@ picom tidak boleh menggambar bayangan untuk window eww: tambahkan `"class_g = 'E
 
 ## Palet dan font
 
-Font dan warna teks island mengikuti palet tema bar (`~/.config/eww/_colors.scss`), yang disalin setiap kali `island.sh` dimulai; latar island tetap hitam pekat tanpa border dan aksennya (visualizer, progress, meter HUD) hijau `#3ee6c4`. Tanpa palet bar, island memakai palet default.
+Font dan warna teks island mengikuti palet tema bar (`~/.config/eww/_colors.scss`), yang disalin setiap kali `island.sh` dimulai; latar island tetap hitam pekat tanpa border dan aksennya (visualizer, progress, meter HUD) hijau `#3ee6c4`. Tanpa palet bar, island memakai palet default dengan font Inter (paket `inter-font`). Ikon selalu dari Symbols Nerd Font (`ttf-nerd-fonts-symbols`). Island memakai bobot 400, 500, dan 600, angka tabular, dan italic untuk lirik; font bar yang tidak punya bobot atau italic itu jatuh ke bobot terdekat dan miring buatan GTK.
 
 ## Player
 
