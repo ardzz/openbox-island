@@ -14,11 +14,14 @@
 }
 
 .alert-text {
-  font-weight: bold;
+  font-weight: 600;
 }
 
+// A fixed slot so the level bar stays put while the value changes width (5% -> 100%).
 .alert-value {
+  min-width: 32px;
   color: $muted;
+  font-feature-settings: "tnum";
 }
 
 

@@ -8,7 +8,7 @@
 .cover-small {
   min-width: 24px;
   min-height: 24px;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .cover-large {
@@ -71,20 +71,25 @@
   min-height: 16px;
 }
 
-// Paged lists (widgets/list-page.yuck): muted "+N lainnya" footer text and its action buttons.
+// Paged lists (widgets/list-page.yuck): muted "+N lainnya" footer text, inset 8px to line up with
+// the row content, and its action chips.
 .list-more {
+  padding: 0 8px;
   font-size: 11px;
   color: $muted;
 }
 
 .list-action {
-  padding: 1px 10px;
-  border-radius: 9px;
+  min-height: 20px;
+  padding: 0 10px;
+  border-radius: 10px;
   font-size: 11px;
+  font-weight: 500;
   color: $muted;
-  background-color: $island-track;
+  background-color: $island-fill;
 }
 
 .list-action:hover {
   color: $island-accent;
+  background-color: $island-track;
 }

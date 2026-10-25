@@ -1,10 +1,10 @@
 ; A player is active: cover, the current lyric line (a skeleton while loading), equalizer,
 ; headphone and indicators. The lyric column gives up the width the indicators take.
 (defwidget pill-media []
-  (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 10
+  (box :class "pill pill-media ${media.state}" :orientation "h" :space-evenly false :spacing 12
     (cover :size "small")
     (box :orientation "v" :space-evenly false :spacing 0 :valign "center"
-         :width {386 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0)) - (rec.active ? 56 : 0) - (status.headphone.kind != "none" ? 24 : 0)}
+         :width {365 - 16 * ((status.mic ? 1 : 0) + (status.camera ? 1 : 0) + (status.dnd ? 1 : 0)) - (rec.active ? 56 : 0) - (status.headphone.kind != "none" ? 24 : 0)}
          :hexpand false
       (revealer :transition "none" :reveal {media.state != "loading"}
         (label :class "lyrics ${lyrics.synced ? 'synced' : 'fallback'}"

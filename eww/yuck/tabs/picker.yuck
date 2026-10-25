@@ -2,14 +2,14 @@
 ; on the left, the item, time and actions on the right. Commands: scripts/todo pick ...
 ; (lib/todo/picker.sh); past days get an empty onclick and only dim styling.
 (defwidget deadline-picker []
-  (box :orientation "h" :space-evenly false :spacing 12 :valign "start"
+  (box :orientation "h" :space-evenly false :spacing 16 :valign "start"
     (box :orientation "v" :space-evenly false :spacing 2
       (box :orientation "h" :space-evenly false :spacing 2
         (button :class "pick-nav" :tooltip "Bulan sebelumnya"
-                :onclick "${EWW_CONFIG_DIR}/scripts/todo pick nav -1 &" "‹")
+                :onclick "${EWW_CONFIG_DIR}/scripts/todo pick nav -1 &" "󰅁")
         (label :class "pick-month" :hexpand true :xalign 0.5 :text {todo.picker.month_label})
         (button :class "pick-nav" :tooltip "Bulan berikutnya"
-                :onclick "${EWW_CONFIG_DIR}/scripts/todo pick nav 1 &" "›"))
+                :onclick "${EWW_CONFIG_DIR}/scripts/todo pick nav 1 &" "󰅂"))
       (box :orientation "h" :space-evenly false :spacing 2
         (label :class "pick-dow" :xalign 0.5 :text "Sn")
         (label :class "pick-dow" :xalign 0.5 :text "Sl")
@@ -50,10 +50,10 @@
 ; One time field: scroll or the step buttons move it (scripts/todo pick KIND up|down).
 (defwidget pick-stepper [kind value]
   (box :orientation "v" :space-evenly false :spacing 0 :halign "center"
-    (button :class "pick-step" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} up &" "▲")
+    (button :class "pick-step" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} up &" "󰅃")
     (eventbox :onscroll "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} {} &"
       (label :class "pick-time-value" :xalign 0.5 :text value))
-    (button :class "pick-step" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} down &" "▼")))
+    (button :class "pick-step" :onclick "${EWW_CONFIG_DIR}/scripts/todo pick ${kind} down &" "󰅀")))
 
 ; A preset time chip; highlighted while it is the picked time.
 (defwidget pick-chip [time]

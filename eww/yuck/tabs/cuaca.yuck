@@ -1,4 +1,5 @@
-; Today's weather on the left, the place and sun times on the right, then the forecast days.
+; Today's weather on the left, the place and sun times on the right, the details as icon chips,
+; then the forecast days as tiles.
 (defwidget page-cuaca []
   (box :class "page weather-card" :orientation "v" :space-evenly false :spacing 8
     (box :orientation "h" :space-evenly false :spacing 12
@@ -14,13 +15,25 @@
                :limit-width 28 :show-truncated true)
         (label :class "weather-sun" :xalign 1
                :text "󰖜 ${weather.sunrise}   󰖛 ${weather.sunset}")))
-    (label :class "weather-details" :xalign 0
-           :text "Terasa ${weather.feels} · Lembap ${weather.humidity} · Angin ${weather.wind} · UV ${weather.uv}")
+    (box :orientation "h" :space-evenly false :spacing 6 :halign "start"
+      (weather-chip :icon "󰔏" :text {weather.feels} :tip "Terasa seperti")
+      (weather-chip :icon "󰖎" :text {weather.humidity} :tip "Kelembapan")
+      (weather-chip :icon "󰖝" :text {weather.wind} :tip "Angin")
+      (weather-chip :icon "󰖨" :text "UV ${weather.uv}" :tip "Indeks UV"))
     (box :orientation "h" :space-evenly true :spacing 8
       (for day in {weather.days}
-        (box :orientation "v" :space-evenly false :halign "center" :spacing 2
-          (label :class "forecast-day" :text {day.day})
-          (box :orientation "h" :space-evenly false :halign "center" :spacing 6
-            (label :class "forecast-icon tone-${day.tone}" :text {day.icon})
-            (label :class "forecast-temp" :text "${day.max} / ${day.min}"))
-          (label :class "forecast-rain" :text "󰖌 ${day.rain}"))))))
+        (box :class "forecast-tile" :orientation "v" :space-evenly false
+          (box :orientation "v" :space-evenly false :valign "center" :vexpand true :spacing 4
+            (label :class "forecast-day" :text {day.day})
+            (box :orientation "h" :space-evenly false :halign "center" :spacing 6
+              (label :class "forecast-icon tone-${day.tone}" :text {day.icon})
+              (box :orientation "h" :space-evenly false :spacing 0
+                (label :class "forecast-max" :text {day.max})
+                (label :class "forecast-min" :text "/ ${day.min}")))
+            (label :class "forecast-rain" :text "󰖌 ${day.rain}")))))))
+
+; One weather detail: a muted glyph and the value; TIP names it.
+(defwidget weather-chip [icon text tip]
+  (box :class "weather-chip" :orientation "h" :space-evenly false :spacing 0 :tooltip tip
+    (label :class "weather-chip-icon" :text icon)
+    (label :class "weather-chip-text" :text text)))

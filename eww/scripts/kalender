@@ -32,7 +32,8 @@ RENDER_JQ='.[0] as $agenda | .[1] as $todo
          else "\([$prep_items[] | select(.done)] | length)/\($prep_items | length)" end) as $prep
       | . + {prep: $prep, prep_done: ($prep != "" and (([$prep_items[] | select(.done | not)] | length) == 0))};
   ($agenda.rows | '"$PAGED_JQ"') as $page
-  | {ok: ($agenda.ok == true), label: $agenda.label, total: ($agenda.rows | length),
+  | {ok: ($agenda.ok == true), label: $agenda.label, count: ($agenda.remaining // 0),
+     total: ($agenda.rows | length),
      rows: [$page.rows[] | per_row], more: $page.more, offset: $page.offset,
      allday_text: ($agenda.allday | join(" · ")),
      note: ((($agenda.errors // []) + (if $agenda.stale == true and ($agenda.updated // "") != ""

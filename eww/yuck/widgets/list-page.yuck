@@ -1,9 +1,10 @@
 ; A paged list of the card (notifications, to-do items). Children: the rows box, then the
 ; footer actions. Scrolling over the rows runs ONSCROLL ({} is up or down); MORE is the muted
-; footer text on the left ("+N lainnya").
+; footer text on the left ("+N lainnya"). The rows take the spare height, so the footer sits at
+; the bottom of the card.
 (defwidget list-page [onscroll more]
   (box :class "page" :orientation "v" :space-evenly false :spacing 6
-    (eventbox :onscroll onscroll
+    (eventbox :onscroll onscroll :vexpand true
       (children :nth 0))
     (box :orientation "h" :space-evenly false :spacing 6
       (label :class "list-more" :hexpand true :xalign 0 :text more)

@@ -16,12 +16,13 @@
 
 .pick-month {
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .pick-dow {
   min-width: 26px;
   font-size: 10px;
+  font-weight: 500;
   color: $muted;
 }
 
@@ -54,12 +55,13 @@
 .pick-day.today {
   box-shadow: inset 0 0 0 1px $island-accent;
   color: $island-accent;
+  font-weight: 600;
 }
 
 .pick-day.sel {
   background-color: $island-accent;
   color: $island-bg;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .pick-day.today.sel {
@@ -72,7 +74,7 @@
 
 .pick-summary {
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 600;
   color: $island-accent;
 }
 
@@ -84,18 +86,19 @@
 .pick-time-value {
   min-width: 30px;
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
   font-feature-settings: "tnum";
 }
 
 .pick-time-sep {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
+// Chevron steppers above and below the hour and minute.
 .pick-step {
   padding: 0 6px;
-  font-size: 8px;
+  font-size: 12px;
   color: $muted;
 }
 
@@ -104,16 +107,19 @@
 }
 
 .pick-chip {
-  padding: 1px 8px;
-  border-radius: 9px;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
   font-size: 11px;
+  font-weight: 500;
   color: $muted;
-  background-color: $island-track;
+  background-color: $island-fill;
   font-feature-settings: "tnum";
 }
 
 .pick-chip:hover {
   color: $island-accent;
+  background-color: $island-track;
 }
 
 .pick-chip-on {
@@ -122,22 +128,32 @@
 }
 
 .pick-action {
-  padding: 3px 8px;
-  border-radius: 9px;
+  min-height: 20px;
+  padding: 0 10px;
+  border-radius: 10px;
   font-size: 11px;
+  font-weight: 500;
   color: $muted;
-  background-color: $island-track;
+  background-color: $island-fill;
 }
 
 .pick-action:hover {
   color: $island-accent;
+  background-color: $island-track;
 }
 
 .pick-clear:hover {
   color: $red;
 }
 
-.pick-save {
-  color: $island-accent;
-  font-weight: bold;
+// The primary chip, as Join: accent fill, black text.
+.pick-save,
+.pick-save:hover {
+  background-color: $island-accent;
+  color: $island-bg;
+  font-weight: 600;
+}
+
+.pick-save:hover {
+  background-color: mix($island-accent, $fg, 80%);
 }

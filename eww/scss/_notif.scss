@@ -1,17 +1,17 @@
-// Notification center: four two-line rows plus the footer fit the 218px card.
+// Notification center: four two-line rows that touch, plus the footer, fit the 218px card.
 .notif-row {
-  min-height: 32px;
-  padding: 0 6px;
-  border-radius: 8px;
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
 }
 
 .notif-row:hover {
-  background-color: $island-track;
+  background-color: $island-fill;
 }
 
 .notif-summary {
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .notif-body,

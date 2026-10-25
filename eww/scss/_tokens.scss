@@ -1,9 +1,19 @@
 // The island keeps a fixed black notch and green accent; text and font follow the theme palette.
 $island-bg: #000000;
 $island-accent: #3ee6c4;
+// Flat surfaces on the black notch: fill for tiles, secondary chips and row hover; track for the
+// active tab, progress troughs and hover on filled shapes; accent-soft for the running meeting and
+// toggled tiles.
+$island-fill: mix($fg, $island-bg, 10%);
 $island-track: mix($fg, $island-bg, 18%);
-// Bar palettes usually define $red; the generated default palette does not.
+$island-accent-soft: mix($island-accent, $island-bg, 16%);
+// Bar palettes usually define these; the generated default palette does not (weather tones need them).
 $red: #ff453a !default;
+$cyan: #64d2ff !default;
+$magenta: #bf5af2 !default;
+$alt-white: #e5e5ea !default;
 $muted: mix($fg, $island-bg, 60%);
 // Concave ears beside the notch.
 $ear: 14px;
+// Content inset of every pill page and of the card, so the content edge stays put when the card opens.
+$inset: 16px;

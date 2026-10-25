@@ -18,7 +18,7 @@ prep_todos() {
   agenda past past now later later later
   start_listener
   [ "$(titles)" = '["r3","r4","r5","r6"]' ]
-  [ "$(jq -c '[.ok,.label,.offset,.more,.total,.allday_text,.note]' <<< "$event")" = '[true,"Kalender 2",2,0,6,"Cuti Bersama · Konferensi",""]' ]
+  [ "$(jq -c '[.ok,.label,.count,.offset,.more,.total,.allday_text,.note]' <<< "$event")" = '[true,"Kalender 2",2,2,0,6,"Cuti Bersama · Konferensi",""]' ]
 }
 
 @test "a short agenda shows whole, past events included" {
@@ -57,7 +57,7 @@ prep_todos() {
 
 @test "without an agenda the tab is not ok, and a producer failure is the note" {
   start_listener
-  [ "$(jq -c '[.ok,.rows,.note]' <<< "$event")" = '[false,[],""]' ]
+  [ "$(jq -c '[.ok,.count,.rows,.note]' <<< "$event")" = '[false,0,[],""]' ]
   printf '{"ok":false,"stale":false,"updated":"","error":"python-icalendar belum terpasang","label":"Kalender","remaining":0,"allday":[],"next":null,"rows":[],"errors":[]}\n' > "$ST/agenda.json"
   next_event 2
   [ "$(jq -c '[.ok,.note]' <<< "$event")" = '[false,"python-icalendar belum terpasang"]' ]

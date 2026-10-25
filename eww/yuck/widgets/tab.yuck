@@ -1,10 +1,25 @@
 ; Header chip of one tab (scripts/lib/tabs sets the order); revealed only while the tab has content.
-(defwidget tab-chip [id label available]
+; An idle tab shows ICON; the selected one slides out NAME and, when COUNT > 0, a count badge.
+; DOT puts a news dot on the icon while another tab is shown.
+(defwidget tab-chip [id icon name count dot available]
   (revealer :transition "none" :reveal available
-    (eventbox :cursor "pointer" :onclick "${EWW_CONFIG_DIR}/scripts/tab select ${id} &"
-      (label :class "tab ${island_tab == id ? 'tab-active' : ''}" :text label))))
+    (eventbox :cursor "pointer" :tooltip {count > 0 ? "${name} ${count}" : name}
+              :onclick "${EWW_CONFIG_DIR}/scripts/tab select ${id} &"
+      (box :class "tab ${island_tab == id ? 'tab-active' : ''} ${island_tab == id && count > 0 ? 'tab-counted' : ''}"
+           :orientation "h" :space-evenly false :spacing 0
+        (overlay
+          (label :class "tab-icon" :text icon)
+          (revealer :transition "none" :reveal {dot && island_tab != id}
+            (box :class "tab-dot" :halign "end" :valign "start")))
+        (revealer :transition "slideright" :duration "150ms" :reveal {island_tab == id}
+          (box :orientation "h" :space-evenly false :spacing 0
+            (label :class "tab-name" :text name)
+            (revealer :transition "none" :valign "center" :reveal {count > 0}
+              (label :class "tab-count" :text count))))))))
 
-; Body of one tab, shown while it is the selected tab.
+; Body of one tab, shown while it is the selected tab; the one-child even box gives the page the full
+; card width and the .tab-body height.
 (defwidget tab-page [id]
   (revealer :transition "none" :reveal {island_tab == id}
-    (children)))
+    (box :class "tab-body"
+      (children))))

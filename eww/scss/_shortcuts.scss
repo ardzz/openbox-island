@@ -1,8 +1,8 @@
-// Shortcuts: two rows of three 140px buttons fill the 438px card body.
+// Shortcuts: rows of three 144px tiles with 8px gaps fill the 448px card body.
 .shortcut {
-  min-height: 60px;
+  min-height: 64px;
   border-radius: 12px;
-  background-color: mix($fg, $island-bg, 10%);
+  background-color: $island-fill;
   color: $fg;
 }
 
@@ -12,14 +12,15 @@
 }
 
 .shortcut.on {
-  background-color: mix($island-accent, $island-bg, 22%);
+  background-color: $island-accent-soft;
   color: $island-accent;
 }
 
 .shortcut-icon {
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .shortcut-label {
   font-size: 11px;
+  font-weight: 500;
 }
