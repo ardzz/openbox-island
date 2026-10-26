@@ -38,7 +38,9 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 ## Highlights
 
 **Now playing**
-- Follows MPRIS players in a configurable priority order (default `ytm_player,ytermusic,edge,%any`), with first-class support for YouTube Music through [ytm-player](https://ytm-player.com).
+- YouTube Music only: [ytm-player](https://ytm-player.com) and ytermusic, plus Microsoft Edge when the bundled `browser/ytm-bridge` extension confirms the track comes from a `music.youtube.com` tab. Regular YouTube, other web media and other MPRIS players are ignored. Priority order is configurable (default `ytm_player,ytermusic,edge`).
+- The Music tab has **Player**, **Lirik** and **Output** modes. Lirik shows up to six lyric lines around the current one; clicking a synced line seeks to it. Output lists audio sinks, and clicking one makes it the default and moves every playing stream to it.
+- The Music tab background is tinted with the cover's dominant colour; grey covers keep the default background.
 - Synced lyrics from LRCLIB with NetEase Cloud Music as a fallback; for ytm-player, YouTube Music lyrics are tried first.
 - A real audio spectrum visualizer, processed at the island monitor's refresh rate and fed only by the active player's own output stream.
 - Like/dislike buttons and an "up next" line for ytm-player.
@@ -93,8 +95,12 @@ All images below are rendered from sample states in `tools/samples/`.
 <table>
   <tr><th colspan="2">Music</th></tr>
   <tr>
-    <td align="center"><img src="docs/assets/screenshots/card-music-ytm.png" alt="Music card with ytm-player" width="400"><br><sub>YouTube Music: like/dislike and up next</sub></td>
-    <td align="center"><img src="docs/assets/screenshots/card-music-plain.png" alt="Music card for another player" width="400"><br><sub>Other MPRIS player</sub></td>
+    <td align="center"><img src="docs/assets/screenshots/card-music-ytm.png" alt="Music card with ytm-player" width="400"><br><sub>ytm-player: like/dislike and up next</sub></td>
+    <td align="center"><img src="docs/assets/screenshots/card-music-plain.png" alt="Music card without like buttons" width="400"><br><sub>ytermusic or Edge via the bridge</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/screenshots/card-music-lyrics.png" alt="Music card in Lirik mode" width="400"><br><sub>Lirik mode: synced lines, click to seek</sub></td>
+    <td align="center"><img src="docs/assets/screenshots/card-music-output.png" alt="Music card in Output mode" width="400"><br><sub>Output mode: switch the audio sink</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="docs/assets/screenshots/card-music-loading.png" alt="Music card skeleton" width="400"><br><sub>Skeleton between tracks</sub></td>
@@ -209,7 +215,9 @@ ln -s "$PWD/eww" ~/.config/eww-island
 ln -s "$PWD/openbox/island.sh" ~/.config/openbox/island.sh
 ```
 
-The visualizer also needs an active PipeWire session with `pipewire-pulse`.
+The visualizer also needs an active PipeWire session with `pipewire-pulse`. The Music tab cover tint optionally needs ImageMagick (`magick`, Arch package `imagemagick`).
+
+To show YouTube Music played in Microsoft Edge, load `browser/ytm-bridge` as an unpacked extension at `edge://extensions`, copy its extension ID, run `browser/ytm-bridge/install.sh <extension-id>`, then reload the extension and the YouTube Music tab. See [Edge bridge setup](docs/konfigurasi.md#bridge-youtube-music-untuk-edge).
 
 Kalender optionally needs `python-icalendar` and `python-recurring-ical-events` (Arch packages). See [calendar setup](docs/fitur.md#menyiapkan-kalender) for the private iCal configuration, or for Google Calendar API accounts (`google:<calendarId>` with a one-time `agenda login NAME`) as an alternative to iCal.
 
@@ -222,7 +230,7 @@ Kalender optionally needs `python-icalendar` and `python-recurring-ical-events` 
 
 `openbox/eww.sh` from openbox-omp starts the island automatically every time the eww bar opens, including theme switches.
 
-Full setup is in [docs/konfigurasi.md](docs/konfigurasi.md). It covers optional dependencies, the picom shadow rule, bar palette, player priority, ytm-player login, shortcuts, dunst integration, weather location and environment variables. The docs are in Indonesian for now; English versions are coming.
+Full setup is in [docs/konfigurasi.md](docs/konfigurasi.md). It covers optional dependencies, the picom shadow rule, bar palette, player priority, the Edge YouTube Music bridge, ytm-player login, shortcuts, dunst integration, weather location and environment variables. The docs are in Indonesian for now; English versions are coming.
 
 ## Architecture
 
@@ -261,8 +269,8 @@ tools/showcase docs/assets                                          # regenerate
 
 | Page | Contents | Language |
 | --- | --- | --- |
-| [Features](docs/fitur.md) | Pill and card, tabs, music, visualizer, lyrics, alerts, notifications, indicators, weather, to-do, shortcuts | Indonesian |
-| [Configuration](docs/konfigurasi.md) | Dependencies, start/stop, picom, palette, players, dunst integration, weather location, environment variables | Indonesian |
+| [Features](docs/fitur.md) | Pill and card, tabs, YouTube Music (Player, Lirik and Output modes), visualizer, lyrics, alerts, notifications, indicators, weather, to-do, shortcuts | Indonesian |
+| [Configuration](docs/konfigurasi.md) | Dependencies, start/stop, picom, palette, players, Edge YouTube Music bridge, dunst integration, weather location, environment variables | Indonesian |
 | [Debugging and tests](docs/debug.md) | Running tests and previews, logs and runtime state, known limitations, troubleshooting | Indonesian |
 | [Architecture](docs/architecture.md) | Data flow, folder layout, shell framework, area contracts, recipes | Indonesian |
 

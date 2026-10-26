@@ -1,6 +1,6 @@
 # Fitur
 
-Perilaku island: pill ringkas dan kartu, musik, lirik, visualizer, alert, notifikasi, indikator, serta tab Kalender, Cuaca, Tugas, dan Pintasan.
+Perilaku island: pill ringkas dan kartu, musik YouTube Music (mode Player, Lirik, dan Output), lirik, visualizer, alert, notifikasi, indikator, serta tab Kalender, Cuaca, Tugas, dan Pintasan.
 
 [README](../README.md) · [Fitur](fitur.md) · [Konfigurasi](konfigurasi.md) · [Debug dan tes](debug.md) · [Arsitektur](architecture.md)
 
@@ -22,19 +22,47 @@ Scroll ke atas/bawah di atas island ringkas mengubah volume keluaran default seb
 
 ## Tab
 
-- Tab: kartu yang membesar punya tab **Musik** (kartu media), **Kalender** (agenda hari ini sampai 30 hari ke depan), **Cuaca** (kartu cuaca), **Notifikasi** (pusat notifikasi, lihat di bawah), **Tugas** (daftar tugas, lihat di bawah), dan **Pintasan** (tombol pintasan, lihat di bawah). Tab hanya tersedia selama ada isinya: Musik selama ada player yang memutar atau dijeda, Kalender selama data kalender tersedia, Cuaca selama cuaca tersedia, Notifikasi selama riwayat dunst berisi notifikasi, Pintasan selama `eww/shortcuts` berisi minimal satu pintasan; Tugas selalu tersedia. Jika lebih dari satu tab tersedia, baris tab kecil tampil di atas kartu: tiap tab berupa ikon redup, dan tab aktif melebar di atas chip abu gelap menjadi ikon, nama, dan badge jumlah beraksen (acara hari ini yang belum berakhir di Kalender, notifikasi di riwayat di Notifikasi, tugas terbuka di Tugas). Nama tab dan jumlahnya juga ada di tooltip ikon. Klik tab untuk memilihnya; scroll ke atas/bawah di atas baris tab berpindah ke tab sebelumnya/berikutnya (memutar, satu perpindahan per 0,5 detik agar satu gerakan touchpad tidak melompati beberapa tab). Hover membuka tab yang terakhir dipilih, atau tab pertama yang tersedia bila tab itu kosong. Ganti lagu selalu membuka tab Musik tanpa mengubah pilihan tersimpan; saat musik berhenti, kartu yang tetap terbuka pindah ke Cuaca.
+- Tab: kartu yang membesar punya tab **Musik** (kartu media), **Kalender** (agenda hari ini sampai 30 hari ke depan), **Cuaca** (kartu cuaca), **Notifikasi** (pusat notifikasi, lihat di bawah), **Tugas** (daftar tugas, lihat di bawah), dan **Pintasan** (tombol pintasan, lihat di bawah). Tab hanya tersedia selama ada isinya: Musik selama YouTube Music memutar atau dijeda (lihat [Musik](#musik)), Kalender selama data kalender tersedia, Cuaca selama cuaca tersedia, Notifikasi selama riwayat dunst berisi notifikasi, Pintasan selama `eww/shortcuts` berisi minimal satu pintasan; Tugas selalu tersedia. Jika lebih dari satu tab tersedia, baris tab kecil tampil di atas kartu: tiap tab berupa ikon redup, dan tab aktif melebar di atas chip abu gelap menjadi ikon, nama, dan badge jumlah beraksen (acara hari ini yang belum berakhir di Kalender, notifikasi di riwayat di Notifikasi, tugas terbuka di Tugas). Nama tab dan jumlahnya juga ada di tooltip ikon. Klik tab untuk memilihnya; scroll ke atas/bawah di atas baris tab berpindah ke tab sebelumnya/berikutnya (memutar, satu perpindahan per 0,5 detik agar satu gerakan touchpad tidak melompati beberapa tab). Hover membuka tab yang terakhir dipilih, atau tab pertama yang tersedia bila tab itu kosong. Ganti lagu selalu membuka tab Musik tanpa mengubah pilihan tersimpan; saat musik berhenti, kartu yang tetap terbuka pindah ke Cuaca.
 
 ## Musik
 
-Prioritas player diatur di `eww/players`, lihat [Konfigurasi → Player](konfigurasi.md#player).
+Island hanya menampilkan YouTube Music. Prioritas player diatur di `eww/players` (default `ytm_player,ytermusic,edge`), lihat [Konfigurasi → Player](konfigurasi.md#player).
+
+- `ytm_player` ([ytm-player](https://ytm-player.com)) dan `ytermusic` selalu dianggap YouTube Music.
+- Edge hanya tampil bila [bridge YouTube Music](konfigurasi.md#bridge-youtube-music-untuk-edge) membuktikan bahwa lagunya berasal dari tab `music.youtube.com`: status bridge `ytm-browser.json` berumur paling lama 15 detik (`ISLAND_BRIDGE_MAX_AGE_MS`) dan judulnya sama dengan judul MPRIS Edge setelah normalisasi (huruf kecil, hanya huruf dan angka, spasi dirapatkan). Saat ganti lagu, judul MPRIS dan judul bridge boleh berbeda paling lama 5 detik sejak kecocokan terakhir (`ISLAND_BRIDGE_SKEW_MS`).
+- YouTube biasa dan media web lain di Edge diabaikan karena judulnya tidak cocok dengan bridge; demikian juga Edge tanpa bridge, bridge yang kedaluwarsa, dan player lain di luar tiga nama tersebut. Dalam keadaan ini island berperilaku seperti tidak ada musik.
+- Ekstensi mengirim ulang metadata yang sama setiap 5 detik, jadi tab YouTube Music yang terbuka menjaga status bridge tetap baru. Bila tab ditutup atau ekstensi berhenti, listener `scripts/media` bangun sendiri saat status kedaluwarsa, tanpa menunggu event metadata baru, lalu menyembunyikan musik Edge.
 
 - Ganti lagu: player sempat tidak melaporkan lagu sesaat. Selama itu pill tetap dalam mode musik dan kartu tetap di tab Musik, dengan kerangka abu-abu (cover, judul, artis, lirik, progress) tanpa teks sampai metadata lagu baru tiba. Musik baru dianggap berhenti (island menciut, tab beralih ke Cuaca) bila tidak ada lagu selama 1,5 detik (`ISLAND_MEDIA_GRACE`, detik; `0` = langsung).
 - Saat membesar, judul lebih dari 30 karakter dan artis lebih dari 36 karakter bergulir sekitar 5 karakter/detik, dengan jeda 1,2 detik di awal tiap putaran dan pemisah `   ·   `. Teks pendek tetap diam; guliran dimulai ulang saat window dibuka atau lagu berganti, tanpa polling saat menciut.
 - YouTube Music: selama player yang tampil adalah `ytm_player`, kontrol diapit tombol tidak suka (kiri) dan suka (kanan). Status suka lagu dibaca sekali per lagu di latar belakang lewat ytmusicapi (`get_watch_playlist`, sekitar 1,5 detik) dan disimpan selama listener berjalan; jawaban lambat untuk lagu sebelumnya diabaikan. Tombol yang aktif terisi dan berwarna aksen. Klik menjalankan `ytm like`/`ytm dislike`, atau `ytm unlike` bila status itu sudah aktif, lalu tampilan langsung berubah. Listener mengikuti state `scripts/media` lewat `inotifywait`, tanpa polling; `ytm status` dipanggil sekali saat lagu berganti untuk mengambil video ID.
 - Lagu berikutnya: selama tombol suka tampil, di bawah progress ada satu baris redup berisi ikon antrean lalu `judul — artis` (teks `Berikutnya:` ada di tooltip), dipotong dengan elipsis bila melebihi lebar kartu. Antrean dibaca sekali per lagu dengan `ytm queue` (hanya baca) di latar belakang setelah video ID didapat; jawaban untuk lagu sebelumnya diabaikan dan baris lama langsung hilang saat lagu berganti. Lagu berikutnya dipilih seperti ytm-player sendiri: entri sesudah `current_index`, lagu yang sama saat repeat one, entri pertama saat repeat all tanpa shuffle di akhir antrean. Baris tidak tampil bila lagu yang diputar adalah entri terakhir (termasuk akhir antrean shuffle, karena urutan diacak ulang), tidak berada di posisi `current_index`, atau antrean gagal dibaca. Perubahan antrean tanpa ganti lagu baru terlihat pada lagu berikutnya.
 - Headphone: selama output default adalah headset Bluetooth (sink `bluez_*`) atau port headphone/headset kabel, ikon headphone tampil di samping visualizer pada pill musik (ikon Bluetooth atau kabel; merah bila baterai ≤ 20%). Di tab Musik, baris di atas kontrol menampilkan nama perangkat lalu ikon level baterai dan persentasenya (`ULT WEAR`, ikon, `90%`; hanya nama bila baterai tidak terbaca) rata kanan, berbagi baris dengan lagu berikutnya. Speaker dan HDMI tidak menampilkan apa pun. Listener `status` membaca ulang saat event sink/server `pactl subscribe` dan sinyal BlueZ `Connected`/`Battery1.Percentage` (`gdbus monitor`), tanpa polling; nama dan baterai dari `bluetoothctl info`.
+- Warna cover: latar halaman tab Musik diwarnai dengan warna dominan cover (`media.color`). Warna diambil dari histogram cover yang diperkecil ke 12×12 piksel dengan ImageMagick dan disimpan di `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art-color/` menurut SHA-1 isi berkas cover. Cover yang didominasi abu-abu, cover yang tidak tersedia, dan kerangka saat ganti lagu tidak memberi warna; latar tetap default. Pill ringkas tidak diwarnai.
 
 Tombol suka/tidak suka dan lagu berikutnya memerlukan ytm-player yang sudah login, lihat [Konfigurasi → Tombol suka YouTube Music](konfigurasi.md#tombol-suka-youtube-music).
+
+### Mode tab Musik
+
+Baris atas tab Musik berisi tiga mode: **Player**, **Lirik**, dan **Output**. Mode aktif berwarna aksen. Mode yang dipilih tetap dipakai sampai diganti atau daemon island dijalankan ulang.
+
+- **Player**: tampilan kartu media di atas (cover, judul, artis, satu baris lirik, progress, lagu berikutnya/headphone, kontrol).
+- **Lirik**: judul lagu dan tombol kembali ke Player, lalu daftar baris lirik, lihat [Lirik penuh](#lirik-penuh).
+- **Output**: daftar output audio, lihat [Output audio](#output-audio).
+
+### Lirik penuh
+
+- Mode Lirik menampilkan paling banyak enam baris: dua baris sebelum baris aktif dan tiga sesudahnya. Dekat awal lirik (atau sebelum baris pertama) jendelanya lebih pendek karena baris sebelumnya belum ada. eww tidak dapat menggulir daftar secara otomatis, jadi jendela ini berpindah per baris mengikuti baris aktif, bukan bergulir halus. Baris panjang dipotong dengan elipsis.
+- Lirik tersinkron: baris aktif berwarna aksen dan tebal. Klik baris mana pun memindahkan posisi putar ke timestamp baris itu (`playerctl position`).
+- Lirik biasa tanpa timestamp (lihat [Lirik YouTube Music](#lirik-youtube-music)): posisi jendela adalah **perkiraan** dari posisi putar dibagi durasi lagu, tanpa sorotan baris aktif. Semua baris tampil redup dan tidak dapat diklik.
+- Tanpa baris lirik (termasuk saat hanya judul/artis yang tampil di mode Player), mode Lirik menampilkan `Lirik tidak tersedia`.
+
+### Output audio
+
+- Mode Output mendaftar semua sink PipeWire/PulseAudio dari `pactl`, dengan deskripsi sink sebagai label (nama sink bila deskripsi kosong). Output default berada di urutan pertama dengan tanda ✓ dan warna aksen; sisanya urut menurut label. Tooltip menampilkan label lengkap.
+- Paling banyak enam baris tampil; sisanya diringkas menjadi `+N lainnya`. Tanpa sink, mode ini menampilkan `Tidak ada output`.
+- Klik satu baris menjadikan sink itu output default lalu memindahkan **semua** stream yang sedang diputar (semua sink input, bukan hanya player musik) ke sink tersebut. Bila sink sudah hilang saat diklik, tidak ada yang diubah. Bila salah satu stream gagal dipindah, stream lain tetap dipindah.
+- Daftar diperbarui dari event sink/server `pactl subscribe`, tanpa polling.
 
 ### Visualizer
 

@@ -21,10 +21,10 @@ flowchart LR
   L[openbox/island.sh] -->|eww daemon| D[eww daemon]
   L -->|setsid| FS[scripts/fullscreen]
   L -->|dunst-osd.conf drop-in| DU[dunst]
-  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, kalender, status, rec,<br/>ytm, weather, shortcuts watch, upcoming"]
+  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, kalender, status, rec,<br/>ytm, outputs, weather, shortcuts watch, upcoming"]
   S -->|satu baris JSON| D
   D --> W[yuck: island / island-expanded / island-upcoming]
-  W -->|onclick / onscroll / onhover| C["scripts/island, tab, todo, kalender,<br/>notif, notify, scroll, shortcuts"]
+  W -->|onclick / onscroll / onhover| C["scripts/island, tab, todo, kalender,<br/>notif, notify, scroll, shortcuts, outputs"]
   C -->|fifo_signal NAME.fifo| S
   C -->|eww update| D
   DU -->|script| H[scripts/notify-hook]
@@ -33,6 +33,8 @@ flowchart LR
   S -->|monitor sumber meeting| A[scripts/agenda watch]
   A -->|agenda.json setiap 15 detik| K[scripts/kalender]
   K -->|satu baris JSON| D
+  E[Edge: browser/ytm-bridge] -->|native messaging| BH[lib/ytm/bridge-host.sh]
+  BH -->|ytm-browser.json| S
 ```
 
 - `openbox/island.sh`: menghentikan daemon lama, menulis `_colors.scss`, menjalankan `eww daemon`, membuka `island` lalu `island-upcoming`, menjalankan `scripts/fullscreen DAEMON_PID`, memasang `eww/dunst-osd.conf` ke `dunstrc.d`. `island.sh stop` menghentikan semuanya.
@@ -62,6 +64,10 @@ eww/scripts/lib/*.sh       framework bersama (core, store, paged, listener, moni
 eww/scripts/lib/<area>/    modul per area: alert, status, notify, tabs, viz, weather, media, ytm
 eww/scripts/lib/todo/      modul Tugas: deadline.sh (epoch/pengingat), picker.sh (state penanggal + JSON `picker`)
 eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sources/: lrclib, netease, ytmusic)
+eww/scripts/outputs        sink audio untuk mode Output tab Musik: `watch` (deflisten), `set NAME`, `set-token ID`
+eww/scripts/lib/media/     gate.sh (bukti YouTube Music), color.sh (warna cover), record.sh (JSON media), art.sh, transition.sh
+eww/scripts/lib/ytm/bridge-host.sh native host Edge: pesan ekstensi → $ISLAND_STATE/ytm-browser.json
+browser/ytm-bridge/        ekstensi MV3 Edge (hanya music.youtube.com) + install.sh pendaftar native host
 eww/scripts/agenda_pkg/    produsen kalender: config, fetch/cache iCal, Google Calendar API (google.py, login.py), recurring events, render JSON
 eww/scripts/prep           CLI prep: `sync` satu sinkronisasi, `edit ID` lewat rofi
 eww/rofi/island.rasi       tema rofi untuk form teks Tugas dan prep; lib/rofi.sh (`island_rofi`) memakainya dengan palet bar
@@ -198,9 +204,6 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 | `cover` | `size` | cover art `media.art` |
 | `equalizer`, `indicators` | – | bar `viz`; titik rec/mic/kamera/DND |
 
-`media.color` is a normalized `#rrggbb` cover tint, or `""` for unavailable or grey-dominant art and the none/loading states. `lib/media/color.sh` samples a 12×12 ImageMagick histogram, groups chromatic pixels into 12 hue buckets, and averages the strongest neighbouring cluster. Results are cached under `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art-color/` using the artwork file-content SHA-1, so rotating local paths reuse the tint without running ImageMagick again.
-Cache entries are published atomically with a temporary file and rename. An empty cache file is a valid grey/no-tint result; nonempty entries must be lowercase `#rrggbb`, otherwise the tint is regenerated. Grey dominance is determined from all chromatic weight (at least 25% of total brightness-weighted pixels), independently of which neighbouring hue cluster supplies the tint.
-
 ### 4.5 Peta SCSS (`eww/scss/`)
 
 | Partial | Isi |
@@ -212,6 +215,25 @@ Cache entries are published atomically with a temporary file and rename. An empt
 | `_card`, `_notif`, `_todo`, `_picker`, `_shortcuts` | kartu expanded dan tab-tabnya; `_picker` = penanggal deadline di tab Tugas |
 
 Partial baru: buat `eww/scss/_<area>.scss`, tambah `@import "scss/<area>";` di `eww/eww.scss`.
+
+### 4.6 Musik: gate YouTube Music, bridge, lirik, output
+
+**Gate player.** `scripts/media` meneruskan isi `eww/players` (default `ytm_player,ytermusic,edge`) ke `playerctl --player ... --follow metadata`. Setiap rekaman melewati `gate_record` (`lib/media/gate.sh`) di shell pemanggil agar `GATE_LAST_MATCH_MS` bertahan antar-rekaman. `gate_player_ok PLAYER TITLE`:
+
+- `ytm_player`, `ytermusic` (dan instance `NAME.*`) selalu lolos; nama selain `edge`/`edge.*` selalu ditolak.
+- `edge` lolos bila `$ISLAND_STATE/ytm-browser.json` punya `ts` bilangan bulat dengan `now - ts <= ISLAND_BRIDGE_MAX_AGE_MS` (15000) dan `norm_title` judul bridge sama dengan `norm_title` judul MPRIS. `norm_title` mengubah ke huruf kecil, hanya menyimpan karakter `[[:alnum:]]`, dan merapatkan spasi.
+- Judul tidak cocok masih lolos selama `now - GATE_LAST_MATCH_MS <= ISLAND_BRIDGE_SKEW_MS` (5000) dan kedua judul tidak kosong (selisih waktu ganti lagu antara MPRIS dan bridge).
+- Setiap kelolosan Edge menyetel `GATE_DEADLINE_MS` (kedaluwarsa bridge atau batas skew, mana yang lebih dulu). Loop `stream` memakai deadline ini sebagai timeout `read`, lalu memvalidasi ulang rekaman yang sedang tampil tanpa menunggu event playerctl; rekaman yang gagal dikosongkan sehingga `media` menjadi `none`.
+
+**Bridge Edge.** `browser/ytm-bridge` (MV3, izin `nativeMessaging`, content script hanya `https://music.youtube.com/*`) membaca `navigator.mediaSession` setiap detik dan mengirim `{title, artist, album, video_id, playing, ts}` saat berubah, atau ulang setiap 5 detik. Service worker meneruskannya ke native host `com.openbox_island.ytm_bridge`, yang didaftarkan `browser/ytm-bridge/install.sh ID` di `~/.config/microsoft-edge/NativeMessagingHosts/` dengan `allowed_origins` hanya untuk ID itu. `lib/ytm/bridge-host.sh` membaca frame native messaging (panjang 4 byte little-endian + JSON), menerima tepat satu objek dengan `title` dan `artist` bertipe string serta `ts` opsional bertipe angka, mengganti `ts` dengan waktu terima host (`date +%s%3N`, epoch milidetik), lalu menulis `$ISLAND_STATE/ytm-browser.json` secara atomik (temp + `mv`). Pesan tidak valid diabaikan tanpa mengubah status terakhir. Karena `ts` diset host, jam di halaman tidak memengaruhi umur bridge.
+
+**Warna cover.** `media.color` adalah warna cover `#rrggbb` yang dinormalisasi, atau `""` untuk cover yang tidak tersedia atau didominasi abu-abu serta state none/loading. `lib/media/color.sh` mengambil histogram ImageMagick 12×12, mengelompokkan piksel berwarna ke 12 bucket hue, lalu merata-ratakan klaster tetangga terkuat. Hasil di-cache di `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art-color/` dengan kunci SHA-1 isi berkas cover, sehingga path lokal yang berganti-ganti memakai ulang warna tanpa menjalankan ImageMagick lagi. Entri cache ditulis atomik lewat berkas sementara dan rename. Berkas cache kosong adalah hasil sah abu-abu/tanpa warna; entri tidak kosong harus `#rrggbb` huruf kecil, selain itu warna dihitung ulang. Dominasi abu-abu ditentukan dari seluruh bobot berwarna (minimal 25% dari total piksel berbobot kecerahan), terlepas dari klaster hue tetangga mana yang memberi warna. `page-musik` memakai warna ini sebagai `background` halaman tab Musik.
+
+**Lirik.** `scripts/lyrics` mencetak `{text, synced, lines, index}`. `lines` = `[{t, text}]` dengan `t` timestamp milidetik untuk lirik tersinkron atau `-1` untuk lirik biasa; `index` = baris aktif (`-1` bila belum ada). Untuk lirik biasa, `index` diperkirakan dari posisi × jumlah baris ÷ durasi. `synced` benar hanya bila baris tersinkron sedang tampil. Mode Lirik (`musik-lyrics`) memotong `lines` ke `index-2 … index+3` dengan `jq` karena eww tidak bisa menggulir otomatis; baris dengan `t >= 0` menjalankan `playerctl --player=${media.player} position t/1000`, baris `t = -1` dinonaktifkan.
+
+**Output.** `scripts/outputs` (deflisten `outputs`) mencetak `[{name, id, label, active}]` dari `pactl --format=json list sinks`: `id` = `name` dalam base64, `label` = deskripsi sink yang di-trim (atau `name`), `active` = sink default; diurutkan aktif dulu lalu label. Render ulang terjadi pada event sink/server `pactl subscribe` (`monitor_run`). Klik baris menjalankan `outputs set-token ID`: token harus cocok `^[A-Za-z0-9+/=]+$` dan ter-decode base64, sehingga nama sink tidak pernah diinterpolasi mentah ke perintah shell eww. `set_output NAME` gagal tanpa mengubah apa pun bila sink tidak lagi ada; selain itu `pactl set-default-sink`, lalu `pactl move-sink-input` untuk setiap sink input. Satu kegagalan pemindahan membuat status keluar 1, tetapi stream lain tetap dipindah. UI hanya merender enam baris pertama plus `+N lainnya`.
+
+**Mode.** `music_mode` (defvar, `player|lyrics|output`) memilih `musik-player`, `musik-lyrics`, atau `musik-outputs` lewat `revealer :transition "none"`.
 
 ## 5. Resep
 

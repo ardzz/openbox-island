@@ -1,6 +1,6 @@
 # Konfigurasi
 
-Detail pemasangan di luar instalasi cepat: dependensi, menjalankan/menghentikan, picom, palet, player, pintasan, dunst, lokasi cuaca, dan variabel lingkungan.
+Detail pemasangan di luar instalasi cepat: dependensi, menjalankan/menghentikan, picom, palet, player, bridge YouTube Music untuk Edge, pintasan, dunst, lokasi cuaca, dan variabel lingkungan.
 
 [README](../README.md) · [Fitur](fitur.md) · [Konfigurasi](konfigurasi.md) · [Debug dan tes](debug.md) · [Arsitektur](architecture.md)
 
@@ -8,7 +8,7 @@ Detail pemasangan di luar instalasi cepat: dependensi, menjalankan/menghentikan,
 
 Visualizer memerlukan sesi audio PipeWire aktif dengan layanan kompatibilitas PulseAudio (`pipewire-pulse`), serta `busctl` dari systemd (sudah termasuk sistem dasar Arch). Jika dependensi visualizer belum terpasang saat island dimulai, pasang dependensinya lalu jalankan ulang `~/.config/openbox/island.sh` agar listener visualizer aktif.
 
-Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon dan scroll; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `dunst` (`dunstctl`) dan `xdotool` untuk notifikasi; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert Tailscale; `gtk-launch` (paket `gtk3`) untuk membuka aplikasi dari klik notifikasi saat window-nya belum ada.
+Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon, scroll, dan mode Output di tab Musik; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `dunst` (`dunstctl`) dan `xdotool` untuk notifikasi; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: `magick` (paket `imagemagick`) untuk warna latar tab Musik dari cover, tanpanya tab Musik tetap tanpa warna; `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert Tailscale; `gtk-launch` (paket `gtk3`) untuk membuka aplikasi dari klik notifikasi saat window-nya belum ada.
 
 ## Menjalankan dan menghentikan
 
@@ -32,7 +32,33 @@ Font dan warna teks island mengikuti palet tema bar (`~/.config/eww/_colors.scss
 
 ## Player
 
-Urutan prioritas ada di `eww/players` (default `ytm_player,ytermusic,edge,%any`; `ytm_player` adalah [ytm-player](https://ytm-player.com)): nama player MPRIS dipisah koma, `%any` = player lain. Lihat nama player: `playerctl -l`. Setelah mengubah, jalankan ulang `~/.config/openbox/island.sh`.
+Island hanya menampilkan YouTube Music. Urutan prioritas ada di `eww/players` (default `ytm_player,ytermusic,edge`): nama player MPRIS dipisah koma, diteruskan ke `playerctl --player`. Hanya tiga player ini yang diterima:
+
+- `ytm_player` ([ytm-player](https://ytm-player.com)) dan `ytermusic`: selalu dianggap YouTube Music.
+- `edge` (Microsoft Edge): hanya tampil bila [bridge YouTube Music](#bridge-youtube-music-untuk-edge) membuktikan bahwa lagu yang diputar berasal dari tab `music.youtube.com`. Tanpa bridge, Edge tidak pernah tampil.
+
+Nama player lain di berkas ini, termasuk wildcard `%any`, tidak lagi menampilkan player tersebut: rekamannya dibuang, sehingga player itu tidak pernah muncul di island. Lihat nama player: `playerctl -l`. Setelah mengubah, jalankan ulang `~/.config/openbox/island.sh`.
+
+## Bridge YouTube Music untuk Edge
+
+MPRIS Edge tidak membawa URL tab, sehingga island tidak dapat membedakan YouTube Music dari YouTube biasa atau media web lain. Ekstensi `browser/ytm-bridge` (Manifest V3, hanya berjalan di `https://music.youtube.com/*`, izin `nativeMessaging`) mengirim judul, artis, album, video ID, dan status putar dari tab YouTube Music ke native host `eww/scripts/lib/ytm/bridge-host.sh`. Bridge hanya membaca metadata; ia tidak mengklik, memutar, atau mengendalikan pemutaran.
+
+Pemasangan (memerlukan Bash, `jq`, dan GNU coreutils):
+
+1. Buka `edge://extensions`, aktifkan Mode pengembang, lalu pilih **Load unpacked** (Muat yang dibongkar) dan pilih folder `browser/ytm-bridge` dari repositori ini.
+2. Salin ID ekstensi yang tampil di kartu ekstensi.
+3. Jalankan installer dengan ID tersebut:
+
+   ```bash
+   browser/ytm-bridge/install.sh ID_EKSTENSI
+   ```
+
+   ID juga dapat diberikan lewat `YTM_BRIDGE_EXT_ID`. Tanpa ID, installer hanya mencetak langkah 1–2 lalu keluar dengan status 1.
+4. Muat ulang ekstensi, lalu buka atau muat ulang tab `https://music.youtube.com/`.
+
+Installer menulis `~/.config/microsoft-edge/NativeMessagingHosts/com.openbox_island.ytm_bridge.json` yang hanya mengizinkan ID ekstensi tersebut. Path host di berkas itu menunjuk ke lokasi repositori saat ini; jalankan installer lagi jika repositori dipindah atau ID ekstensi berubah.
+
+Host menulis status terakhir ke `$XDG_RUNTIME_DIR/eww-island/ytm-browser.json`. Edge dianggap YouTube Music hanya selama status itu berumur paling lama 15 detik dan judulnya sama dengan judul MPRIS Edge setelah normalisasi; aturan lengkapnya ada di [Fitur → Musik](fitur.md#musik).
 
 ## Tombol suka YouTube Music
 
@@ -100,4 +126,6 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_PREP_BEFORE` | `2j` | Waktu bawaan sebelum meeting bila `SEBELUM` template kosong (`Nm`, `Nj`, atau `Nh`) | `eww/scripts/lib/prep/template.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
 | `ISLAND_PREP_INTERVAL` | `60` | Interval sumber alert prep membuat item persiapan (detik) | `eww/scripts/lib/alert/prep.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
 | `ISLAND_UPCOMING_TICK` | `5` | Detik antar pembacaan ulang agenda dan Tugas untuk pill kiri | `eww/scripts/upcoming` | [pill-kiri](fitur.md#pill-kiri) |
+| `ISLAND_BRIDGE_MAX_AGE_MS` | `15000` | Umur maksimum status bridge YouTube Music (milidetik) sebelum Edge tidak lagi dianggap YouTube Music | `eww/scripts/lib/media/gate.sh` | [musik](fitur.md#musik) |
+| `ISLAND_BRIDGE_SKEW_MS` | `5000` | Toleransi (milidetik) saat judul MPRIS Edge dan judul bridge sempat berbeda, dihitung dari kecocokan terakhir | `eww/scripts/lib/media/gate.sh` | [musik](fitur.md#musik) |
 | `OB_YTM_AUTH` | `~/.config/ytm-player/auth.json` | Login ytm-player untuk status tombol suka (lirik YouTube Music tetap memakai `${XDG_CONFIG_HOME:-$HOME/.config}/ytm-player/auth.json`) | `eww/scripts/ytm_like.py` | [tombol-suka-youtube-music](#tombol-suka-youtube-music) |
