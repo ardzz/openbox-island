@@ -228,3 +228,36 @@ done"
 @test "a new unsupported player record replaces a rejected Edge candidate" {
   recover_bridge "printf 'Playing\\x1fspotify\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'"
 }
+
+@test "empty record loading grace cannot resurrect an expired shown Edge track" {
+  export ISLAND_MEDIA_GRACE=30 ISLAND_BRIDGE_MAX_AGE_MS=60000 ISLAND_BRIDGE_RECHECK_MS=20
+  bridge A
+  listener "printf 'Playing\\x1fedge.i1\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'
+while [[ \$(jq -r .state \"$STATE/media.json\") != playing ]]; do sleep 0.01; done
+printf '\\n'
+while [[ \$(jq -r .state \"$STATE/media.json\") != loading ]]; do sleep 0.01; done
+printf '%s\n' '{\"title\":\"A\",\"ts\":0}' > \"$STATE/ytm-browser.json\"
+touch \"$STATE/expire\"
+while [[ \$(jq -r .state \"$STATE/media.json\") != none ]]; do sleep 0.01; done
+printf '%s\n' '{\"title\":\"A\",\"ts\":'\"\$(date +%s%3N)\"'}' > \"$STATE/ytm-browser.json\"
+sleep 0.2"
+  run bash -c 'source "$1"
+    original=$(declare -f gate_record)
+    eval "${original/gate_record ()/original_gate_record ()}"
+    gate_record() {
+      original_gate_record "$@"
+      local rc=$?
+      if [[ ! -e "$ISLAND_STATE/expire" && -s "$ISLAND_STATE/media.json" ]] &&
+           [[ $(jq -r .state "$ISLAND_STATE/media.json") == playing ]]; then
+        GATE_DEADLINE_MS=$(( ${EPOCHREALTIME/./} / 1000 + 100 ))
+      fi
+      return "$rc"
+    }
+    stream | emit_dedup' _ "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [ "$(jq -r .state <<<"${lines[2]}")" = loading ]
+  [ "${lines[3]}" = "$NONE_JSON" ]
+  [ "$(jq -r .state "$STATE/media.json")" = none ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = close ]
+}

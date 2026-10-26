@@ -67,6 +67,7 @@ stream() {
         elif (( gate_wake )); then
           record=$shown
           gate_record record || :
+          if (( deadline )) && ! has_track "$pending"; then GATE_CANDIDATE=""; fi
           if (( deadline )) && [[ -n $record ]]; then continue; fi
         else
           record=$pending
