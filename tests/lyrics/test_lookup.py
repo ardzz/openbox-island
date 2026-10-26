@@ -54,7 +54,7 @@ class LookupTests(LyricsCase):
             clock[0] = 115.25
             self.assertEqual(state.next_lookup(clock[0]), (key, current))
             self.lookup_into_state(cache, state, key, current)
-            self.assertEqual(state.output(1000), {"text": "Recovered early", "synced": True})
+            self.assert_line(state, 1000, "Recovered early", True)
             self.assertEqual(requests.call_count, 4)
             hosts = [urllib.parse.urlparse(call.args[0].full_url).hostname
                      for call in requests.call_args_list]
@@ -75,7 +75,7 @@ class LookupTests(LyricsCase):
             }), encoding="utf-8")
             key = state.update_track(current)
             self.lookup_into_state(cache, state, key, current)
-            self.assertEqual(state.output(1000), {"text": "New source lyric", "synced": True})
+            self.assert_line(state, 1000, "New source lyric", True)
             self.assertEqual(requests.call_count, 4)
             self.assertEqual(cache.read(current, NOW).lines, [(1000, "New source lyric")])
 

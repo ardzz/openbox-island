@@ -51,6 +51,11 @@ def netease_search(*songs):
 class LyricsCase(unittest.TestCase):
     """Fake clock, request spacing/cooldown state and network for lookup tests."""
 
+    def assert_line(self, state, position, text, synced):
+        output = state.output(position)
+        self.assertEqual(output["text"], text)
+        self.assertEqual(output["synced"], synced)
+
     @contextmanager
     def retry_environment(self, replies):
         clock = [100.0]

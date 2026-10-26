@@ -1,7 +1,35 @@
-; Now playing: cover, title and artist, lyric line, position, up next with the headphone, controls.
-; Each row and its skeleton share one slot so the page keeps its spacing and height.
 (defwidget page-musik []
-  (box :class "page" :orientation "v" :space-evenly false :spacing 8
+  (box :class "page music-page" :orientation "v" :space-evenly false :spacing 4
+       :style {media.color != "" ? "background: ${media.color};" : ""}
+    (box :class "music-modes" :orientation "h" :space-evenly false :spacing 12
+      (button :class "music-mode ${music_mode == 'player' ? 'on' : ''}"
+              :onclick "eww --config ${EWW_CONFIG_DIR} update music_mode=player" "Player")
+      (button :class "music-mode ${music_mode == 'lyrics' ? 'on' : ''}"
+              :onclick "eww --config ${EWW_CONFIG_DIR} update music_mode=lyrics" "󰎈 Lirik"))
+    (revealer :transition "none" :reveal {music_mode == "player"}
+      (musik-player))
+    (revealer :transition "none" :reveal {music_mode == "lyrics"}
+      (musik-lyrics))))
+
+(defwidget musik-lyrics []
+  (box :orientation "v" :space-evenly false :spacing 0
+    (box :orientation "h" :space-evenly false :spacing 8
+      (label :class "title" :xalign 0 :hexpand true :limit-width 42
+             :show-truncated true :text {media.title})
+      (button :class "music-mode" :tooltip "Kembali ke pemutar"
+              :onclick "eww --config ${EWW_CONFIG_DIR} update music_mode=player" "󰁍"))
+    (label :class "lyric-empty" :visible {arraylength(lyrics.lines) == 0}
+           :text "Lirik tidak tersedia")
+    (for row in {jq(lyrics, ". as $l | .lines | to_entries | .[([$l.index - 2, 0] | max):($l.index + 4)]")}
+      (box :visible {row.key >= (lyrics.index > 2 ? lyrics.index - 2 : 0) && row.key <= lyrics.index + 3}
+        (button :class "lyric-row ${lyrics.synced && row.key == lyrics.index ? 'lyric-on' : ''}"
+                :sensitive {row.value.t >= 0}
+                :onclick {row.value.t >= 0 ? "playerctl --player=${media.player} position ${row.value.t / 1000} &" : ""}
+          (label :xalign 0 :limit-width 58 :show-truncated true :wrap false
+                 :text {row.value.text}))))))
+
+(defwidget musik-player []
+  (box :orientation "v" :space-evenly false :spacing 3
     (box :orientation "h" :space-evenly false :spacing 12
       (cover :size "large")
       (box :orientation "v" :space-evenly false :valign "center" :spacing 0

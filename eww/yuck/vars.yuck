@@ -1,6 +1,6 @@
 (deflisten media :initial '{"state":"none","player":"","title":"","artist":"","art":"","color":"","length":0,"length_text":"0:00"}' "scripts/media")
 (deflisten viz :initial "[0,0,0,0,0,0]" "scripts/viz")
-(deflisten lyrics :initial '{"text":"","synced":false}' "scripts/lyrics")
+(deflisten lyrics :initial '{"text":"","synced":false,"lines":[],"index":-1}' "scripts/lyrics")
 (deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}' "scripts/alert")
 (deflisten notify :initial '{"active":false,"id":0,"app":"","summary":"","body":"","icon":"","image":"","critical":false}' "scripts/notify")
 (deflisten notif_center :initial '{"total":0,"unread":0,"label":"Notifikasi","rows":[],"more":0,"offset":0}' "scripts/notif")
@@ -16,6 +16,7 @@
 (defvar island_reveal false)
 ; Shown tab of the expanded card; scripts/island and scripts/tab set it.
 (defvar island_tab "musik")
+(defvar music_mode "player")
 (defpoll pos :interval "1s" :initial '{"pos":0,"text":"0:00"}' :run-while island_reveal "scripts/position")
 ; Scroll title and artist only while the expanded island is revealed.
 (defpoll marquee :interval "200ms" :initial '{"title":"","artist":""}' :run-while island_reveal "scripts/marquee")

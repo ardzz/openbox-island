@@ -54,14 +54,14 @@ class HttpTests(LyricsCase):
                 cache.write(current, [(1000, "Stale lyric")], NOW - 31 * DAY)
                 key = state.update_track(current)
                 self.lookup_into_state(cache, state, key, current)
-                self.assertEqual(state.output(1000), {"text": "Stale lyric", "synced": True})
+                self.assert_line(state, 1000, "Stale lyric", True)
                 clock[0] = 189.999
                 self.assertIsNone(state.next_lookup(clock[0]))
                 self.assertEqual(requests.call_count, 2)
                 clock[0] = 190.0
                 self.assertEqual(state.next_lookup(clock[0]), (key, current))
                 self.lookup_into_state(cache, state, key, current)
-                self.assertEqual(state.output(1000), {"text": "Refreshed", "synced": True})
+                self.assert_line(state, 1000, "Refreshed", True)
                 self.assertEqual(requests.call_count, 3)
 
     def test_retry_after_is_honored_for_other_transient_http_statuses(self):
@@ -83,7 +83,7 @@ class HttpTests(LyricsCase):
                 clock[0] = 190.0
                 self.assertEqual(state.next_lookup(clock[0]), (key, current))
                 self.lookup_into_state(cache, state, key, current)
-                self.assertEqual(state.output(1000), {"text": "A line", "synced": True})
+                self.assert_line(state, 1000, "A line", True)
                 self.assertEqual(requests.call_count, 3)
 
     def test_active_cooldown_schedules_retry_without_network_request(self):
@@ -99,5 +99,5 @@ class HttpTests(LyricsCase):
             clock[0] = 180.0
             self.assertEqual(state.next_lookup(clock[0]), (key, current))
             self.lookup_into_state(cache, state, key, current)
-            self.assertEqual(state.output(1000), {"text": "A line", "synced": True})
+            self.assert_line(state, 1000, "A line", True)
             self.assertEqual(requests.call_count, 2)

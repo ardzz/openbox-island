@@ -1,5 +1,6 @@
 """Per-track lyric state: lookup scheduling, retries and the emitted line."""
 
+from bisect import bisect_right
 import time
 
 from .lrc import line_at, plain_line_at
@@ -57,14 +58,20 @@ class LyricsState:
         return None
 
     def output(self, position_ms):
+        lines = [{"t": stamp, "text": text} for stamp, text in self.lines or []]
+        index = -1
+        if lines and position_ms is not None:
+            index = bisect_right(self.lines, position_ms, key=lambda row: row[0]) - 1
         content = line_at(self.lines, position_ms)
-        if content:
-            return {"text": content, "synced": True}
+        synced = bool(content)
         if self.lines is None:
-            content = plain_line_at(self.plain, position_ms, duration_of(self.track.get("length")))
-            if content:
-                return {"text": content, "synced": False}
+            lines = [{"t": -1, "text": text} for text in self.plain or []]
+            duration = duration_of(self.track.get("length"))
+            content = plain_line_at(self.plain, position_ms, duration)
+            if lines and position_ms is not None and duration is not None:
+                index = min(int(max(0, position_ms) * len(lines) // (duration * 1000)),
+                            len(lines) - 1)
         title = single_line(self.track.get("title", ""))
         artist = single_line(self.track.get("artist", ""))
         fallback = " — ".join(part for part in (title, artist) if part)
-        return {"text": fallback, "synced": False}
+        return {"text": content or fallback, "synced": synced, "lines": lines, "index": index}

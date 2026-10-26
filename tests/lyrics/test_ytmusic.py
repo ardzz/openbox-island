@@ -14,9 +14,9 @@ class YtmusicTests(YtmCase):
         with self.ytm_environment(ytmusicapi=fake_ytmusicapi(timed=YTM_TIMED)) as env:
             current = ytm_track()
             self.ytm_lookup(env, current)
-            self.assertEqual(env.state.output(9199), {"text": "Sun Shower — The Poles", "synced": False})
-            self.assertEqual(env.state.output(9200), {"text": "I was a liar", "synced": True})
-            self.assertEqual(env.state.output(11000), {"text": "I gave in to the fire", "synced": True})
+            self.assert_line(env.state, 9199, "Sun Shower — The Poles", False)
+            self.assert_line(env.state, 9200, "I was a liar", True)
+            self.assert_line(env.state, 11000, "I gave in to the fire", True)
             self.assertEqual(env.requests.call_count, 0)
             self.assertEqual(env.status_calls, [["ytm", "status"]])
             self.assertEqual(env.calls, [("init", str(env.auth)), ("watch", "k9CTIUM9RmA", 1),
@@ -30,7 +30,7 @@ class YtmusicTests(YtmCase):
         with self.ytm_environment([lrclib]) as env:
             result = self.ytm_lookup(env, ytm_track())
             self.assertEqual(result.lines, [(1000, "From LRCLIB")])
-            self.assertEqual(env.state.output(1000), {"text": "From LRCLIB", "synced": True})
+            self.assert_line(env.state, 1000, "From LRCLIB", True)
             self.assertEqual(env.calls[-2:], [("lyrics", "MPLYt_sFZ3WK0rGCU-1", True),
                                               ("lyrics", "MPLYt_sFZ3WK0rGCU-1", False)])
             self.assertEqual(env.requests.call_count, 1)
@@ -43,7 +43,7 @@ class YtmusicTests(YtmCase):
         ]) as env:
             result = self.ytm_lookup(env, ytm_track())
             self.assertEqual(result.lines, [(1000, "From NetEase")])
-            self.assertEqual(env.state.output(1000), {"text": "From NetEase", "synced": True})
+            self.assert_line(env.state, 1000, "From NetEase", True)
             self.assertEqual(env.requests.call_count, 4)
 
     def test_ytm_plain_is_unsynced_estimated_by_position_and_negative_cached_for_a_day(self):
@@ -54,11 +54,11 @@ class YtmusicTests(YtmCase):
             self.assertIsNone(result.lines)
             self.assertIsNone(result.retry_at)
             self.assertEqual(env.requests.call_count, 3)
-            self.assertEqual(env.state.output(None), {"text": "Sun Shower — The Poles", "synced": False})
+            self.assert_line(env.state, None, "Sun Shower — The Poles", False)
             for position, index in [(0, 0), (59999, 0), (60000, 1), (179999, 2),
                                     (180000, 3), (239999, 3), (500000, 3)]:
                 with self.subTest(position=position):
-                    self.assertEqual(env.state.output(position), {"text": plain[index], "synced": False})
+                    self.assert_line(env.state, position, plain[index], False)
             entry = env.cache.read(current, NOW + DAY - 1)
             self.assertTrue(entry.fresh)
             self.assertIsNone(entry.lines)
@@ -69,7 +69,7 @@ class YtmusicTests(YtmCase):
     def test_plain_lyrics_from_timestamped_request_need_no_second_request(self):
         with self.ytm_environment(ALL_MISSES, ytmusicapi=fake_ytmusicapi(timed=YTM_PLAIN)) as env:
             self.ytm_lookup(env, ytm_track(length=240))
-            self.assertEqual(env.state.output(0), {"text": "비가 와요", "synced": False})
+            self.assert_line(env.state, 0, "비가 와요", False)
             self.assertEqual([call for call in env.calls if call[0] == "lyrics"],
                              [("lyrics", "MPLYt_sFZ3WK0rGCU-1", True)])
 
@@ -83,7 +83,7 @@ class YtmusicTests(YtmCase):
             self.assertTrue(env.cache.read(ytm_track(length=240, player="spotify"), NOW).fresh)
             self.assertIsNone(env.cache.read(current, NOW))
             self.ytm_lookup(env, current)
-            self.assertEqual(env.state.output(0), {"text": "비가 와요", "synced": False})
+            self.assert_line(env.state, 0, "비가 와요", False)
             self.assertIn(("watch", "k9CTIUM9RmA", 1), env.calls)
 
     def test_other_players_never_consult_ytm(self):
@@ -159,4 +159,4 @@ class YtmusicTests(YtmCase):
                 entry = env.cache.read(ytm_track(), NOW)
                 self.assertTrue(entry.fresh)
                 self.assertIsNone(entry.plain)
-                self.assertEqual(env.state.output(0), {"text": "Sun Shower — The Poles", "synced": False})
+                self.assert_line(env.state, 0, "Sun Shower — The Poles", False)

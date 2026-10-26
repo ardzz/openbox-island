@@ -19,7 +19,7 @@ class NeteaseTests(LyricsCase):
                 cache, state, clock, requests = env
                 key = state.update_track(track())
                 self.lookup_into_state(cache, state, key, track())
-                self.assertEqual(state.output(1000), {"text": "Fallback", "synced": True})
+                self.assert_line(state, 1000, "Fallback", True)
                 self.assertEqual(cache.read(track(), NOW).lines, [(1000, "Fallback")])
                 self.assertTrue(requests.call_args_list[2].args[0].full_url.startswith(
                     "https://music.163.com/api/search/get?"))

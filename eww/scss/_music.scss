@@ -163,3 +163,39 @@
 .ctl-ytm.on {
   color: $island-accent;
 }
+
+.music-mode {
+  color: $muted;
+  font-size: 11px;
+  padding: 0;
+}
+
+.music-mode.on,
+.music-mode:hover {
+  color: $island-accent;
+}
+
+.music-modes {
+  min-height: 16px;
+}
+
+.lyric-row {
+  color: $muted;
+  font-size: 12px;
+  min-height: 19px;
+  padding: 0;
+}
+
+.lyric-row:disabled {
+  color: $muted;
+}
+
+.lyric-on {
+  color: $island-accent;
+  font-weight: bold;
+}
+
+.lyric-empty {
+  color: $muted;
+  margin-top: 36px;
+}

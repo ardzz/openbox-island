@@ -25,7 +25,7 @@ class LrclibTests(LyricsCase):
             cache, state, clock, requests = env
             key = state.update_track(current)
             self.lookup_into_state(cache, state, key, current)
-            self.assertEqual(state.output(1250), {"text": "High Tide lyric", "synced": True})
+            self.assert_line(state, 1250, "High Tide lyric", True)
             self.assertEqual(requests.call_count, 2)
             self.assertEqual(cache.read(current, NOW).lines, [(1250, "High Tide lyric")])
 
