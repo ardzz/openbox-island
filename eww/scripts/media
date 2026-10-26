@@ -78,6 +78,11 @@ stream() {
       fi
       authorized=1
       gate_record record || authorized=0
+      if [[ -z $record ]]; then
+        case $player in
+          edge|edge.*) gate_record shown || authorized=0 ;;
+        esac
+      fi
       # A track change passes through records without a track: keep the shown player loading.
       if (( authorized )) && [[ -n $prev ]] && (( grace )) && ! has_track "$record"; then
         if (( ! deadline )); then

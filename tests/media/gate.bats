@@ -153,6 +153,23 @@ sleep 0.2"
   [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = close ]
 }
 
+@test "an empty Edge record with missing bridge closes immediately without loading" {
+  export ISLAND_MEDIA_GRACE=2
+  bridge A
+  listener "printf 'Playing\\x1fedge.i1\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'
+sleep 0.1
+rm \"$STATE/ytm-browser.json\"
+printf '\\n'
+sleep 0.2"
+  run bash -c 'source "$1"; stream | emit_dedup' _ "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+  [ "$(jq -r .state <<<"${lines[1]}")" = playing ]
+  [ "${lines[2]}" = "$NONE_JSON" ]
+  [ "$(cat "$STATE/player")" = "" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = close ]
+}
+
 @test "Japanese titles stay meaningful and Unicode case folding preserves exact matching" {
   bridge '夜に駆ける'
   listen_track edge.i1 '夜に駆ける'
