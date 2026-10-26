@@ -6,11 +6,11 @@ load common
   run media_json "$(line Playing edge.instance11487 'Heroes Tonight' 'Janji, Johnning' "file://$BATS_TEST_TMPDIR/a%20b.png" 290366666)"
   [ "$status" -eq 0 ]
   [ "$(jq -r .art <<<"$output")" = "$BATS_TEST_TMPDIR/a b.png" ]
-  [ "$(jq -c 'del(.art)' <<<"$output")" = '{"state":"playing","player":"edge.instance11487","title":"Heroes Tonight","artist":"Janji, Johnning","length":290,"length_text":"4:50"}' ]
+  [ "$(jq -c 'del(.art)' <<<"$output")" = '{"state":"playing","player":"edge.instance11487","title":"Heroes Tonight","artist":"Janji, Johnning","color":"","length":290,"length_text":"4:50"}' ]
 }
 
 @test "paused keeps the track; stopped and an empty line mean no player" {
-  none='{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}'
+  none='{"state":"none","player":"","title":"","artist":"","art":"","color":"","length":0,"length_text":"0:00"}'
   run media_json "$(line Paused edge.i1 T A '' 1000000)"
   [ "$(jq -c '[.state,.title]' <<<"$output")" = '["paused","T"]' ]
   run media_json "$(line Stopped edge.i1 T A '' 1000000)"
@@ -33,7 +33,7 @@ load common
 
 @test "missing length and unsupported cover schemes fall back to zero and no cover" {
   run media_json "$(line Playing edge.i1 T A 'data:image/png;base64,AAAA' '')"
-  [ "$(jq -c '[.art,.length,.length_text]' <<<"$output")" = '["",0,"0:00"]' ]
+  [ "$(jq -c '[.art,.color,.length,.length_text]' <<<"$output")" = '["","",0,"0:00"]' ]
 }
 
 @test "track_key names player, title and artist; nothing when stopped" {
@@ -57,5 +57,12 @@ load common
 
 @test "loading_json keeps the player but no track details" {
   run loading_json edge.i1
-  [ "$output" = '{"state":"loading","player":"edge.i1","title":"","artist":"","art":"","length":0,"length_text":"0:00"}' ]
+  [ "$output" = '{"state":"loading","player":"edge.i1","title":"","artist":"","art":"","color":"","length":0,"length_text":"0:00"}' ]
+}
+
+@test "a resolved cover supplies its color to the media record" {
+  magick -size 12x12 xc:'#cc2222' "$BATS_TEST_TMPDIR/cover.png"
+  run media_json "$(line Playing edge.i1 T A "file://$BATS_TEST_TMPDIR/cover.png" 0)"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r .color <<<"$output")" = '#cc2222' ]
 }

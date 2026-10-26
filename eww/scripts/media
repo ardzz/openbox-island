@@ -6,6 +6,8 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/lib/core.sh"
 # shellcheck source=lib/media/art.sh
 source "$DIR/lib/media/art.sh"
+# shellcheck source=lib/media/color.sh
+source "$DIR/lib/media/color.sh"
 # shellcheck source=lib/media/record.sh
 source "$DIR/lib/media/record.sh"
 # shellcheck source=lib/media/transition.sh

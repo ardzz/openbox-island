@@ -1,4 +1,4 @@
-(deflisten media :initial '{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}' "scripts/media")
+(deflisten media :initial '{"state":"none","player":"","title":"","artist":"","art":"","color":"","length":0,"length_text":"0:00"}' "scripts/media")
 (deflisten viz :initial "[0,0,0,0,0,0]" "scripts/viz")
 (deflisten lyrics :initial '{"text":"","synced":false}' "scripts/lyrics")
 (deflisten alert :initial '{"kind":"","icon":"","text":"","value":"","level":-1,"image":""}' "scripts/alert")

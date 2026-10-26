@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# playerctl metadata records and the island JSON they become. Source it after core.sh and media/art.sh.
+# playerctl metadata records and the island JSON they become. Source after core.sh, media/art.sh and media/color.sh.
 
 SEP=$'\x1f'
 REC=$'\x1e'
 # shellcheck disable=SC2034 # read by scripts/media
 FORMAT="{{status}}$SEP{{playerInstance}}$SEP{{title}}$SEP{{artist}}$SEP{{mpris:artUrl}}$SEP{{mpris:length}}$REC"
-NONE_JSON='{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}'
+NONE_JSON='{"state":"none","player":"","title":"","artist":"","art":"","color":"","length":0,"length_text":"0:00"}'
 
 # media_json RECORD: one playerctl --format "$FORMAT" record -> island JSON. Empty record = no player.
 media_json() {
-  local status player title artist art_url length state
+  local status player title artist art_url length state resolved_art
   IFS=$SEP read -r -d '' status player title artist art_url length < <(printf '%s' "$1")
   case $status in
     Playing) state=playing ;;
@@ -18,10 +18,11 @@ media_json() {
   esac
   [[ $length =~ ^[0-9]+$ ]] || length=0
   length=$(( 10#$length / 1000000 ))
+  resolved_art=$(resolve_art "$art_url")
   jq -nc --arg state "$state" --arg player "$player" --arg title "$title" --arg artist "$artist" \
-     --arg art "$(resolve_art "$art_url")" --argjson length "$length" \
+     --arg art "$resolved_art" --arg color "$(art_color "$resolved_art")" --argjson length "$length" \
      --arg length_text "$(fmt_time "$length")" \
-     '{state: $state, player: $player, title: $title, artist: $artist, art: $art, length: $length, length_text: $length_text}'
+     '{state: $state, player: $player, title: $title, artist: $artist, art: $art, color: $color, length: $length, length_text: $length_text}'
 }
 
 # track_key RECORD: identity of the shown track; "" when nothing is playing or paused.

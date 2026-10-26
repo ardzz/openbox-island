@@ -121,7 +121,7 @@ sleep 5"
   echo edge.old > "$XDG_RUNTIME_DIR/eww-island/player"
   run timeout 1 "$BATS_TEST_TMPDIR/eww/scripts/media"
   [ "$status" -eq 124 ]
-  [ "$output" = '{"state":"none","player":"","title":"","artist":"","art":"","length":0,"length_text":"0:00"}' ]
+  [ "$output" = '{"state":"none","player":"","title":"","artist":"","art":"","color":"","length":0,"length_text":"0:00"}' ]
   [ "$(cat "$XDG_RUNTIME_DIR/eww-island/player")" = "" ]
   [ "$(cat "$STATE/media.json")" = "$output" ]
 }

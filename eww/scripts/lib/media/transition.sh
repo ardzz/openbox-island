@@ -13,7 +13,7 @@ grace_us() {
 # loading_json PLAYER: the shown player is between tracks; the island draws a skeleton.
 loading_json() {
   jq -nc --arg player "$1" \
-    '{state: "loading", player: $player, title: "", artist: "", art: "", length: 0, length_text: "0:00"}'
+    '{state: "loading", player: $player, title: "", artist: "", art: "", color: "", length: 0, length_text: "0:00"}'
 }
 
 # media_action FIRST PREV_KEY KEY STATUS: auto = a new track started playing (never on the
