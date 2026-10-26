@@ -199,3 +199,19 @@
   color: $muted;
   margin-top: 36px;
 }
+
+.output-row {
+  color: $muted;
+  font-size: 12px;
+  min-height: 19px;
+  padding: 0;
+}
+
+.output-row.on,
+.output-row:hover {
+  color: $island-accent;
+}
+
+.output-row.on {
+  font-weight: bold;
+}

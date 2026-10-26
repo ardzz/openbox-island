@@ -8,6 +8,7 @@
 (deflisten kalender :initial '{"ok":false,"label":"Kalender","count":0,"total":0,"rows":[],"more":0,"offset":0,"allday_text":"","note":""}' "scripts/kalender")
 (deflisten upcoming :initial '{"empty":true,"meeting":{"show":false,"id":"","title":"","text":"","state":"","color":"","join":false,"prep":"","prep_done":false},"deadline":{"show":false,"title":"","label":"","class":"","more":0}}' "scripts/upcoming")
 (deflisten status :initial '{"mic":false,"mic_apps":"","camera":false,"camera_apps":"","dnd":false,"headphone":{"kind":"none","icon":"","name":"","battery":null,"battery_icon":"","low":false,"label":""}}' "scripts/status")
+(deflisten outputs :initial "[]" "scripts/outputs")
 (deflisten rec :initial '{"active":false,"app":"","time":""}' "scripts/rec")
 (deflisten ytm :initial '{"active":false,"video_id":"","like":"","next_title":"","next_artist":""}' "scripts/ytm")
 (deflisten weather :initial '{"ok":false,"icon":"","tone":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# outputs: audio sinks for the music tab; set moves all active playback streams.
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
+# shellcheck source=lib/monitor.sh
+source "$DIR/lib/monitor.sh"
+
+render() {
+  local sinks default
+  sinks=$(pactl --format=json list sinks) || return
+  default=$(pactl get-default-sink) || return
+  jq -c --arg default "$default" '
+    map(.name as $name | ((.description // "") | gsub("^\\s+|\\s+$"; "")) as $label |
+      {name:$name, label:(if $label == "" then $name else $label end), active:($name == $default)}) |
+    sort_by([(.active | not), .label])' <<< "$sinks"
+}
+
+set_output() {
+  local name=$1 sinks inputs id
+  sinks=$(pactl --format=json list sinks) || return
+  jq -e --arg name "$name" 'any(.[]; .name == $name)' <<< "$sinks" >/dev/null || return 1
+  pactl set-default-sink "$name" || return
+  inputs=$(pactl --format=json list sink-inputs) || return
+  while IFS= read -r id; do
+    pactl move-sink-input "$id" "$name" || return
+  done < <(jq -r '.[].index' <<< "$inputs")
+}
+
+output_event() {
+  case $1 in
+    *" on sink #"*|*" on server #"*) render ;;
+  esac
+}
+
+output_watch() {
+  require pactl jq || return 127
+  monitor_start=render
+  monitor_run output_event pactl subscribe
+}
+
+stream() {
+  trap 'exit 0' TERM INT HUP
+  trap 'if [[ -n $monitor_pid ]]; then kill "$monitor_pid" 2>/dev/null || :; wait "$monitor_pid" 2>/dev/null || :; fi' EXIT
+  run_forever output_watch
+}
+
+main() {
+  case ${1:-watch} in
+    watch) stream | emit_dedup ;;
+    set) [[ $# == 2 ]] || return 1; set_output "$2" ;;
+    *) return 1 ;;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
