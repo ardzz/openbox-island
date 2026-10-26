@@ -2,7 +2,7 @@
 # Cover tints cached by image contents, independent of rotating player paths.
 
 art_color() {
-  local path=${1:-} cache key histogram color temporary
+  local path=${1:-} cache key histogram color temporary image_tool
   if [[ ! -f $path || ! -r $path ]]; then printf '\n'; return 0; fi
   if ! key=$(sha1sum < "$path" 2>/dev/null); then printf '\n'; return 0; fi
   key=${key%% *}
@@ -14,7 +14,8 @@ art_color() {
       return 0
     fi
   fi
-  if ! histogram=$(LC_ALL=C magick "$path" -resize 12x12! -alpha remove -format %c histogram:info:- 2>/dev/null); then
+  if ! image_tool=$(command -v magick || command -v convert); then printf '\n'; return 0; fi
+  if ! histogram=$(LC_ALL=C "$image_tool" "$path" -resize 12x12! -alpha remove -format %c histogram:info:- 2>/dev/null); then
     printf '\n'; return 0
   fi
   color=$(LC_ALL=C awk '

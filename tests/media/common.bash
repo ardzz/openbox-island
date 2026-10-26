@@ -10,6 +10,10 @@ load ../helpers
 # line FIELD...: one playerctl --format line (fields joined by \x1f).
 line() { local IFS=$'\x1f'; printf '%s' "$*"; }
 
+require_imagemagick() {
+  IMAGE_TOOL=$(command -v magick || command -v convert) || skip "ImageMagick (magick atau convert) tidak tersedia"
+}
+
 # listener PLAYERCTL_BODY: run the media listener on a fake playerctl; island calls go to island.log.
 listener() {
   mkdir -p "$BATS_TEST_TMPDIR/eww"

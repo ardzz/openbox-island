@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends shellcheck jq python3 python3-pip inotify-tools
+          sudo apt-get install -y --no-install-recommends shellcheck jq python3 python3-pip inotify-tools imagemagick
           sudo pip3 install --break-system-packages 'icalendar>=7,<8' 'recurring-ical-events>=3.8,<4'
           git clone --depth 1 --branch v1.14.0 https://github.com/bats-core/bats-core.git "$RUNNER_TEMP/bats-core"
           sudo "$RUNNER_TEMP/bats-core/install.sh" /usr/local

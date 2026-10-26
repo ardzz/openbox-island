@@ -215,7 +215,7 @@ ln -s "$PWD/eww" ~/.config/eww-island
 ln -s "$PWD/openbox/island.sh" ~/.config/openbox/island.sh
 ```
 
-The visualizer also needs an active PipeWire session with `pipewire-pulse`. The Music tab cover tint optionally needs ImageMagick (`magick`, Arch package `imagemagick`).
+The visualizer also needs an active PipeWire session with `pipewire-pulse`. The Music tab cover tint optionally needs ImageMagick: `magick` (ImageMagick 7, Arch package `imagemagick`) or `convert` (ImageMagick 6, e.g. Ubuntu); without either, the tab is not tinted.
 
 To show YouTube Music played in Microsoft Edge, load `browser/ytm-bridge` as an unpacked extension at `edge://extensions`, copy its extension ID, run `browser/ytm-bridge/install.sh <extension-id>`, then reload the extension and the YouTube Music tab. See [Edge bridge setup](docs/konfigurasi.md#bridge-youtube-music-untuk-edge).
 

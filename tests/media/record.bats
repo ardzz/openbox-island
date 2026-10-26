@@ -61,7 +61,8 @@ load common
 }
 
 @test "a resolved cover supplies its color to the media record" {
-  magick -size 12x12 xc:'#cc2222' "$BATS_TEST_TMPDIR/cover.png"
+  require_imagemagick
+  "$IMAGE_TOOL" -size 12x12 xc:'#cc2222' "$BATS_TEST_TMPDIR/cover.png"
   run media_json "$(line Playing edge.i1 T A "file://$BATS_TEST_TMPDIR/cover.png" 0)"
   [ "$status" -eq 0 ]
   [ "$(jq -r .color <<<"$output")" = '#cc2222' ]
