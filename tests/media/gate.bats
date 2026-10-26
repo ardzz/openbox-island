@@ -109,3 +109,56 @@ printf 'Playing\\x1fedge.i1\\x1fB\\x1fX\\x1f\\x1f0\\x1e\\n'"
   [ "$(jq -r .artist <<<"${lines[1]}")" = X ]
 }
 
+@test "a silent Edge track expires and closes when bridge freshness runs out" {
+  export ISLAND_BRIDGE_MAX_AGE_MS=200
+  bridge A
+  listener "printf 'Playing\\x1fedge.i1\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'
+sleep 0.6"
+  run bash -c 'source "$1"; stream | emit_dedup' _ "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+  [ "$(jq -r .state <<<"${lines[1]}")" = playing ]
+  [ "${lines[2]}" = "$NONE_JSON" ]
+  [ "$(cat "$STATE/player")" = "" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = close ]
+}
+
+@test "a silent skew-admitted track expires without another metadata record" {
+  export ISLAND_BRIDGE_SKEW_MS=100
+  bridge A
+  listener "printf 'Playing\\x1fedge.i1\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'
+printf 'Playing\\x1fedge.i1\\x1fB\\x1fX\\x1f\\x1f0\\x1e\\n'
+sleep 0.5"
+  run bash -c 'source "$1"; stream | emit_dedup' _ "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 4 ]
+  [ "$(jq -r .title <<<"${lines[2]}")" = B ]
+  [ "${lines[3]}" = "$NONE_JSON" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = $'auto 4\nclose' ]
+}
+
+@test "a rejected Edge no-track record bypasses loading grace" {
+  export ISLAND_MEDIA_GRACE=2
+  bridge A
+  listener "printf 'Playing\\x1fedge.i1\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'
+sleep 0.1
+rm \"$STATE/ytm-browser.json\"
+printf 'Stopped\\x1fedge.i1\\x1f\\x1f\\x1f\\x1f0\\x1e\\n'
+sleep 0.2"
+  run bash -c 'source "$1"; stream | emit_dedup' _ "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+  [ "${lines[2]}" = "$NONE_JSON" ]
+  [ "$(cat "$STATE/player")" = "" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = close ]
+}
+
+@test "Japanese titles stay meaningful and Unicode case folding preserves exact matching" {
+  bridge '夜に駆ける'
+  listen_track edge.i1 '夜に駆ける'
+  [ "$(jq -r .state <<<"${lines[1]}")" = playing ]
+  GATE_LAST_MATCH_MS=0
+  ! gate_player_ok edge.i1 '夜に駆けない'
+  bridge 'ÉTÉ,　夜!'
+  gate_player_ok edge.i1 'été 夜'
+}
