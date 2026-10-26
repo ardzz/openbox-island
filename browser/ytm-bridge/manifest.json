@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "openbox-island YTM bridge",
+  "version": "1.0.0",
+  "description": "Kirim metadata pemutaran YouTube Music ke island tanpa mengendalikan pemutaran.",
+  "permissions": ["nativeMessaging"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://music.youtube.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
