@@ -16,7 +16,15 @@ pemutaran setiap detik. Perubahan dikirim segera pada polling berikutnya;
 metadata yang sama dikirim ulang setiap lima detik. Tidak ada klik, autoplay,
 atau perintah pemutaran dari bridge.
 
-Service worker meneruskan pesan ke native host. Host memvalidasi objek JSON
+Service worker memilih satu tab sumber: tab yang sedang memutar didahulukan;
+jika semuanya dijeda, tab yang terakhir memutar atau dijeda tetap dipilih.
+Heartbeat tab lain tidak menimpa sumber tersebut. Menutup tab sumber
+memilih tab lain yang tersisa. Hanya metadata sumber terpilih diteruskan ke native host.
+Kandidat Edge yang belum lolos bukti bridge diperiksa ulang setiap 250 ms
+selama belum ditampilkan, sehingga heartbeat baru dapat memulihkannya tanpa
+perubahan metadata MPRIS. Pemulihan lagu yang sedang memutar membuka island
+seperti awal lagu baru; aturan pembaruan pertama untuk lagu yang langsung lolos tetap berlaku.
+Host memvalidasi objek JSON
 dengan `title` dan `artist` bertipe string serta `ts` opsional bertipe angka,
 lalu mengganti `ts` dengan waktu penerimaan dalam epoch milidetik. Status
 `{title, artist, album, video_id, playing, ts}` ditulis secara atomik ke
