@@ -16,7 +16,9 @@ case "$*" in
   '--format=json list sinks') cat "$OUTPUT_FIXTURE" ;;
   get-default-sink) cat "$OUTPUT_DEFAULT" ;;
   '--format=json list sink-inputs') echo '[{"index":17},{"index":42}]' ;;
-  'set-default-sink '*|'move-sink-input '*) printf '%s\n' "$*" >> "$OUTPUT_MUTATIONS" ;;
+  'set-default-sink '*|'move-sink-input '*)
+    printf '%s\n' "$*" >> "$OUTPUT_MUTATIONS"
+    if [[ ${OUTPUT_FAIL_FIRST_MOVE:-0} == 1 && $1 == move-sink-input && $2 == 17 ]]; then exit 1; fi ;;
   subscribe)
     echo "Event 'change' on sink-input #17"
     sleep 0.15
@@ -54,4 +56,33 @@ STUB
   [ "${#lines[@]}" -eq 2 ]
   [ "$(jq -r '.[0].name' <<<"${lines[0]}")" = bluez_output.headset.1 ]
   [ "$(jq -r '.[0].name' <<<"${lines[1]}")" = alsa_output.speaker ]
+}
+
+@test "a vanished first sink input does not prevent moving the remaining inputs" {
+  export OUTPUT_FAIL_FIRST_MOVE=1
+  run "$SCRIPTS/outputs" set alsa_output.speaker
+  [ "$status" -ne 0 ]
+  [ "$(cat "$OUTPUT_MUTATIONS")" = $'set-default-sink alsa_output.speaker\nmove-sink-input 17 alsa_output.speaker\nmove-sink-input 42 alsa_output.speaker' ]
+}
+
+@test "set-index resolves the current sorted list and passes apostrophes as literal argv" {
+  printf '%s\n' '[{"name":"speaker'\''; false; #","description":"Speakers"},{"name":"bluez_output.headset.1","description":"WH-1000XM4"}]' > "$OUTPUT_FIXTURE"
+  run "$SCRIPTS/outputs" set-index 1
+  [ "$status" -eq 0 ]
+  [ "$(cat "$OUTPUT_MUTATIONS")" = $'set-default-sink speaker\'; false; #\nmove-sink-input 17 speaker\'; false; #\nmove-sink-input 42 speaker\'; false; #' ]
+}
+
+@test "set-index rejects out-of-range and malformed indices without mutations" {
+  for index in 3 -1 invalid '0; false' ''; do
+    run "$SCRIPTS/outputs" set-index "$index"
+    [ "$status" -eq 1 ]
+    [ ! -s "$OUTPUT_MUTATIONS" ]
+  done
+}
+
+@test "output widget invokes numeric selection rather than interpolating sink names" {
+  local widget
+  widget=$(<"$REPO/eww/yuck/tabs/musik.yuck")
+  [[ $widget == *'scripts/outputs set-index ${row.key}'* ]]
+  [[ $widget != *'${row.name}'* ]]
 }

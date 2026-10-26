@@ -19,14 +19,14 @@
   (box :orientation "v" :space-evenly false :spacing 0
     (label :class "lyric-empty" :visible {arraylength(outputs) == 0}
            :text "Tidak ada output")
-    (for row in {jq(outputs, ".[0:6]")}
-      (button :class "output-row ${row.active ? 'on' : ''}"
-              :tooltip {row.label}
-              :onclick "${EWW_CONFIG_DIR}/scripts/outputs set '${row.name}' &"
+    (for row in {jq(outputs, "to_entries | .[0:6]")}
+      (button :class "output-row ${row.value.active ? 'on' : ''}"
+              :tooltip {row.value.label}
+              :onclick "${EWW_CONFIG_DIR}/scripts/outputs set-index ${row.key} &"
         (box :orientation "h" :space-evenly false :spacing 8
-          (label :width 16 :text {row.active ? "✓" : ""})
+          (label :width 16 :text {row.value.active ? "✓" : ""})
           (label :xalign 0 :hexpand true :limit-width 54 :show-truncated true
-                 :wrap false :text {row.label}))))
+                 :wrap false :text {row.value.label}))))
     (label :class "time" :xalign 0 :visible {arraylength(outputs) > 6}
            :text "+${arraylength(outputs) - 6} lainnya")))
 

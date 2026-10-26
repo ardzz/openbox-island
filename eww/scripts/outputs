@@ -18,14 +18,23 @@ render() {
 }
 
 set_output() {
-  local name=$1 sinks inputs id
+  local name=$1 sinks inputs id rc=0
   sinks=$(pactl --format=json list sinks) || return
   jq -e --arg name "$name" 'any(.[]; .name == $name)' <<< "$sinks" >/dev/null || return 1
   pactl set-default-sink "$name" || return
   inputs=$(pactl --format=json list sink-inputs) || return
   while IFS= read -r id; do
-    pactl move-sink-input "$id" "$name" || return
+    pactl move-sink-input "$id" "$name" || rc=1
   done < <(jq -r '.[].index' <<< "$inputs")
+  return "$rc"
+}
+
+set_index() {
+  local index=$1 outputs name
+  [[ $index =~ ^(0|[1-9][0-9]*)$ ]] || return 1
+  outputs=$(render) || return
+  name=$(jq -er --argjson index "$index" '.[$index].name // empty' <<< "$outputs") || return 1
+  set_output "$name"
 }
 
 output_event() {
@@ -50,6 +59,7 @@ main() {
   case ${1:-watch} in
     watch) stream | emit_dedup ;;
     set) [[ $# == 2 ]] || return 1; set_output "$2" ;;
+    set-index) [[ $# == 2 ]] || return 1; set_index "$2" ;;
     *) return 1 ;;
   esac
 }
