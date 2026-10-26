@@ -179,3 +179,52 @@ sleep 0.2"
   bridge 'ÉTÉ,　夜!'
   gate_player_ok edge.i1 'été 夜'
 }
+
+recover_bridge() {
+  export ISLAND_BRIDGE_RECHECK_MS=20
+  listener "printf 'Playing\\x1fedge.i1\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'
+while [[ ! -s \"$STATE/media.json\" ]]; do sleep 0.01; done
+for ((i=0; i<100; i++)); do
+  [[ -e \"$STATE/rejected\" ]] && break
+  sleep 0.01
+done
+${1:-}
+printf '%s\n' '{\"title\":\"A\",\"ts\":'\"\$(date +%s%3N)\"'}' > \"$STATE/ytm-browser.json.tmp\"
+mv \"$STATE/ytm-browser.json.tmp\" \"$STATE/ytm-browser.json\"
+for ((i=0; i<100; i++)); do
+  [[ \$(jq -r .state \"$STATE/media.json\") == playing ]] && exit 0
+  sleep 0.01
+done"
+  run bash -c 'source "$1"
+    original=$(declare -f gate_record)
+    eval "${original/gate_record ()/original_gate_record ()}"
+    gate_record() {
+      if original_gate_record "$1"; then return 0; fi
+      touch "$ISLAND_STATE/rejected"
+      return 1
+    }
+    stream | emit_dedup' _ "$BATS_TEST_TMPDIR/eww/scripts/media"
+  [ "$status" -eq 0 ]
+  if [[ -n ${1:-} ]]; then assert_blocked; return; fi
+  [ "${#lines[@]}" -eq 2 ]
+  [ "${lines[0]}" = "$NONE_JSON" ]
+  [ "$(jq -r '.state + ":" + .title' <<<"${lines[1]}")" = playing:A ]
+  [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = 'auto 4' ]
+}
+
+@test "a rejected Edge candidate recovers when missing bridge arrives without metadata" {
+  recover_bridge
+}
+
+@test "a rejected Edge candidate recovers when stale bridge becomes fresh without metadata" {
+  bridge A "$(( $(date +%s%3N) - 60000 ))"
+  recover_bridge
+}
+
+@test "an empty playerctl record drops a rejected Edge candidate" {
+  recover_bridge "printf '\\n'"
+}
+
+@test "a new unsupported player record replaces a rejected Edge candidate" {
+  recover_bridge "printf 'Playing\\x1fspotify\\x1fA\\x1fX\\x1f\\x1f0\\x1e\\n'"
+}

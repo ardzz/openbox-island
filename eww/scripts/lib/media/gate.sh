@@ -42,8 +42,16 @@ gate_player_ok() {
 gate_record() {
   local -n filtered=$1
   local player title
+  GATE_CANDIDATE=""
   [[ -n $filtered ]] || return 0
   GATE_DEADLINE_MS=0
   IFS=$SEP read -r -d '' _ player title _ < <(printf '%s' "$filtered")
-  gate_player_ok "$player" "$title" || { filtered=""; return 1; }
+  if ! gate_player_ok "$player" "$title"; then
+    # shellcheck disable=SC2034 # Consumed by media's timed-read loop.
+    case $player in
+      edge|edge.*) has_track "$filtered" && GATE_CANDIDATE=$filtered ;;
+    esac
+    filtered=""
+    return 1
+  fi
 }
