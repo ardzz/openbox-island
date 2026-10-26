@@ -38,10 +38,12 @@ class StateTests(LyricsCase):
 
     def test_output_empty_timeline(self):
         state = LyricsState()
-        self.assertEqual(state.output(0), {"text": "", "synced": False, "lines": [], "index": -1})
+        self.assertEqual(state.output(0), {"text": "", "synced": False, "lines": [], "index": -1,
+                                          "for_player": "", "for_title": ""})
         state.update_track(track())
         self.assertEqual(state.output(0), {"text": "Firasat — Marcell", "synced": False,
-                                          "lines": [], "index": -1})
+                                          "lines": [], "index": -1,
+                                          "for_player": "fixture", "for_title": "Firasat"})
 
     def test_lookup_waits_for_stable_key_and_fallback_changes_immediately(self):
         final = track(title="Hold Me Down", artist="Daniel Caesar", length=234)
@@ -158,6 +160,17 @@ class StateTests(LyricsCase):
                 state.accept_lookup(key, [(0, "Wrong track")])
                 self.assertFalse(state.output(1000)["synced"])
                 self.assertNotEqual(state.output(1000)["text"], "Wrong track")
+
+    def test_output_carries_exact_track_identity_and_clears_when_inactive(self):
+        state = LyricsState()
+        for current in [None, track(player="spotify", title="  A\n song "),
+                        track(player="other", title="New song"), {"state": "none"}]:
+            if current is not None:
+                state.update_track(current)
+            output = state.output(0)
+            active = current is not None and current.get("state") in ("playing", "paused")
+            self.assertEqual(output["for_player"], current["player"] if active else "")
+            self.assertEqual(output["for_title"], current["title"] if active else "")
 
     def test_fallback_is_single_line_and_none_clears_lyrics(self):
         state = LyricsState()

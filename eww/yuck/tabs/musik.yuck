@@ -42,8 +42,8 @@
     (for row in {jq(lyrics, ". as $l | .lines | to_entries | .[([$l.index - 2, 0] | max):($l.index + 4)]")}
       (box :visible {row.key >= (lyrics.index > 2 ? lyrics.index - 2 : 0) && row.key <= lyrics.index + 3}
         (button :class "lyric-row ${lyrics.synced && row.key == lyrics.index ? 'lyric-on' : ''}"
-                :sensitive {row.value.t >= 0}
-                :onclick {row.value.t >= 0 ? "playerctl --player=${media.player} position ${row.value.t / 1000} &" : ""}
+                :active {row.value.t >= 0 && lyrics.for_player == media.player && lyrics.for_title == media.title}
+                :onclick {row.value.t >= 0 && lyrics.for_player == media.player && lyrics.for_title == media.title ? "playerctl --player=${media.player} position ${row.value.t / 1000} &" : ""}
           (label :xalign 0 :limit-width 58 :show-truncated true :wrap false
                  :text {row.value.text}))))))
 

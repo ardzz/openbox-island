@@ -53,7 +53,7 @@ Baris atas tab Musik berisi tiga mode: **Player**, **Lirik**, dan **Output**. Mo
 ### Lirik penuh
 
 - Mode Lirik menampilkan paling banyak enam baris: dua baris sebelum baris aktif dan tiga sesudahnya. Dekat awal lirik (atau sebelum baris pertama) jendelanya lebih pendek karena baris sebelumnya belum ada. eww tidak dapat menggulir daftar secara otomatis, jadi jendela ini berpindah per baris mengikuti baris aktif, bukan bergulir halus. Baris panjang dipotong dengan elipsis.
-- Lirik tersinkron: baris aktif berwarna aksen dan tebal. Klik baris mana pun memindahkan posisi putar ke timestamp baris itu (`playerctl position`).
+- Lirik tersinkron: baris aktif berwarna aksen dan tebal. Klik baris memindahkan posisi putar ke timestamp baris itu (`playerctl position`), hanya bila lirik yang tampil milik lagu dan player yang sedang tampil. Sesaat setelah ganti lagu, sebelum lirik lagu baru siap, baris lirik lama tidak memindahkan posisi lagu baru.
 - Lirik biasa tanpa timestamp (lihat [Lirik YouTube Music](#lirik-youtube-music)): posisi jendela adalah **perkiraan** dari posisi putar dibagi durasi lagu, tanpa sorotan baris aktif. Semua baris tampil redup dan tidak dapat diklik.
 - Tanpa baris lirik (termasuk saat hanya judul/artis yang tampil di mode Player), mode Lirik menampilkan `Lirik tidak tersedia`.
 
@@ -61,7 +61,7 @@ Baris atas tab Musik berisi tiga mode: **Player**, **Lirik**, dan **Output**. Mo
 
 - Mode Output mendaftar semua sink PipeWire/PulseAudio dari `pactl`, dengan deskripsi sink sebagai label (nama sink bila deskripsi kosong). Output default berada di urutan pertama dengan tanda ✓ dan warna aksen; sisanya urut menurut label. Tooltip menampilkan label lengkap.
 - Paling banyak enam baris tampil; sisanya diringkas menjadi `+N lainnya`. Tanpa sink, mode ini menampilkan `Tidak ada output`.
-- Klik satu baris menjadikan sink itu output default lalu memindahkan **semua** stream yang sedang diputar (semua sink input, bukan hanya player musik) ke sink tersebut. Bila sink sudah hilang saat diklik, tidak ada yang diubah. Bila salah satu stream gagal dipindah, stream lain tetap dipindah.
+- Klik satu baris menjadikan sink itu output default lalu memindahkan **semua** stream yang sedang diputar (semua sink input, bukan hanya player musik) ke sink tersebut. Klik beruntun diproses satu per satu. Bila sink sudah hilang saat diklik, tidak ada yang diubah. Bila salah satu stream gagal dipindah, stream lain tetap dipindah.
 - Daftar diperbarui dari event sink/server `pactl subscribe`, tanpa polling.
 
 ### Visualizer

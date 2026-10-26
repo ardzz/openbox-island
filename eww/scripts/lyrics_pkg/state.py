@@ -74,4 +74,5 @@ class LyricsState:
         title = single_line(self.track.get("title", ""))
         artist = single_line(self.track.get("artist", ""))
         fallback = " — ".join(part for part in (title, artist) if part)
-        return {"text": content or fallback, "synced": synced, "lines": lines, "index": index}
+        return {"text": content or fallback, "synced": synced, "lines": lines, "index": index,
+                "for_player": self.track.get("player", ""), "for_title": self.track.get("title", "")}

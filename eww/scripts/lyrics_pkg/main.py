@@ -62,7 +62,7 @@ def main():
             last_output = value
 
     try:
-        emit({"text": "", "synced": False, "lines": [], "index": -1})
+        emit(state.output(None))
         while not stopped.is_set():
             started = time.monotonic()
             track = read_track(media_path)
