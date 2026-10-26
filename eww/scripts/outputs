@@ -17,8 +17,11 @@ render() {
     sort_by([(.active | not), .label])' <<< "$sinks"
 }
 
-set_output() {
+set_output() (
   local name=$1 sinks inputs id rc=0
+  mkdir -p "$ISLAND_STATE" || return 1
+  exec 9>"$ISLAND_STATE/outputs.lock" || return 1
+  flock 9 || return 1
   sinks=$(pactl --format=json list sinks) || return
   jq -e --arg name "$name" 'any(.[]; .name == $name)' <<< "$sinks" >/dev/null || return 1
   pactl set-default-sink "$name" || return
@@ -27,7 +30,7 @@ set_output() {
     pactl move-sink-input "$id" "$name" || rc=1
   done < <(jq -r '.[].index' <<< "$inputs")
   return "$rc"
-}
+)
 
 set_token() {
   local token=$1 name

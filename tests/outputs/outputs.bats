@@ -18,6 +18,8 @@ case "$*" in
   '--format=json list sink-inputs') echo '[{"index":17},{"index":42}]' ;;
   'set-default-sink '*|'move-sink-input '*)
     printf '%s\n' "$*" >> "$OUTPUT_MUTATIONS"
+    if [[ $1 == set-default-sink ]]; then printf '%s\n' "$2" > "$OUTPUT_DEFAULT"; fi
+    if [[ $1 == move-sink-input ]]; then sleep "${OUTPUT_MOVE_DELAY:-0}"; fi
     if [[ ${OUTPUT_FAIL_FIRST_MOVE:-0} == 1 && $1 == move-sink-input && $2 == 17 ]]; then exit 1; fi ;;
   subscribe)
     echo "Event 'change' on sink-input #17"
@@ -43,6 +45,26 @@ STUB
   run "$SCRIPTS/outputs" set alsa_output.speaker
   [ "$status" -eq 0 ]
   [ "$(cat "$OUTPUT_MUTATIONS")" = $'set-default-sink alsa_output.speaker\nmove-sink-input 17 alsa_output.speaker\nmove-sink-input 42 alsa_output.speaker' ]
+}
+
+@test "concurrent selections serialize the complete mutation sequence" {
+  export OUTPUT_MOVE_DELAY=0.2
+  "$SCRIPTS/outputs" set alsa_output.speaker &
+  local first=$!
+  "$SCRIPTS/outputs" set alsa_output.hdmi &
+  local second=$!
+  wait "$first"
+  wait "$second"
+  local mutations speaker hdmi
+  mutations=$(<"$OUTPUT_MUTATIONS")
+  speaker=$'set-default-sink alsa_output.speaker\nmove-sink-input 17 alsa_output.speaker\nmove-sink-input 42 alsa_output.speaker'
+  hdmi=$'set-default-sink alsa_output.hdmi\nmove-sink-input 17 alsa_output.hdmi\nmove-sink-input 42 alsa_output.hdmi'
+  if [[ $mutations == "$speaker"$'\n'"$hdmi" ]]; then
+    [ "$(<"$OUTPUT_DEFAULT")" = alsa_output.hdmi ]
+  else
+    [ "$mutations" = "$hdmi"$'\n'"$speaker" ]
+    [ "$(<"$OUTPUT_DEFAULT")" = alsa_output.speaker ]
+  fi
 }
 
 @test "unknown sinks fail without any mutations" {
