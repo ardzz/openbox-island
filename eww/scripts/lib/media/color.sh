@@ -2,15 +2,17 @@
 # Cover tints cached by image contents, independent of rotating player paths.
 
 art_color() {
-  local path=${1:-} cache key histogram color
+  local path=${1:-} cache key histogram color temporary
   if [[ ! -f $path || ! -r $path ]]; then printf '\n'; return 0; fi
   if ! key=$(sha1sum < "$path" 2>/dev/null); then printf '\n'; return 0; fi
   key=${key%% *}
   cache="${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art-color"
   if [[ -f $cache/$key && -r $cache/$key ]]; then
-    IFS= read -r color < "$cache/$key" || color=''
-    printf '%s\n' "$color"
-    return 0
+    color=$(< "$cache/$key")
+    if [[ -z $color || $color =~ ^#[0-9a-f]{6}$ ]]; then
+      printf '%s\n' "$color"
+      return 0
+    fi
   fi
   if ! histogram=$(LC_ALL=C magick "$path" -resize 12x12! -alpha remove -format %c histogram:info:- 2>/dev/null); then
     printf '\n'; return 0
@@ -38,6 +40,7 @@ art_color() {
       if (hue < 0) hue += 360
       bucket = int(hue / 30) % 12
       w = base * sat
+      chromatic += w
       weight[bucket] += w
       red[bucket] += r * w; green[bucket] += g * w; blue[bucket] += b * w
     }
@@ -53,7 +56,7 @@ art_color() {
         cluster = weight[(i + 11) % 12] + weight[i] + weight[(i + 1) % 12]
         if (cluster > best) { best = cluster; winner = i }
       }
-      if (!best || best < total * 0.25) exit
+      if (!best || chromatic < total * 0.25) exit
       for (i = -1; i <= 1; i++) {
         bucket = (winner + i + 12) % 12
         rsum += red[bucket]; gsum += green[bucket]; bsum += blue[bucket]
@@ -67,8 +70,10 @@ art_color() {
       printf "#%02x%02x%02x", int(r * peak / max + 0.5), int(g * peak / max + 0.5), int(b * peak / max + 0.5)
     }
   ' <<< "$histogram") || color=''
-  if mkdir -p "$cache" 2>/dev/null; then
-    printf '%s\n' "$color" > "$cache/$key" 2>/dev/null || :
+  if mkdir -p "$cache" 2>/dev/null && temporary=$(mktemp "$cache/.color.XXXXXX" 2>/dev/null); then
+    if ! { printf '%s' "$color" > "$temporary" && mv -f "$temporary" "$cache/$key"; } 2>/dev/null; then
+      rm -f "$temporary" 2>/dev/null || :
+    fi
   fi
   printf '%s\n' "$color"
 }

@@ -199,6 +199,7 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 | `equalizer`, `indicators` | – | bar `viz`; titik rec/mic/kamera/DND |
 
 `media.color` is a normalized `#rrggbb` cover tint, or `""` for unavailable or grey-dominant art and the none/loading states. `lib/media/color.sh` samples a 12×12 ImageMagick histogram, groups chromatic pixels into 12 hue buckets, and averages the strongest neighbouring cluster. Results are cached under `${XDG_CACHE_HOME:-$HOME/.cache}/eww-island/art-color/` using the artwork file-content SHA-1, so rotating local paths reuse the tint without running ImageMagick again.
+Cache entries are published atomically with a temporary file and rename. An empty cache file is a valid grey/no-tint result; nonempty entries must be lowercase `#rrggbb`, otherwise the tint is regenerated. Grey dominance is determined from all chromatic weight (at least 25% of total brightness-weighted pixels), independently of which neighbouring hue cluster supplies the tint.
 
 ### 4.5 Peta SCSS (`eww/scss/`)
 

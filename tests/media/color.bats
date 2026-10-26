@@ -62,3 +62,37 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "$first" ]
 }
+
+@test "a saturated twelve-hue rainbow has a tint despite its dispersed hue weights" {
+  local hue
+  local -a stripes=()
+  for hue in 15 45 75 105 135 165 195 225 255 285 315 345; do
+    stripes+=("xc:hsv($hue,90%,100%)")
+  done
+  magick -size 1x12 "${stripes[@]}" +append "$BATS_TEST_TMPDIR/rainbow.png"
+  run art_color "$BATS_TEST_TMPDIR/rainbow.png"
+  [ "$status" -eq 0 ]
+  [[ $output =~ ^#[0-9a-f]{6}$ ]]
+}
+
+@test "a garbage cache entry is regenerated from the artwork" {
+  key=$(sha1sum < "$BATS_TEST_TMPDIR/red.png"); key=${key%% *}
+  cache="$XDG_CACHE_HOME/eww-island/art-color/$key"
+  mkdir -p "${cache%/*}"
+  printf 'garbage\n' > "$cache"
+  run art_color "$BATS_TEST_TMPDIR/red.png"
+  [ "$status" -eq 0 ]
+  [ "$output" = '#cc2222' ]
+  [ "$(cat "$cache")" = '#cc2222' ]
+}
+
+@test "an empty cache file is a valid grey result without magick" {
+  key=$(sha1sum < "$BATS_TEST_TMPDIR/grey.png"); key=${key%% *}
+  cache="$XDG_CACHE_HOME/eww-island/art-color/$key"
+  mkdir -p "${cache%/*}"
+  touch "$cache"
+  ln -s "$(command -v sha1sum)" "$BIN/sha1sum"
+  PATH="$BIN" run art_color "$BATS_TEST_TMPDIR/grey.png"
+  [ "$status" -eq 0 ]
+  [ "$output" = '' ]
+}
