@@ -12,12 +12,12 @@ load common
   cat > "$BIN/playerctl" <<EOF
 #!/usr/bin/env bash
 echo "\$*" > "$BATS_TEST_TMPDIR/playerctl.args"
-printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
-printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
 sleep 0.2
-printf 'Playing\x1fedge.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
 sleep 0.2
-printf 'Playing\x1fedge.i1\x1fC1\nC2\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fC1\nC2\x1fX\x1f\x1f1000000\x1e\n'
 printf '\n'
 sleep 5
 EOF
@@ -33,35 +33,35 @@ EOF
   [ "$(jq -r .state <<<"${lines[5]}")" = none ]
   [ "$(cat "$STATE/media.json")" = "${lines[5]}" ]
   [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = $'auto 4\nauto 4\nclose' ]
-  [[ "$(cat "$BATS_TEST_TMPDIR/playerctl.args")" == "--player=$(tr -d '[:space:]' < "$REPO/eww/players") --follow metadata --format "* ]]
+  [[ "$(cat "$BATS_TEST_TMPDIR/playerctl.args")" == "--player=ytm_player,ytermusic,edge --follow metadata --format "* ]]
 }
 
 @test "a brief gap between tracks shows loading on the same player, never closing the island" {
   export ISLAND_MEDIA_GRACE=1
-  listener "printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+  listener "printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
 printf '\n'
-printf 'Stopped\x1fedge.i1\x1f\x1f\x1f\x1f\x1e\n'
-printf 'Playing\x1fedge.i1\x1f\x1f\x1f\x1f\x1e\n'
+printf 'Stopped\x1fytm_player.i1\x1f\x1f\x1f\x1f\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1f\x1f\x1f\x1f\x1e\n'
 sleep 0.3
 cat \"\$XDG_RUNTIME_DIR/eww-island/player\" > \"$BATS_TEST_TMPDIR/player.during\"
 cat \"\$XDG_RUNTIME_DIR/eww-island/media.json\" > \"$BATS_TEST_TMPDIR/media.during\"
-printf 'Playing\x1fedge.i1\x1fB\x1fY\x1f\x1f2000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fB\x1fY\x1f\x1f2000000\x1e\n'
 sleep 5"
   run timeout 1.5 "$BATS_TEST_TMPDIR/eww/scripts/media"
   [ "$status" -eq 124 ]
   [ "${#lines[@]}" -eq 4 ]
   [ "$(jq -r .title <<<"${lines[1]}")" = A ]
-  [ "${lines[2]}" = "$(loading_json edge.i1)" ]
+  [ "${lines[2]}" = "$(loading_json ytm_player.i1)" ]
   [ "$(jq -c '[.state,.title,.artist]' <<<"${lines[3]}")" = '["playing","B","Y"]' ]
   [ "$(cat "$BATS_TEST_TMPDIR/media.during")" = "${lines[2]}" ]
-  [ "$(cat "$BATS_TEST_TMPDIR/player.during")" = edge.i1 ]
+  [ "$(cat "$BATS_TEST_TMPDIR/player.during")" = ytm_player.i1 ]
   [ "$(cat "$STATE/media.json")" = "${lines[3]}" ]
   [ "$(cat "$BATS_TEST_TMPDIR/island.log")" = 'auto 4' ]
 }
 
 @test "no player for the whole grace period ends the music and closes the island" {
   export ISLAND_MEDIA_GRACE=0.3
-  listener "printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+  listener "printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
 printf '\n'
 sleep 5"
   run timeout 1.2 "$BATS_TEST_TMPDIR/eww/scripts/media"
@@ -76,9 +76,9 @@ sleep 5"
 
 @test "a player that stays stopped still closes the island after the grace period" {
   export ISLAND_MEDIA_GRACE=0.3
-  listener "printf 'Paused\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+  listener "printf 'Paused\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
 sleep 0.1
-printf 'Stopped\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Stopped\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
 sleep 5"
   run timeout 1.2 "$BATS_TEST_TMPDIR/eww/scripts/media"
   [ "$status" -eq 124 ]
@@ -89,8 +89,8 @@ sleep 5"
 
 @test "an untitled track that outlasts the grace period is shown as it is" {
   export ISLAND_MEDIA_GRACE=0.3
-  listener "printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
-printf 'Playing\x1fedge.i1\x1f\x1f\x1f\x1f5000000\x1e\n'
+  listener "printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1f\x1f\x1f\x1f5000000\x1e\n'
 sleep 5"
   run timeout 1.2 "$BATS_TEST_TMPDIR/eww/scripts/media"
   [ "$status" -eq 124 ]
@@ -102,7 +102,7 @@ sleep 5"
 @test "a gap before the first track shows no loading state" {
   export ISLAND_MEDIA_GRACE=1
   listener "printf '\n'
-printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
 sleep 5"
   run timeout 0.8 "$BATS_TEST_TMPDIR/eww/scripts/media"
   [ "${#lines[@]}" -eq 2 ]
@@ -137,11 +137,11 @@ echo $(( now + 1 )) | tee "$FAKE_DATE_COUNTER"
 EOF
   cat > "$BIN/playerctl" <<'EOF'
 #!/usr/bin/env bash
-printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f1000000\x1e\n'
 read -r _ < "$FAKE_ACK"
-printf 'Paused\x1fedge.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Paused\x1fytm_player.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
 read -r _ < "$FAKE_ACK"
-printf 'Playing\x1fedge.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fB\x1fX\x1f\x1f1000000\x1e\n'
 read -r _ < "$FAKE_ACK"
 EOF
   chmod +x "$BIN/date" "$BIN/playerctl"
@@ -172,9 +172,9 @@ echo "$1 end" >> "$ACTION_LOG"
 EOF
   cat > "$BIN/playerctl" <<'EOF'
 #!/usr/bin/env bash
-printf 'Playing\x1fedge.i1\x1fA\x1fX\x1f\x1f0\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fA\x1fX\x1f\x1f0\x1e\n'
 printf '\n'
-printf 'Playing\x1fedge.i1\x1fB\x1fX\x1f\x1f0\x1e\n'
+printf 'Playing\x1fytm_player.i1\x1fB\x1fX\x1f\x1f0\x1e\n'
 EOF
   chmod +x "$BIN/playerctl" "$BATS_TEST_TMPDIR/eww/scripts/island"
   run bash -c 'source "$1"; stream' _ "$BATS_TEST_TMPDIR/eww/scripts/media"

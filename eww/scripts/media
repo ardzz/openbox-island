@@ -10,6 +10,8 @@ source "$DIR/lib/media/art.sh"
 source "$DIR/lib/media/record.sh"
 # shellcheck source=lib/media/transition.sh
 source "$DIR/lib/media/transition.sh"
+# shellcheck source=lib/media/gate.sh
+source "$DIR/lib/media/gate.sh"
 
 AUTO_SECONDS=4
 
@@ -17,7 +19,7 @@ AUTO_SECONDS=4
 players_list() {
   local list
   list=$(tr -d '[:space:]' 2>/dev/null < "${DIR%/scripts}/players")
-  printf '%s\n' "${list:-ytermusic,edge,%any}"
+  printf '%s\n' "${list:-ytm_player,ytermusic,edge}"
 }
 
 # publish JSON: hand JSON to eww and to the scripts that read media.json.
@@ -30,7 +32,7 @@ publish() {
 stream() {
   require playerctl jq || return 127
   local line rc key prev="" first=1 status player="" json grace deadline=0 left timeout settle
-  local buf="" partial="" record pending=""
+  local buf="" partial="" record pending="" GATE_LAST_MATCH_MS=0
   grace=$(grace_us)
   mkdir -p "$ISLAND_STATE"
   printf '\n' > "$ISLAND_STATE/player"
@@ -71,6 +73,7 @@ stream() {
       fi
       deadline=0
     fi
+    gate_record record
     IFS=$SEP read -r status player _ <<<"$record"
     key=$(track_key "$record")
     [[ -n $key ]] || player=""
