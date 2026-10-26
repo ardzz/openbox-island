@@ -39,3 +39,43 @@ assert.equal(forwarded.at(-1).title, 'B', 'closing A promotes B');
 JS
   [ "$status" -eq 0 ]
 }
+
+@test "navigation gone removes authority and stale playing reporters cannot suppress live paused tabs" {
+  run node - "$REPO/browser/ytm-bridge" <<'JS'
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const dir = process.argv[2];
+let message, now = 1000;
+const forwarded = [];
+const context = vm.createContext({
+  Date: { now: () => now },
+  chrome: {
+    runtime: {
+      onMessage: { addListener(fn) { message = fn; } },
+      connectNative() {
+        return { onDisconnect: { addListener() {} }, postMessage(payload) { forwarded.push(payload); } };
+      },
+    },
+    tabs: { onRemoved: { addListener() {} } },
+  },
+});
+context.importScripts = file => vm.runInContext(fs.readFileSync(`${dir}/${file}`, 'utf8'), context);
+vm.runInContext(fs.readFileSync(`${dir}/background.js`, 'utf8'), context);
+const send = (id, payload) => message(payload, { tab: { id }, url: 'https://music.youtube.com/' });
+send(1, { title: 'A', playing: true, ts: now });
+send(2, { title: 'B', playing: true, ts: now });
+send(2, { title: 'B', playing: false, ts: now });
+send(1, { gone: true });
+assert.equal(forwarded.at(-1).title, 'B', 'navigation away promotes B');
+assert.equal(forwarded.at(-1).playing, false);
+send(1, { title: 'A', playing: true, ts: now });
+now += 10000;
+send(2, { title: 'B', playing: false, ts: now });
+assert.equal(forwarded.at(-1).title, 'A', 'reporter remains valid at ten seconds');
+now += 1;
+send(2, { title: 'B', playing: false, ts: now });
+assert.equal(forwarded.at(-1).title, 'B', 'expired ghost cannot suppress B');
+JS
+  [ "$status" -eq 0 ]
+}

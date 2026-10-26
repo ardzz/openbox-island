@@ -25,6 +25,10 @@
     chrome.runtime.sendMessage({ ...payload, ts: now }).catch(() => {});
   }
 
+  const gone = () => chrome.runtime.sendMessage({ gone: true }).catch(() => {});
+  addEventListener("pagehide", gone);
+  addEventListener("beforeunload", gone);
+
   poll();
   setInterval(poll, 1000);
 })();

@@ -17,6 +17,10 @@ function forward(payload) {
 
 chrome.runtime.onMessage.addListener((payload, sender) => {
   if (!sender.tab || !sender.url?.startsWith("https://music.youtube.com/")) return;
+  if (payload.gone) {
+    forward(authority.remove(sender.tab.id));
+    return;
+  }
   const selected = authority.update(sender.tab.id, payload);
   if (selected === payload) forward(selected);
 });
