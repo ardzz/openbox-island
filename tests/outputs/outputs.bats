@@ -35,7 +35,8 @@ STUB
 @test "render returns sink names, trimmed descriptions and active-first label order" {
   run bash -c 'source "$1"; render' _ "$SCRIPTS/outputs"
   [ "$status" -eq 0 ]
-  [ "$output" = '[{"name":"bluez_output.headset.1","label":"WH-1000XM4","active":true},{"name":"alsa_output.speaker","label":"Speakers","active":false},{"name":"alsa_output.hdmi","label":"alsa_output.hdmi","active":false}]' ]
+  [ "$(jq -c 'map(del(.id))' <<< "$output")" = '[{"name":"bluez_output.headset.1","label":"WH-1000XM4","active":true},{"name":"alsa_output.speaker","label":"Speakers","active":false},{"name":"alsa_output.hdmi","label":"alsa_output.hdmi","active":false}]' ]
+  jq -e 'all(.[]; (.id | @base64d) == .name)' <<< "$output"
 }
 
 @test "set changes the default then moves every active sink input without volume changes" {
@@ -65,24 +66,45 @@ STUB
   [ "$(cat "$OUTPUT_MUTATIONS")" = $'set-default-sink alsa_output.speaker\nmove-sink-input 17 alsa_output.speaker\nmove-sink-input 42 alsa_output.speaker' ]
 }
 
-@test "set-index resolves the current sorted list and passes apostrophes as literal argv" {
-  printf '%s\n' '[{"name":"speaker'\''; false; #","description":"Speakers"},{"name":"bluez_output.headset.1","description":"WH-1000XM4"}]' > "$OUTPUT_FIXTURE"
-  run "$SCRIPTS/outputs" set-index 1
+@test "set-token passes apostrophes as literal argv" {
+  printf '%s\n' '[{"name":"speaker'\''; false; #","description":"Speakers"}]' > "$OUTPUT_FIXTURE"
+  run "$SCRIPTS/outputs" set-token c3BlYWtlcic7IGZhbHNlOyAj
   [ "$status" -eq 0 ]
   [ "$(cat "$OUTPUT_MUTATIONS")" = $'set-default-sink speaker\'; false; #\nmove-sink-input 17 speaker\'; false; #\nmove-sink-input 42 speaker\'; false; #' ]
 }
 
-@test "set-index rejects out-of-range and malformed indices without mutations" {
-  for index in 3 -1 invalid '0; false' ''; do
-    run "$SCRIPTS/outputs" set-index "$index"
+@test "set-token rejects malformed tokens without mutations" {
+  for token in 'abc!' '0; false' '' '=' 'YWxzYV9vdXRwdXQuc3BlYWtlcg==='; do
+    run "$SCRIPTS/outputs" set-token "$token"
     [ "$status" -eq 1 ]
     [ ! -s "$OUTPUT_MUTATIONS" ]
   done
 }
 
-@test "output widget invokes numeric selection rather than interpolating sink names" {
+@test "a clicked sink removed from the list fails instead of selecting its replacement row" {
+  local token
+  source "$SCRIPTS/outputs"
+  token=$(render | jq -r '.[1].id')
+  printf '%s\n' '[{"name":"bluez_output.headset.1","description":"WH-1000XM4"},{"name":"alsa_output.hdmi","description":"HDMI"}]' > "$OUTPUT_FIXTURE"
+  run "$SCRIPTS/outputs" set-token "$token"
+  [ "$status" -eq 1 ]
+  [ ! -s "$OUTPUT_MUTATIONS" ]
+}
+
+@test "set-token preserves clicked identity after sink order and default change" {
+  local token
+  source "$SCRIPTS/outputs"
+  token=$(render | jq -r '.[1].id')
+  printf '%s\n' '[{"name":"alsa_output.hdmi","description":"HDMI"},{"name":"bluez_output.headset.1","description":"WH-1000XM4"},{"name":"alsa_output.speaker","description":"Speakers"}]' > "$OUTPUT_FIXTURE"
+  echo alsa_output.hdmi > "$OUTPUT_DEFAULT"
+  run "$SCRIPTS/outputs" set-token "$token"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$OUTPUT_MUTATIONS")" = $'set-default-sink alsa_output.speaker\nmove-sink-input 17 alsa_output.speaker\nmove-sink-input 42 alsa_output.speaker' ]
+}
+
+@test "output widget invokes token selection rather than interpolating sink names" {
   local widget
   widget=$(<"$REPO/eww/yuck/tabs/musik.yuck")
-  [[ $widget == *'scripts/outputs set-index ${row.key}'* ]]
+  [[ $widget == *"scripts/outputs set-token '\${row.id}'"* ]]
   [[ $widget != *'${row.name}'* ]]
 }

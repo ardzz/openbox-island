@@ -13,7 +13,7 @@ render() {
   default=$(pactl get-default-sink) || return
   jq -c --arg default "$default" '
     map(.name as $name | ((.description // "") | gsub("^\\s+|\\s+$"; "")) as $label |
-      {name:$name, label:(if $label == "" then $name else $label end), active:($name == $default)}) |
+      {name:$name, id:($name | @base64), label:(if $label == "" then $name else $label end), active:($name == $default)}) |
     sort_by([(.active | not), .label])' <<< "$sinks"
 }
 
@@ -29,11 +29,10 @@ set_output() {
   return "$rc"
 }
 
-set_index() {
-  local index=$1 outputs name
-  [[ $index =~ ^(0|[1-9][0-9]*)$ ]] || return 1
-  outputs=$(render) || return
-  name=$(jq -er --argjson index "$index" '.[$index].name // empty' <<< "$outputs") || return 1
+set_token() {
+  local token=$1 name
+  [[ $token =~ ^[A-Za-z0-9+/=]+$ ]] || return 1
+  name=$(printf '%s' "$token" | base64 -d 2>/dev/null) || return 1
   set_output "$name"
 }
 
@@ -59,7 +58,7 @@ main() {
   case ${1:-watch} in
     watch) stream | emit_dedup ;;
     set) [[ $# == 2 ]] || return 1; set_output "$2" ;;
-    set-index) [[ $# == 2 ]] || return 1; set_index "$2" ;;
+    set-token) [[ $# == 2 ]] || return 1; set_token "$2" ;;
     *) return 1 ;;
   esac
 }
