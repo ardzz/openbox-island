@@ -144,6 +144,11 @@ All images below are rendered from sample states in `tools/samples/`.
     <td align="center"><img src="docs/assets/screenshots/card-shortcuts.png" alt="Shortcuts" width="400"><br><sub>Shortcuts</sub></td>
     <td align="center"><img src="docs/assets/screenshots/card-shortcuts-dnd.png" alt="Shortcuts with Do Not Disturb on" width="400"><br><sub>Do Not Disturb on</sub></td>
   </tr>
+  <tr><th colspan="2">Kuota</th></tr>
+  <tr>
+    <td align="center"><img src="docs/assets/screenshots/card-kuota.png" alt="Kuota tab with AI plan usage per account" width="400"><br><sub>Usage bars and reset countdowns per account</sub></td>
+    <td></td>
+  </tr>
 </table>
 
 ### Compact pill

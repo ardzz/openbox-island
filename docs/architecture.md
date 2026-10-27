@@ -216,7 +216,7 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 | `_base`, `_pill` | dasar; notch, ear, ukuran halaman pill, indikator |
 | `_alert`, `_notify`, `_weather`, `_music` | per area (pill dan tab) |
 | `_components` | cover, skeleton, footer `list-more`/`list-action` |
-| `_card`, `_notif`, `_todo`, `_picker`, `_shortcuts` | kartu expanded dan tab-tabnya; `_picker` = penanggal deadline di tab Tugas |
+| `_card`, `_notif`, `_todo`, `_picker`, `_shortcuts`, `_kuota` | kartu expanded dan tab-tabnya; `_picker` = penanggal deadline di tab Tugas |
 
 Partial baru: buat `eww/scss/_<area>.scss`, tambah `@import "scss/<area>";` di `eww/eww.scss`.
 
@@ -252,7 +252,9 @@ Partial baru: buat `eww/scss/_<area>.scss`, tambah `@import "scss/<area>";` di `
 - `updated` = jam pengambilan (`date +%H:%M`); `ISLAND_NOW` menimpa waktu sekarang untuk tes.
 - Berhasil: record ditulis atomik ke `$ISLAND_STATE/kuota.json` (`mktemp` + `mv`) lalu dicetak. Gagal setelah pernah berhasil: record terakhir dicetak ulang (`emit_dedup` membuang duplikatnya), cache tidak disentuh. Gagal sebelum pernah berhasil: `{"ok":false,"updated":"","note":"…","accounts":[]}` dengan `note` `omp tidak ditemukan` (tanpa `omp`) atau `gagal memuat kuota`.
 
-Registry `60-kuota.sh` sengaja memeriksa berkas cache, bukan `island_eww get kuota`: deflisten `kuota` hanya hidup selama kartu terbuka, sedangkan `scripts/tab` perlu jawaban ketersediaan saat kartu belum dibuka. Tab baru yang datanya berasal dari listener kartu dapat memakai pola yang sama: listener menulis cache atomik hanya untuk hasil sah, dan predikat registry membaca cache itu dengan `jq -e`.
+Registry `60-kuota.sh` sengaja memeriksa berkas cache, bukan `island_eww get kuota`: deflisten `kuota` hanya hidup selama kartu terbuka, sedangkan `scripts/tab` perlu jawaban ketersediaan saat kartu belum dibuka. Di kartu, `tab-chip` Kuota memakai `:available {kuota.ok}`. Tab baru yang datanya berasal dari listener kartu dapat memakai pola yang sama: listener menulis cache atomik hanya untuk hasil sah, dan predikat registry membaca cache itu dengan `jq -e`.
+
+Halaman `page-kuota` (`eww/yuck/tabs/kuota.yuck`, gaya `_kuota.scss`) memilih akun dengan `reduce` jq atas `.accounts[0:4]`: akun ditambahkan utuh selama total `limits` tidak melebihi 7, sisanya menjadi `+N akun lain`. `used >= 0` menampilkan bar (`kuota-ok`, `kuota-warn` mulai 70, `kuota-crit` mulai 90) dan `round`-nya; `used == -1` menampilkan `Tanpa batas` tanpa bar.
 
 ## 5. Resep
 
