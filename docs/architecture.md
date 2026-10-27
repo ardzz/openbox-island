@@ -9,10 +9,12 @@ Island adalah konfigurasi eww terpisah (`~/.config/eww-island`) dengan tiga jend
 | Jendela | File | Ukuran | Isi |
 |---|---|---|---|
 | `island` | `eww/yuck/windows/island.yuck` | 508×44 | pill ringkas: `stack` berisi `pill-idle`, `pill-media`, `pill-alert`, `pill-notify` |
-| `island-expanded` | `eww/yuck/windows/expanded.yuck` | 508×218 | kartu bertab (`tab-card`) di dalam `revealer` slidedown |
+| `island-expanded` | `eww/yuck/windows/expanded.yuck` | 508×218 | notch membesar dari pill ringkas menjadi kartu bertab (`tab-card`), dengan crossfade 300 ms |
 | `island-upcoming` | `eww/yuck/windows/upcoming.yuck` | 640×44 | pill kiri: rapat yang perlu diperhatikan dan deadline Tugas terdekat |
 
 `scripts/island` membuka/menutup `island-expanded` (hover, `auto`, `dismiss`) dan mengatur `island_reveal` serta `island_tab`.
+
+`island_reveal` menggerakkan ukuran dan radius shell notch; kedua telinga 14 px tetap di sisi atas. Shell menjadi anak utama `overlay` yang menentukan ukuran dan latar; stack crossfade ditumpuk di atasnya agar ukuran minimum kartu tidak memaksa notch langsung membesar. Kartu transparan dan isinya terpotong mengikuti alokasi overlay selama transisi. Urutan tetap: reset reveal → pilih tab → buka jendela → reveal; saat menutup, reset reveal → tunggu 300 ms → tutup jendela.
 
 Alur data: **listener → variabel eww → yuck**. Setiap `deflisten` di `eww/yuck/vars.yuck` menjalankan satu skrip yang mencetak satu baris JSON per perubahan; widget membaca variabel itu. Aksi pengguna (`:onclick`, `:onscroll`, `:onhover`) memanggil skrip yang mengubah state lalu memberi tahu listener lewat FIFO (`fifo_signal`) atau langsung `eww update`.
 

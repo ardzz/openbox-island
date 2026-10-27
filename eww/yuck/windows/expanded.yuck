@@ -1,13 +1,22 @@
-; The expanded card slides down over the compact island while hovered (scripts/island).
+; The notch grows into the expanded card while hovered (scripts/island).
 (defwindow island-expanded
   :monitor 0
   :geometry (geometry :x "0px" :y "0px" :width "508px" :height "218px" :anchor "top center")
   :wm-ignore true
   (eventbox :onhover "${EWW_CONFIG_DIR}/scripts/island hover &"
             :onhoverlost "${EWW_CONFIG_DIR}/scripts/island hover &"
-    (box :halign "center" :valign "start"
-      (revealer :transition "slidedown" :reveal island_reveal :duration "300ms"
-        (box :orientation "h" :space-evenly false
-          (box :class "ear ear-left" :valign "start")
-          (tab-card)
-          (box :class "ear ear-right" :valign "start"))))))
+    (box :halign "center" :valign "start" :orientation "h" :space-evenly false
+      (box :class "ear ear-left" :valign "start")
+      (overlay
+        (box :class "notch-shell ${alert.kind != '' ? 'st-alert' : notify.active ? 'st-notify' : media.state == 'none' ? 'st-idle' : 'st-media'} ${island_reveal ? 'grow' : ''}")
+        (stack :halign "center" :valign "start"
+               :selected {island_reveal ? 1 : 0} :transition "crossfade" :duration "300ms" :same-size false
+          (stack :halign "center" :valign "start"
+                 :selected {alert.kind != "" ? 2 : notify.active ? 3 : media.state == "none" ? 0 : 1}
+                 :transition "crossfade" :same-size false
+            (pill-idle)
+            (pill-media)
+            (pill-alert)
+            (pill-notify))
+          (tab-card)))
+      (box :class "ear ear-right" :valign "start"))))
