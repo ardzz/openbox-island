@@ -33,7 +33,7 @@
   <img src="docs/assets/live/live-desktop.png" alt="The expanded card on the Music tab below the top bar" width="100%">
 </p>
 
-openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px compact pill that grows into a 508×218 px tabbed card. It shows what is playing, takes over dunst notifications, flashes short alerts for hardware and network changes, and keeps weather, a to-do list and shortcuts one hover away.
+openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px compact pill that grows into a 508×218 px tabbed card. It shows what is playing, takes over dunst notifications, flashes short alerts for hardware and network changes, and keeps weather, a to-do list, shortcuts and AI plan quotas one hover away.
 
 ## Highlights
 
@@ -56,9 +56,10 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 - Temporary pill alerts for volume and mute, microphone, audio output switch, brightness, charging, battery (including Lenovo conservation mode), low battery, Wi-Fi, Bluetooth, VPN and Tailscale, new screenshots (with a thumbnail), CPU/GPU temperature, Caps Lock, and ACPI power profile.
 
 **Tabs**
-- The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do** and **Shortcuts** tabs. The tab header shows one icon per tab; the selected tab adds its name and an accent count badge (events left today, notifications, open to-dos). Each tab appears only while it has content; To-do is always available and supports optional deadlines — set in an in-card date picker (month calendar, time steppers and presets) — with reminders the day before and on the day.
+- The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do**, **Shortcuts** and **Kuota** tabs. The tab header shows one icon per tab; the selected tab adds its name and an accent count badge (events left today, notifications, open to-dos). Each tab appears only while it has content; To-do is always available and supports optional deadlines — set in an in-card date picker (month calendar, time steppers and presets) — with reminders the day before and on the day.
 - Kalender lists iCal events — or Google Calendar API accounts (`google:<calendarId>`, see below) — from today through the next 30 days, with account colours, all-day summaries, Join buttons and meeting reminders.
 - Meeting prep templates turn recurring meetings into To-do items before each occurrence: a `Prep N/M` chip on the Kalender tab, `· Prep N/M` on the left pill, and a reminder body that names unfinished prep.
+- Kuota shows AI plan usage read from the local `omp usage` command (Codex, Claude, Copilot and the other providers omp reports): each account's limit windows with the percentage used and a reset countdown, refreshed every 5 minutes while the card is open. Providers listed in `ISLAND_KUOTA_SKIP` are hidden (default `google-antigravity`). The island only reads `omp usage`; without `omp` the tab stays hidden.
 
 **Indicators**
 - Dots on the pill for screen recording (red, with elapsed time), microphone in use (yellow) and camera in use (green), plus a crossed-out bell while dunst Do Not Disturb is on.
@@ -221,6 +222,8 @@ To show YouTube Music played in Microsoft Edge, load `browser/ytm-bridge` as an 
 
 Kalender optionally needs `python-icalendar` and `python-recurring-ical-events` (Arch packages). See [calendar setup](docs/fitur.md#menyiapkan-kalender) for the private iCal configuration, or for Google Calendar API accounts (`google:<calendarId>` with a one-time `agenda login NAME`) as an alternative to iCal.
 
+Kuota optionally needs the `omp` CLI, logged in to your AI providers; without it the tab stays hidden. See [Kuota](docs/fitur.md#kuota).
+
 **Start and stop**
 
 ```bash
@@ -269,8 +272,8 @@ tools/showcase docs/assets                                          # regenerate
 
 | Page | Contents | Language |
 | --- | --- | --- |
-| [Features](docs/fitur.md) | Pill and card, tabs, YouTube Music (Player, Lirik and Output modes), visualizer, lyrics, alerts, notifications, indicators, weather, to-do, shortcuts | Indonesian |
-| [Configuration](docs/konfigurasi.md) | Dependencies, start/stop, picom, palette, players, Edge YouTube Music bridge, dunst integration, weather location, environment variables | Indonesian |
+| [Features](docs/fitur.md) | Pill and card, tabs, YouTube Music (Player, Lirik and Output modes), visualizer, lyrics, alerts, notifications, indicators, weather, to-do, shortcuts, AI quota | Indonesian |
+| [Configuration](docs/konfigurasi.md) | Dependencies, start/stop, picom, palette, players, Edge YouTube Music bridge, dunst integration, weather location, environment variables (including `ISLAND_KUOTA_INTERVAL` and `ISLAND_KUOTA_SKIP`) | Indonesian |
 | [Debugging and tests](docs/debug.md) | Running tests and previews, logs and runtime state, known limitations, troubleshooting | Indonesian |
 | [Architecture](docs/architecture.md) | Data flow, folder layout, shell framework, area contracts, recipes | Indonesian |
 

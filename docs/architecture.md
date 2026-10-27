@@ -23,7 +23,7 @@ flowchart LR
   L[openbox/island.sh] -->|eww daemon| D[eww daemon]
   L -->|setsid| FS[scripts/fullscreen]
   L -->|dunst-osd.conf drop-in| DU[dunst]
-  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, kalender, status, rec,<br/>ytm, outputs, weather, shortcuts watch, upcoming"]
+  D -->|deflisten| S["scripts/media, viz, lyrics, alert,<br/>notify, notif, todo, kalender, status, rec,<br/>ytm, outputs, weather, kuota, shortcuts watch, upcoming"]
   S -->|satu baris JSON| D
   D --> W[yuck: island / island-expanded / island-upcoming]
   W -->|onclick / onscroll / onhover| C["scripts/island, tab, todo, kalender,<br/>notif, notify, scroll, shortcuts, outputs"]
@@ -67,6 +67,7 @@ eww/scripts/lib/<area>/    modul per area: alert, status, notify, tabs, viz, wea
 eww/scripts/lib/todo/      modul Tugas: deadline.sh (epoch/pengingat), picker.sh (state penanggal + JSON `picker`)
 eww/scripts/lyrics         entry Python; logika di eww/scripts/lyrics_pkg/ (sources/: lrclib, netease, ytmusic)
 eww/scripts/outputs        sink audio untuk mode Output tab Musik: `watch` (deflisten), `set NAME`, `set-token ID`
+eww/scripts/kuota          deflisten tab Kuota: `omp usage` → JSON `kuota`, cache $ISLAND_STATE/kuota.json
 eww/scripts/lib/media/     gate.sh (bukti YouTube Music), color.sh (warna cover), record.sh (JSON media), art.sh, transition.sh
 eww/scripts/lib/ytm/bridge-host.sh native host Edge: pesan ekstensi → $ISLAND_STATE/ytm-browser.json
 browser/ytm-bridge/        ekstensi MV3 Edge (hanya music.youtube.com) + install.sh pendaftar native host
@@ -194,6 +195,7 @@ Helper: `alert_skip REASON` (catat di stderr lalu gagal), `alert_need TOOL...`, 
 | `notif` | `30-notif.sh` | riwayat tidak kosong |
 | `tugas` | `40-tugas.sh` | `todo.fifo` ada, atau daftar tersimpan punya tugas terbuka |
 | `pintasan` | `50-pintasan.sh` | `scripts/shortcuts list` punya tombol |
+| `kuota` | `60-kuota.sh` | `$ISLAND_STATE/kuota.json` ada dan `.ok == true` |
 
 ### 4.4 Widget bersama (`eww/yuck/widgets/`)
 
@@ -237,13 +239,28 @@ Partial baru: buat `eww/scss/_<area>.scss`, tambah `@import "scss/<area>";` di `
 
 **Mode.** `music_mode` (defvar, `player|lyrics|output`) memilih `musik-player`, `musik-lyrics`, atau `musik-outputs` lewat `revealer :transition "none"`.
 
+### 4.7 Kuota: kolektor `omp usage`
+
+`scripts/kuota` (deflisten `kuota`, `main` = `stream | emit_dedup`) menjalankan `omp usage --json --redact --no-extensions` saat mulai lalu setiap `ISLAND_KUOTA_INTERVAL` detik (bawaan 300; nilai bukan bilangan bulat positif memakai 300), dan menormalkannya dengan satu filter jq menjadi:
+
+```json
+{"ok":true,"updated":"HH:MM","note":"","accounts":[{"provider":"Codex","plan":"pro","limits":[{"label":"7 hari","used":34,"reset":"5 hr"}]}]}
+```
+
+- `accounts` mengikuti urutan `.reports[]` omp; report yang `provider`-nya ada di daftar koma `ISLAND_KUOTA_SKIP` (bawaan `google-antigravity`, kosong = tidak ada yang dilewati) dibuang. `provider` dipetakan `openai-codex`→`Codex`, `anthropic`→`Claude`, `github-copilot`→`Copilot`, `google-antigravity`→`Antigravity`, selain itu ID apa adanya; `plan` = `.metadata.planType // .metadata.plan // ""`.
+- `label`: awalan `Claude ` dibuang, `Hour(s)`→`jam`, `Day(s)`→`hari`, `Premium Requests`→`Permintaan premium`. `used` = `.amount.used` bila `.amount.unit == "percent"` dan bertipe angka, selain itu `-1` (UI: `Tanpa batas`). `reset` dari `.window.resetsAt` (epoch milidetik) relatif terhadap waktu ambil: `Nm`, `Nj` / `Nj Mm`, `N hr`, `segera` bila sudah lewat, `—` bila null.
+- `updated` = jam pengambilan (`date +%H:%M`); `ISLAND_NOW` menimpa waktu sekarang untuk tes.
+- Berhasil: record ditulis atomik ke `$ISLAND_STATE/kuota.json` (`mktemp` + `mv`) lalu dicetak. Gagal setelah pernah berhasil: record terakhir dicetak ulang (`emit_dedup` membuang duplikatnya), cache tidak disentuh. Gagal sebelum pernah berhasil: `{"ok":false,"updated":"","note":"…","accounts":[]}` dengan `note` `omp tidak ditemukan` (tanpa `omp`) atau `gagal memuat kuota`.
+
+Registry `60-kuota.sh` sengaja memeriksa berkas cache, bukan `island_eww get kuota`: deflisten `kuota` hanya hidup selama kartu terbuka, sedangkan `scripts/tab` perlu jawaban ketersediaan saat kartu belum dibuka. Tab baru yang datanya berasal dari listener kartu dapat memakai pola yang sama: listener menulis cache atomik hanya untuk hasil sah, dan predikat registry membaca cache itu dengan `jq -e`.
+
 ## 5. Resep
 
 Nama `jadwal`, `fan`, dan `catatan` di bawah hanya contoh.
 
 ### 5.1 Menambah tab baru
 
-1. Registry `eww/scripts/lib/tabs/60-jadwal.sh`:
+1. Registry `eww/scripts/lib/tabs/70-jadwal.sh`:
    ```bash
    #!/usr/bin/env bash
    # Jadwal: the schedule listener has at least one item.

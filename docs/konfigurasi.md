@@ -10,6 +10,8 @@ Visualizer memerlukan sesi audio PipeWire aktif dengan layanan kompatibilitas Pu
 
 Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon, scroll, dan mode Output di tab Musik; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `dunst` (`dunstctl`) dan `xdotool` untuk notifikasi; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: ImageMagick untuk warna latar tab Musik dari cover, yaitu `magick` (ImageMagick 7, paket Arch `imagemagick`) atau `convert` (ImageMagick 6, misalnya di Ubuntu); tanpa keduanya tab Musik tetap tanpa warna; `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert Tailscale; `gtk-launch` (paket `gtk3`) untuk membuka aplikasi dari klik notifikasi saat window-nya belum ada.
 
+Opsional untuk tab Kuota: CLI `omp` yang sudah login ke provider AI. Island hanya menjalankan `omp usage --json --redact --no-extensions`; tanpa `omp` tab Kuota tersembunyi. Lihat [Fitur → Kuota](fitur.md#kuota).
+
 ## Menjalankan dan menghentikan
 
 Island dijalankan otomatis oleh `openbox/eww.sh` dari openbox-omp setiap bar eww dibuka (termasuk ganti tema). Manual: `~/.config/openbox/island.sh`.
@@ -126,6 +128,8 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_PREP_BEFORE` | `2j` | Waktu bawaan sebelum meeting bila `SEBELUM` template kosong (`Nm`, `Nj`, atau `Nh`) | `eww/scripts/lib/prep/template.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
 | `ISLAND_PREP_INTERVAL` | `60` | Interval sumber alert prep membuat item persiapan (detik) | `eww/scripts/lib/alert/prep.sh` | [persiapan-meeting](fitur.md#persiapan-meeting) |
 | `ISLAND_UPCOMING_TICK` | `5` | Detik antar pembacaan ulang agenda dan Tugas untuk pill kiri | `eww/scripts/upcoming` | [pill-kiri](fitur.md#pill-kiri) |
+| `ISLAND_KUOTA_INTERVAL` | `300` | Interval pengambilan `omp usage` untuk tab Kuota selama kartu terbuka (detik; nilai bukan bilangan bulat positif memakai 300) | `eww/scripts/kuota` | [kuota](fitur.md#kuota) |
+| `ISLAND_KUOTA_SKIP` | `google-antigravity` | ID provider omp yang disembunyikan dari tab Kuota, dipisah koma (misalnya `anthropic,openai-codex`); nilai kosong menampilkan semua provider | `eww/scripts/kuota` | [kuota](fitur.md#kuota) |
 | `ISLAND_BRIDGE_MAX_AGE_MS` | `15000` | Umur maksimum status bridge YouTube Music (milidetik) sebelum Edge tidak lagi dianggap YouTube Music | `eww/scripts/lib/media/gate.sh` | [musik](fitur.md#musik) |
 | `ISLAND_BRIDGE_SKEW_MS` | `5000` | Toleransi (milidetik) saat judul MPRIS Edge dan judul bridge sempat berbeda, dihitung dari kecocokan terakhir | `eww/scripts/lib/media/gate.sh` | [musik](fitur.md#musik) |
 | `OB_YTM_AUTH` | `~/.config/ytm-player/auth.json` | Login ytm-player untuk status tombol suka (lirik YouTube Music tetap memakai `${XDG_CONFIG_HOME:-$HOME/.config}/ytm-player/auth.json`) | `eww/scripts/ytm_like.py` | [tombol-suka-youtube-music](#tombol-suka-youtube-music) |
