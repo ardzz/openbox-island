@@ -133,3 +133,22 @@ load common
   run "$SCRIPTS/tab" next
   [ "$(cat "$FAKE_TAB")" = pintasan ]
 }
+
+@test "the quota tab is available from a successful collector cache" {
+  no_music; no_weather; no_notif
+  printf '{"ok":true,"accounts":[]}\n' > "$ST/kuota.json"
+  run "$SCRIPTS/tab" resolve kuota
+  [ "$output" = kuota ]
+  run "$SCRIPTS/tab" select kuota
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ST/tab")" = kuota ]
+}
+
+@test "the quota tab is unavailable without a successful cache" {
+  no_music; no_weather; no_notif
+  run "$SCRIPTS/tab" resolve kuota
+  [ "$output" = musik ]
+  printf '{"ok":false,"accounts":[]}\n' > "$ST/kuota.json"
+  run "$SCRIPTS/tab" resolve kuota
+  [ "$output" = musik ]
+}

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/core.sh
+source "$DIR/lib/core.sh"
+
+fetch_kuota() {
+  require omp jq || return 127
+  local raw now updated
+  raw=$(omp usage --json --redact --no-extensions) || return
+  now=${ISLAND_NOW:-$(date +%s)}
+  updated=$(date -d "@$now" +%H:%M)
+  jq -cse --arg skip "${ISLAND_KUOTA_SKIP-google-antigravity}" \
+    --arg updated "$updated" --argjson now "$now" '
+    def provider_name:
+      {"openai-codex":"Codex", "anthropic":"Claude", "github-copilot":"Copilot",
+       "google-antigravity":"Antigravity"}[.] // .;
+    def translate_label:
+      sub("^Claude "; "") | gsub("[Hh]ours?"; "jam") | gsub("[Dd]ays?"; "hari") |
+      if . == "Premium Requests" then "Permintaan premium" else . end;
+    def reset_text:
+      if . == null then "—"
+      else (. / 1000 - $now | floor) as $seconds |
+        if $seconds <= 0 then "segera"
+        elif $seconds < 3600 then "\(($seconds / 60 | floor))m"
+        elif $seconds < 86400 then
+          "\(($seconds / 3600 | floor))j" +
+          (if ($seconds % 3600 / 60 | floor) == 0 then ""
+           else " \(($seconds % 3600 / 60 | floor))m" end)
+        else "\(($seconds / 86400 | floor)) hr" end
+      end;
+    if length != 1 then error("expected one usage report") else .[0] end |
+    if (.reports | type) != "array" then error("missing reports") else . end |
+    ($skip | split(",")) as $skipped |
+    {ok:true, updated:$updated, note:"", accounts:[
+      .reports[] | .provider as $provider |
+      select(any($skipped[]; . == $provider) | not) |
+      {provider:(.provider | provider_name), plan:(.metadata.planType // ""), limits:[
+        .limits[] | {label:(.label | translate_label),
+          used:(if .amount.unit == "percent" and (.amount.used | type) == "number"
+                then .amount.used else -1 end),
+          reset:(.window.resetsAt | reset_text)}
+      ]}
+    ]}
+  ' <<< "$raw"
+}
+
+stream() {
+  local record='' result temp note
+  local interval=${ISLAND_KUOTA_INTERVAL:-300}
+  [[ $interval =~ ^[0-9]+$ && $interval =~ [1-9] ]] || interval=300
+  while true; do
+    if result=$(fetch_kuota 2>/dev/null); then
+      record=$result
+      mkdir -p "$ISLAND_STATE"
+      if temp=$(mktemp "$ISLAND_STATE/kuota.json.XXXXXX"); then
+        printf '%s\n' "$record" > "$temp" && mv -f "$temp" "$ISLAND_STATE/kuota.json"
+        rm -f "$temp"
+      fi
+    elif [[ -z $record ]]; then
+      note='gagal memuat kuota'
+      command -v omp >/dev/null 2>&1 || note='omp tidak ditemukan'
+      printf '{"ok":false,"updated":"","note":"%s","accounts":[]}\n' "$note"
+    fi
+    [[ -z $record ]] || printf '%s\n' "$record"
+    sleep "$interval"
+  done
+}
+
+main() { stream | emit_dedup; }
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

@@ -12,6 +12,7 @@
 (deflisten rec :initial '{"active":false,"app":"","time":""}' "scripts/rec")
 (deflisten ytm :initial '{"active":false,"video_id":"","like":"","next_title":"","next_artist":""}' "scripts/ytm")
 (deflisten weather :initial '{"ok":false,"icon":"","tone":"","temp":"","desc":"","city":"","region":"","feels":"","humidity":"","wind":"","uv":"","sunrise":"","sunset":"","days":[]}' "scripts/weather")
+(deflisten kuota :initial '{"ok":false,"updated":"","note":"","accounts":[]}' "scripts/kuota")
 ; Rows of shortcut buttons from eww/shortcuts, re-read when the file changes.
 (deflisten shortcuts :initial "[]" "scripts/shortcuts watch")
 (defvar island_reveal false)
