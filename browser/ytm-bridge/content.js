@@ -1,6 +1,25 @@
 (() => {
   let previous = "";
   let lastSent = 0;
+  let timer = 0;
+
+  // After the extension reloads, this orphaned script's chrome.runtime calls
+  // throw "Extension context invalidated" synchronously (not a rejected
+  // promise), so stop quietly instead of throwing every second.
+  function send(payload) {
+    try {
+      const sent = chrome.runtime.sendMessage(payload);
+      if (sent && sent.catch) sent.catch(() => stop());
+    } catch {
+      stop();
+    }
+  }
+
+  function stop() {
+    clearInterval(timer);
+    removeEventListener("pagehide", gone);
+    removeEventListener("beforeunload", gone);
+  }
 
   function poll() {
     const session = navigator.mediaSession;
@@ -22,13 +41,13 @@
 
     previous = serialized;
     lastSent = now;
-    chrome.runtime.sendMessage({ ...payload, ts: now }).catch(() => {});
+    send({ ...payload, ts: now });
   }
 
-  const gone = () => chrome.runtime.sendMessage({ gone: true }).catch(() => {});
+  const gone = () => send({ gone: true });
   addEventListener("pagehide", gone);
   addEventListener("beforeunload", gone);
 
   poll();
-  setInterval(poll, 1000);
+  timer = setInterval(poll, 1000);
 })();
