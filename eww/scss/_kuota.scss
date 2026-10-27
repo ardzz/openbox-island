@@ -7,12 +7,16 @@
   font-weight: 600;
 }
 
+.kuota-page .kuota-provider {
+  font-size: 11px;
+}
+
 .kuota-muted {
   color: $muted;
 }
 
 .kuota-limit label {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .kuota-bar trough {

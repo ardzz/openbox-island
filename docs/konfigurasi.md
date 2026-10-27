@@ -130,6 +130,7 @@ Diset saat menjalankan `~/.config/openbox/island.sh`; daemon dan listener mewari
 | `ISLAND_UPCOMING_TICK` | `5` | Detik antar pembacaan ulang agenda dan Tugas untuk pill kiri | `eww/scripts/upcoming` | [pill-kiri](fitur.md#pill-kiri) |
 | `ISLAND_KUOTA_INTERVAL` | `300` | Interval pengambilan `omp usage` untuk tab Kuota selama kartu terbuka (detik; nilai bukan bilangan bulat positif memakai 300) | `eww/scripts/kuota` | [kuota](fitur.md#kuota) |
 | `ISLAND_KUOTA_SKIP` | `google-antigravity` | ID provider omp yang disembunyikan dari tab Kuota, dipisah koma (misalnya `anthropic,openai-codex`); nilai kosong menampilkan semua provider | `eww/scripts/kuota` | [kuota](fitur.md#kuota) |
+| `OB_OMP` | (dari PATH, lalu `~/.bun/bin/omp`) | Lokasi binary `omp` untuk tab Kuota bila tidak ada di PATH sesi grafis | `eww/scripts/kuota` | [kuota](fitur.md#kuota) |
 | `ISLAND_BRIDGE_MAX_AGE_MS` | `15000` | Umur maksimum status bridge YouTube Music (milidetik) sebelum Edge tidak lagi dianggap YouTube Music | `eww/scripts/lib/media/gate.sh` | [musik](fitur.md#musik) |
 | `ISLAND_BRIDGE_SKEW_MS` | `5000` | Toleransi (milidetik) saat judul MPRIS Edge dan judul bridge sempat berbeda, dihitung dari kecocokan terakhir | `eww/scripts/lib/media/gate.sh` | [musik](fitur.md#musik) |
 | `OB_YTM_AUTH` | `~/.config/ytm-player/auth.json` | Login ytm-player untuk status tombol suka (lirik YouTube Music tetap memakai `${XDG_CONFIG_HOME:-$HOME/.config}/ytm-player/auth.json`) | `eww/scripts/ytm_like.py` | [tombol-suka-youtube-music](#tombol-suka-youtube-music) |
