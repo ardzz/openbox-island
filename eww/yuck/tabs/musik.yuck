@@ -1,6 +1,5 @@
 (defwidget page-musik []
   (box :class "page music-page" :orientation "v" :space-evenly false :spacing 4
-       :style {media.color != "" ? "background: ${media.color};" : ""}
     (box :class "music-modes" :orientation "h" :space-evenly false :spacing 12
       (button :class "music-mode ${music_mode == 'player' ? 'on' : ''}"
               :onclick "eww --config ${EWW_CONFIG_DIR} update music_mode=player" "Player")

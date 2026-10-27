@@ -8,7 +8,9 @@
     (box :halign "center" :valign "start" :orientation "h" :space-evenly false
       (box :class "ear ear-left" :valign "start")
       (overlay
-        (box :class "notch-shell ${alert.kind != '' ? 'st-alert' : notify.active ? 'st-notify' : media.state == 'none' ? 'st-idle' : 'st-media'} ${island_reveal ? 'grow' : ''}")
+        ; Like isle's wash: the cover colour rises from clear under the top edge to 75% at the bottom.
+        (box :class "notch-shell ${alert.kind != '' ? 'st-alert' : notify.active ? 'st-notify' : media.state == 'none' ? 'st-idle' : 'st-media'} ${island_reveal ? 'grow' : ''}"
+             :style {island_reveal && island_tab == "musik" && media.color != "" ? "background-image: linear-gradient(to bottom, alpha(${media.color}, 0), alpha(${media.color}, 0.75));" : ""})
         (stack :halign "center" :valign "start"
                :selected {island_reveal ? 1 : 0} :transition "crossfade" :same-size false
           (stack :halign "center" :valign "start"
