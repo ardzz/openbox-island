@@ -3,11 +3,14 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/core.sh
 source "$DIR/lib/core.sh"
+OMP="${OB_OMP:-$(command -v omp || printf '%s' "$HOME/.bun/bin/omp")}"
 
 fetch_kuota() {
-  require omp jq || return 127
-  local raw now updated
-  raw=$(omp usage --json --redact --no-extensions) || return
+  [[ -x $OMP ]] || { MISSING_DEP=omp; return 127; }
+  require jq || return 127
+  local raw now updated cli_path=$PATH
+  [[ ! -d $HOME/.bun/bin ]] || cli_path="$HOME/.bun/bin:$PATH"
+  raw=$(PATH="$cli_path" "$OMP" usage --json --redact --no-extensions) || return
   now=${ISLAND_NOW:-$(date +%s)}
   updated=$(date -d "@$now" +%H:%M)
   jq -cse --arg skip "${ISLAND_KUOTA_SKIP-google-antigravity}" \
@@ -32,7 +35,7 @@ fetch_kuota() {
     if length != 1 then error("expected one usage report") else .[0] end |
     if (.reports | type) != "array" then error("missing reports") else . end |
     ($skip | split(",")) as $skipped |
-    {ok:true, updated:$updated, note:"", accounts:[
+    {ok:true, updated:$updated, fetched:$now, note:"", accounts:[
       .reports[] | .provider as $provider |
       select(any($skipped[]; . == $provider) | not) |
       {provider:(.provider | provider_name), plan:(.metadata.planType // .metadata.plan // ""), limits:[
@@ -46,9 +49,19 @@ fetch_kuota() {
 }
 
 stream() {
-  local record='' result temp note
+  local record='' result temp note fetched now
   local interval=${ISLAND_KUOTA_INTERVAL:-300}
   [[ $interval =~ ^[0-9]+$ && $interval =~ [1-9] ]] || interval=300
+  if record=$(jq -ce 'select(.ok == true)' "$ISLAND_STATE/kuota.json" 2>/dev/null); then
+    printf '%s\n' "$record"
+    fetched=$(jq -r '.fetched // 0' <<< "$record")
+    now=${ISLAND_NOW:-$(date +%s)}
+    if [[ $fetched =~ ^[0-9]+$ ]] && (( fetched > 0 && fetched <= now && now - fetched < interval )); then
+      sleep "$((interval - (now - fetched)))"
+    fi
+  else
+    record=''
+  fi
   while true; do
     if result=$(fetch_kuota 2>/dev/null); then
       record=$result
@@ -59,7 +72,7 @@ stream() {
       fi
     elif [[ -z $record ]]; then
       note='gagal memuat kuota'
-      command -v omp >/dev/null 2>&1 || note='omp tidak ditemukan'
+      [[ -x $OMP ]] || note='omp tidak ditemukan'
       printf '{"ok":false,"updated":"","note":"%s","accounts":[]}\n' "$note"
     fi
     [[ -z $record ]] || printf '%s\n' "$record"

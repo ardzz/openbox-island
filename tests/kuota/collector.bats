@@ -3,19 +3,22 @@ load ../helpers
 setup() {
   export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run" TZ=UTC ISLAND_NOW=1000000
   export ISLAND_KUOTA_INTERVAL=300
+  export HOME="$BATS_TEST_TMPDIR/home"
+  unset OB_OMP
   unset ISLAND_KUOTA_SKIP
   export OMP_FIXTURE="$BATS_TEST_TMPDIR/response" OMP_STATUS="$BATS_TEST_TMPDIR/status"
   export KUOTA_TEST="$BATS_TEST_TMPDIR"
   BIN="$BATS_TEST_TMPDIR/bin"; mkdir -p "$BIN"
   ORIGINAL_PATH=$PATH
   local tool
-  for tool in bash cat dirname jq date mkdir mktemp mv rm; do
+  for tool in bash cat chmod dirname jq date mkdir mktemp mv rm; do
     ln -s "$(command -v "$tool")" "$BIN/$tool"
   done
   SETSID=$(command -v setsid)
   cat > "$BIN/omp" <<'EOF'
 #!/usr/bin/env bash
 [[ $* == 'usage --json --redact --no-extensions' ]] || exit 2
+printf 'call\n' >> "$KUOTA_TEST/omp-calls"
 read -r status < "$OMP_STATUS"
 (( status == 0 )) || exit "$status"
 cat "$OMP_FIXTURE"
@@ -65,7 +68,8 @@ next_fetch() {
 @test "normalizes omp accounts in report order and caches the complete render" {
   start_kuota
   expected='{"ok":true,"updated":"13:46","note":"","accounts":[{"provider":"Codex","plan":"pro","limits":[{"label":"7 hari","used":34,"reset":"5 hr"}]},{"provider":"Claude","plan":"","limits":[{"label":"5 jam","used":12,"reset":"1j 5m"},{"label":"7 hari (Fable)","used":2,"reset":"2j"}]},{"provider":"Claude","plan":"","limits":[{"label":"5 jam","used":3,"reset":"—"}]},{"provider":"Copilot","plan":"","limits":[{"label":"Permintaan premium","used":-1,"reset":"—"}]}]}'
-  [ "$(jq -S . <<< "$event")" = "$(jq -S . <<< "$expected")" ]
+  [ "$(jq -S 'del(.fetched)' <<< "$event")" = "$(jq -S . <<< "$expected")" ]
+  [ "$(jq -r '.fetched' <<< "$event")" = "$ISLAND_NOW" ]
   [ "$(cat "$STATE")" = "$event" ]
 }
 
@@ -135,4 +139,58 @@ next_fetch() {
   start_kuota
   IFS= read -r -t 2 -u "$sleep_fd" delay
   [ "$delay" = 300 ]
+}
+
+@test "finds omp in the default Bun bin directory outside PATH" {
+  mkdir -p "$HOME/.bun/bin"
+  mv "$BIN/omp" "$HOME/.bun/bin/omp"
+  start_kuota
+  [ "$(jq -r '.ok' <<< "$event")" = true ]
+}
+
+@test "OB_OMP overrides the command found on PATH" {
+  export OB_OMP="$BATS_TEST_TMPDIR/custom-omp"
+  mv "$BIN/omp" "$OB_OMP"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$BIN/omp"
+  chmod +x "$BIN/omp"
+  start_kuota
+  [ "$(jq -r '.ok' <<< "$event")" = true ]
+}
+
+@test "reopening with a legacy successful cache preserves it when refresh fails" {
+  mkdir -p "${STATE%/*}"
+  good='{"ok":true,"updated":"12:00","note":"","accounts":[{"provider":"Codex","plan":"pro","limits":[]}]}'
+  printf '%s\n' "$good" > "$STATE"
+  printf '1\n' > "$OMP_STATUS"
+  start_kuota
+  [ "$event" = "$good" ]
+  IFS= read -r -t 2 -u "$sleep_fd" delay
+  [ -f "$KUOTA_TEST/omp-calls" ]
+  [ "$(cat "$STATE")" = "$good" ]
+  ! IFS= read -r -t 0.1 -u "$output_fd" event
+}
+
+@test "fresh successful cache emits immediately and waits until its next interval" {
+  mkdir -p "${STATE%/*}"
+  good='{"ok":true,"updated":"13:46","fetched":1000000,"note":"","accounts":[]}'
+  printf '%s\n' "$good" > "$STATE"
+  start_kuota
+  [ "$event" = "$good" ]
+  IFS= read -r -t 2 -u "$sleep_fd" delay
+  [ "$delay" = 300 ]
+  [ ! -f "$KUOTA_TEST/omp-calls" ]
+  printf 'tick\n' >&"$tick_fd"
+  IFS= read -r -t 2 -u "$output_fd" event
+  [ -f "$KUOTA_TEST/omp-calls" ]
+  [ "$(jq -r '.accounts[0].provider' <<< "$event")" = Codex ]
+}
+
+@test "fallback omp can resolve its Bun runtime outside PATH" {
+  mkdir -p "$HOME/.bun/bin"
+  rm "$BIN/omp"
+  printf '#!/usr/bin/env bun\ncat "$OMP_FIXTURE"\n' > "$HOME/.bun/bin/omp"
+  printf '#!/usr/bin/env bash\nexec bash "$@"\n' > "$HOME/.bun/bin/bun"
+  chmod +x "$HOME/.bun/bin/omp" "$HOME/.bun/bin/bun"
+  start_kuota
+  [ "$(jq -r '.ok' <<< "$event")" = true ]
 }
