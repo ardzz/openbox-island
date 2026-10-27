@@ -40,7 +40,7 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 **Now playing**
 - YouTube Music only: [ytm-player](https://ytm-player.com) and ytermusic, plus Microsoft Edge when the bundled `browser/ytm-bridge` extension confirms the track comes from a `music.youtube.com` tab. Regular YouTube, other web media and other MPRIS players are ignored. Priority order is configurable (default `ytm_player,ytermusic,edge`).
 - The Music tab has **Player**, **Lirik** and **Output** modes. Lirik shows up to six lyric lines around the current one; clicking a synced line seeks to it. Output lists audio sinks, and clicking one makes it the default and moves every playing stream to it.
-- The Music tab background is tinted with the cover's dominant colour; grey covers keep the default background.
+- While the Music tab is shown, the notch gets an isle-style wash of the cover's dominant colour: black under the screen edge, rising to 75% of the colour at the bottom. Grey covers keep the notch black.
 - Synced lyrics from LRCLIB with NetEase Cloud Music as a fallback; for ytm-player, YouTube Music lyrics are tried first.
 - A real audio spectrum visualizer, processed at the island monitor's refresh rate and fed only by the active player's own output stream.
 - Like/dislike buttons and an "up next" line for ytm-player.
