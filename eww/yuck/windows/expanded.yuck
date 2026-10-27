@@ -10,7 +10,7 @@
       (overlay
         (box :class "notch-shell ${alert.kind != '' ? 'st-alert' : notify.active ? 'st-notify' : media.state == 'none' ? 'st-idle' : 'st-media'} ${island_reveal ? 'grow' : ''}")
         (stack :halign "center" :valign "start"
-               :selected {island_reveal ? 1 : 0} :transition "crossfade" :duration "300ms" :same-size false
+               :selected {island_reveal ? 1 : 0} :transition "crossfade" :same-size false
           (stack :halign "center" :valign "start"
                  :selected {alert.kind != "" ? 2 : notify.active ? 3 : media.state == "none" ? 0 : 1}
                  :transition "crossfade" :same-size false
