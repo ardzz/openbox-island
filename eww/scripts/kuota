@@ -35,7 +35,7 @@ fetch_kuota() {
     {ok:true, updated:$updated, note:"", accounts:[
       .reports[] | .provider as $provider |
       select(any($skipped[]; . == $provider) | not) |
-      {provider:(.provider | provider_name), plan:(.metadata.planType // ""), limits:[
+      {provider:(.provider | provider_name), plan:(.metadata.planType // .metadata.plan // ""), limits:[
         .limits[] | {label:(.label | translate_label),
           used:(if .amount.unit == "percent" and (.amount.used | type) == "number"
                 then .amount.used else -1 end),
