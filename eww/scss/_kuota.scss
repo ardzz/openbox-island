@@ -1,0 +1,40 @@
+.kuota-page label {
+  font-size: 10px;
+}
+
+.kuota-heading,
+.kuota-provider {
+  font-weight: 600;
+}
+
+.kuota-muted {
+  color: $muted;
+}
+
+.kuota-limit label {
+  font-size: 9px;
+}
+
+.kuota-bar trough {
+  background-color: $island-track;
+  border-radius: 2px;
+  min-height: 4px;
+  min-width: 64px;
+}
+
+.kuota-bar progress {
+  border-radius: 2px;
+  min-height: 4px;
+}
+
+.kuota-ok progress {
+  background-color: $island-accent;
+}
+
+.kuota-warn progress {
+  background-color: $yellow;
+}
+
+.kuota-crit progress {
+  background-color: $red;
+}

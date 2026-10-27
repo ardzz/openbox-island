@@ -13,7 +13,9 @@
                 :dot {notif_center.unread > 0} :available {notif_center.total > 0})
       (tab-chip :id "tugas" :icon "󰗡" :name "Tugas" :count {todo.open} :dot false :available true)
       (tab-chip :id "pintasan" :icon "󱇙" :name "Pintasan" :count 0 :dot false
-                :available {shortcuts != "[]"}))))
+                :available {shortcuts != "[]"})
+      (tab-chip :id "kuota" :icon "󰚩" :name "Kuota" :count 0 :dot false
+                :available {kuota.ok}))))
 
 ; The expanded card: header, then the pages; only the selected page is revealed.
 (defwidget tab-card []
@@ -24,4 +26,5 @@
     (tab-page :id "cuaca" (page-cuaca))
     (tab-page :id "notif" (page-notif))
     (tab-page :id "tugas" (page-tugas))
-    (tab-page :id "pintasan" (page-pintasan))))
+    (tab-page :id "pintasan" (page-pintasan))
+    (tab-page :id "kuota" (page-kuota))))

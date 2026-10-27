@@ -17,6 +17,7 @@
 (include "./yuck/tabs/tugas.yuck")
 (include "./yuck/tabs/picker.yuck")
 (include "./yuck/tabs/pintasan.yuck")
+(include "./yuck/tabs/kuota.yuck")
 (include "./yuck/tabs.yuck")
 (include "./yuck/windows/island.yuck")
 (include "./yuck/windows/expanded.yuck")
