@@ -10,7 +10,7 @@ Visualizer memerlukan sesi audio PipeWire aktif dengan layanan kompatibilitas Pu
 
 Dependensi aktivitas: `pactl` (paket `libpulse`) untuk volume/mikrofon, scroll, dan mode Output di tab Musik; `inotify-tools` untuk pengamatan kamera dan folder tangkapan layar; `dbus` (`dbus-monitor`) untuk status Jangan Ganggu; `dunst` (`dunstctl`) dan `xdotool` untuk notifikasi; `light` untuk kecerahan; `upower` untuk baterai; NetworkManager (`nmcli`) untuk Wi-Fi; serta `curl` dan `jq` untuk cuaca dan data JSON. Opsional: ImageMagick untuk warna latar tab Musik dari cover, yaitu `magick` (ImageMagick 7, paket Arch `imagemagick`) atau `convert` (ImageMagick 6, misalnya di Ubuntu); tanpa keduanya tab Musik tetap tanpa warna; `geoclue` untuk lokasi otomatis sebelum fallback alamat IP; `gdbus` (paket `glib2`) dan `bluetoothctl` (paket `bluez-utils`) untuk alert Bluetooth; `tailscale` untuk alert Tailscale; `gtk-launch` (paket `gtk3`) untuk membuka aplikasi dari klik notifikasi saat window-nya belum ada.
 
-Opsional untuk tab Kuota: CLI `omp` yang sudah login ke provider AI. Island hanya menjalankan `omp usage --json --redact --no-extensions`; tanpa `omp` tab Kuota tersembunyi. Lihat [Fitur → Kuota](fitur.md#kuota).
+Opsional untuk tab Kuota: CLI `omp` yang sudah login ke provider AI. Island hanya menjalankan `omp usage --json --no-extensions`; tanpa `omp` tab Kuota tersembunyi. Lihat [Fitur → Kuota](fitur.md#kuota).
 
 ## Menjalankan dan menghentikan
 

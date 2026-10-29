@@ -241,20 +241,21 @@ Partial baru: buat `eww/scss/_<area>.scss`, tambah `@import "scss/<area>";` di `
 
 ### 4.7 Kuota: kolektor `omp usage`
 
-`scripts/kuota` (deflisten `kuota`, `main` = `stream | emit_dedup`) menjalankan `omp usage --json --redact --no-extensions` saat mulai lalu setiap `ISLAND_KUOTA_INTERVAL` detik (bawaan 300; nilai bukan bilangan bulat positif memakai 300), dan menormalkannya dengan satu filter jq menjadi:
+`scripts/kuota` (deflisten `kuota`, `main` = `stream | emit_dedup`) menjalankan `omp usage --json --no-extensions` saat mulai lalu setiap `ISLAND_KUOTA_INTERVAL` detik (bawaan 300; nilai bukan bilangan bulat positif memakai 300), dan menormalkannya dengan satu filter jq menjadi:
 
 ```json
-{"ok":true,"updated":"HH:MM","note":"","accounts":[{"provider":"Codex","plan":"pro","limits":[{"label":"7 hari","used":34,"reset":"5 hr"}]}]}
+{"ok":true,"updated":"HH:MM","note":"","accounts":[{"provider":"Claude","plan":"","identity":"email (Org)","limits":[{"label":"5 jam","used":34,"reset":"2j"}]}]}
 ```
 
 - `accounts` mengikuti urutan `.reports[]` omp; report yang `provider`-nya ada di daftar koma `ISLAND_KUOTA_SKIP` (bawaan `google-antigravity`, kosong = tidak ada yang dilewati) dibuang. `provider` dipetakan `openai-codex`→`Codex`, `anthropic`→`Claude`, `github-copilot`→`Copilot`, `google-antigravity`→`Antigravity`, selain itu ID apa adanya; `plan` = `.metadata.planType // .metadata.plan // ""`.
+- `identity` hanya untuk `anthropic`: `.metadata.email` dan `.metadata.orgName` (nilai bukan string dianggap kosong) menjadi `email (org)`, atau yang tidak kosong saja; provider lain dan akun tanpa keduanya `""`. Karena itu omp dipanggil tanpa `--redact`, yang menyamarkan kedua field.
 - `label`: awalan `Claude ` dibuang, `Hour(s)`→`jam`, `Day(s)`→`hari`, `Premium Requests`→`Permintaan premium`. `used` = `.amount.used` bila `.amount.unit == "percent"` dan bertipe angka, selain itu `-1` (UI: `Tanpa batas`). `reset` dari `.window.resetsAt` (epoch milidetik) relatif terhadap waktu ambil: `Nm`, `Nj` / `Nj Mm`, `N hr`, `segera` bila sudah lewat, `—` bila null.
 - `updated` = jam pengambilan (`date +%H:%M`); `ISLAND_NOW` menimpa waktu sekarang untuk tes.
 - Berhasil: record ditulis atomik ke `$ISLAND_STATE/kuota.json` (`mktemp` + `mv`) lalu dicetak. Gagal setelah pernah berhasil: record terakhir dicetak ulang (`emit_dedup` membuang duplikatnya), cache tidak disentuh. Gagal sebelum pernah berhasil: `{"ok":false,"updated":"","note":"…","accounts":[]}` dengan `note` `omp tidak ditemukan` (tanpa `omp`) atau `gagal memuat kuota`.
 
 Registry `60-kuota.sh` sengaja memeriksa berkas cache, bukan `island_eww get kuota`: deflisten `kuota` hanya hidup selama kartu terbuka, sedangkan `scripts/tab` perlu jawaban ketersediaan saat kartu belum dibuka. Di kartu, `tab-chip` Kuota memakai `:available {kuota.ok}`. Tab baru yang datanya berasal dari listener kartu dapat memakai pola yang sama: listener menulis cache atomik hanya untuk hasil sah, dan predikat registry membaca cache itu dengan `jq -e`.
 
-Halaman `page-kuota` (`eww/yuck/tabs/kuota.yuck`, gaya `_kuota.scss`) memilih akun dengan `reduce` jq atas `.accounts[0:4]`: akun ditambahkan utuh selama total `limits` tidak melebihi 7, sisanya menjadi `+N akun lain`. `used >= 0` menampilkan bar (`kuota-ok`, `kuota-warn` mulai 70, `kuota-crit` mulai 90) dan `round`-nya; `used == -1` menampilkan `Tanpa batas` tanpa bar.
+Halaman `page-kuota` (`eww/yuck/tabs/kuota.yuck`, gaya `_kuota.scss`) menampilkan semua akun di dalam `scroll` vertikal yang mengisi sisa tinggi kartu; baris judul berada di luar `scroll`. Revealer status kosong hanya `vexpand` selama tampil, sebab revealer tersembunyi yang `vexpand` tetap mengambil separuh ruang sisa. `.kuota-top` dan `.kuota-list` diberi `padding-right: 8px` agar scrollbar overlay GTK tidak menutupi teks reset yang rata kanan. `identity` dibaca sebagai `a.identity ?: ""`, karena cache lama tanpa field itu akan tampil sebagai `null`. `used >= 0` menampilkan bar (`kuota-ok`, `kuota-warn` mulai 70, `kuota-crit` mulai 90) dan `round`-nya; `used == -1` menampilkan `Tanpa batas` tanpa bar.
 
 ## 5. Resep
 
