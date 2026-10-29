@@ -4,7 +4,8 @@
       (label :class "kuota-heading" :text "Kuota AI" :xalign 0 :hexpand true)
       (revealer :transition "none" :reveal {kuota.updated != ""}
         (label :class "kuota-muted" :text "diperbarui ${kuota.updated}" :xalign 1)))
-    (revealer :transition "none" :vexpand true :reveal {kuota.ok && jq(kuota, '.accounts | length') > 0}
+    (revealer :transition "none" :vexpand {kuota.ok && jq(kuota, '.accounts | length') > 0}
+              :reveal {kuota.ok && jq(kuota, '.accounts | length') > 0}
       (scroll :class "kuota-scroll" :vscroll true :hscroll false :vexpand true
         (box :class "kuota-list" :orientation "v" :space-evenly false
           (for a in {kuota.accounts}
@@ -24,7 +25,7 @@
                               :value {row.used >= 0 ? row.used : 0} :valign "center"))
                   (label :class "kuota-muted" :xalign 1
                          :text {row.used >= 0 ? "${jq(row, '.used | round')}% · reset ${row.reset}" : "Tanpa batas"}))))))))
-    ; Expands only while shown: a hidden expanding revealer would still take half the spare height.
+    ; Both revealers expand only while shown: a hidden expanding revealer still takes half the spare height.
     (revealer :transition "none" :vexpand {!kuota.ok || jq(kuota, '.accounts | length') == 0}
               :reveal {!kuota.ok || jq(kuota, '.accounts | length') == 0}
       (label :class "kuota-muted" :hexpand true :vexpand true :valign "center" :halign "center"
