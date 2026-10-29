@@ -1,30 +1,31 @@
 (defwidget page-kuota []
   (box :class "page kuota-page" :orientation "v" :space-evenly false
-    (box :orientation "h" :space-evenly false
+    (box :class "kuota-top" :orientation "h" :space-evenly false
       (label :class "kuota-heading" :text "Kuota AI" :xalign 0 :hexpand true)
       (revealer :transition "none" :reveal {kuota.updated != ""}
         (label :class "kuota-muted" :text "diperbarui ${kuota.updated}" :xalign 1)))
-    (revealer :transition "none" :reveal {kuota.ok && jq(kuota, '.accounts | length') > 0}
-      (box :orientation "v" :space-evenly false
-        (for a in {jq(kuota, 'reduce .accounts[0:4][] as $a ({rows:0,shown:[],full:false}; if .full or .rows + ($a.limits | length) > 7 then .full = true else .rows += ($a.limits | length) | .shown += [$a] end) | .shown')}
-          (box :class "kuota-account" :orientation "v" :space-evenly false
-            (box :orientation "h" :space-evenly false :spacing 6
-              (label :class "kuota-provider" :text {a.provider} :xalign 0)
-              (revealer :transition "none" :reveal {a.plan != ""}
-                (label :class "kuota-muted" :text {a.plan} :xalign 0)))
-            (for row in {a.limits}
-              (box :class "kuota-limit" :orientation "h" :space-evenly false :spacing 6
-                (label :text {row.label} :xalign 0 :limit-width 18 :show-truncated true :width 106)
-                (revealer :transition "none" :reveal {row.used >= 0} :hexpand true
-                  (progress :class "kuota-bar ${row.used >= 90 ? 'kuota-crit' : row.used >= 70 ? 'kuota-warn' : 'kuota-ok'}"
-                            :value {row.used >= 0 ? row.used : 0} :valign "center"))
-                (label :class "kuota-muted" :xalign 1
-                       :text {row.used >= 0 ? "${jq(row, '.used | round')}% · reset ${row.reset}" : "Tanpa batas"})))))))
-    (revealer :transition "none"
-              :reveal {kuota.ok && jq(kuota, '.accounts | length') > jq(kuota, 'reduce .accounts[0:4][] as $a ({rows:0,shown:0,full:false}; if .full or .rows + ($a.limits | length) > 7 then .full = true else .rows += ($a.limits | length) | .shown += 1 end) | .shown')}
-      (label :class "kuota-muted" :halign "center"
-             :text "+${jq(kuota, '(.accounts | length) - (reduce .accounts[0:4][] as $a ({rows:0,shown:0,full:false}; if .full or .rows + ($a.limits | length) > 7 then .full = true else .rows += ($a.limits | length) | .shown += 1 end) | .shown)')} akun lain"))
-    (revealer :transition "none" :vexpand true
+    (revealer :transition "none" :vexpand true :reveal {kuota.ok && jq(kuota, '.accounts | length') > 0}
+      (scroll :class "kuota-scroll" :vscroll true :hscroll false :vexpand true
+        (box :class "kuota-list" :orientation "v" :space-evenly false
+          (for a in {kuota.accounts}
+            (box :class "kuota-account" :orientation "v" :space-evenly false
+              (box :orientation "h" :space-evenly false :spacing 6
+                (label :class "kuota-provider" :text {a.provider} :xalign 0)
+                (revealer :transition "none" :reveal {a.plan != ""}
+                  (label :class "kuota-muted" :text {a.plan} :xalign 0))
+                (revealer :transition "none" :reveal {(a.identity ?: "") != ""}
+                  (label :class "kuota-muted" :text {a.identity ?: ""} :tooltip {a.identity ?: ""} :xalign 0
+                         :limit-width 58 :show-truncated true)))
+              (for row in {a.limits}
+                (box :class "kuota-limit" :orientation "h" :space-evenly false :spacing 6
+                  (label :text {row.label} :xalign 0 :limit-width 18 :show-truncated true :width 106)
+                  (revealer :transition "none" :reveal {row.used >= 0} :hexpand true
+                    (progress :class "kuota-bar ${row.used >= 90 ? 'kuota-crit' : row.used >= 70 ? 'kuota-warn' : 'kuota-ok'}"
+                              :value {row.used >= 0 ? row.used : 0} :valign "center"))
+                  (label :class "kuota-muted" :xalign 1
+                         :text {row.used >= 0 ? "${jq(row, '.used | round')}% · reset ${row.reset}" : "Tanpa batas"}))))))))
+    ; Expands only while shown: a hidden expanding revealer would still take half the spare height.
+    (revealer :transition "none" :vexpand {!kuota.ok || jq(kuota, '.accounts | length') == 0}
               :reveal {!kuota.ok || jq(kuota, '.accounts | length') == 0}
       (label :class "kuota-muted" :hexpand true :vexpand true :valign "center" :halign "center"
              :text {kuota.note != "" ? kuota.note : "Belum ada data kuota"}))))

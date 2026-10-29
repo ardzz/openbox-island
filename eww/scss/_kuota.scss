@@ -42,3 +42,20 @@
 .kuota-crit progress {
   background-color: $red;
 }
+
+.kuota-scroll scrollbar {
+  background: transparent;
+  border: none;
+}
+
+.kuota-scroll scrollbar slider {
+  min-width: 3px;
+  border-radius: 2px;
+  background-color: $muted;
+}
+
+// Room for GTK's overlay scrollbar, which would otherwise cover the right-aligned reset text.
+.kuota-top,
+.kuota-list {
+  padding-right: 8px;
+}
