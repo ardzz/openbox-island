@@ -17,7 +17,7 @@ setup() {
   SETSID=$(command -v setsid)
   cat > "$BIN/omp" <<'EOF'
 #!/usr/bin/env bash
-[[ $* == 'usage --json --redact --no-extensions' ]] || exit 2
+[[ $* == 'usage --json --no-extensions' ]] || exit 2
 printf 'call\n' >> "$KUOTA_TEST/omp-calls"
 read -r status < "$OMP_STATUS"
 (( status == 0 )) || exit "$status"
@@ -31,7 +31,7 @@ EOF
   chmod +x "$BIN/omp" "$BIN/sleep"
   printf '0\n' > "$OMP_STATUS"
   cat > "$OMP_FIXTURE" <<'EOF'
-{"generatedAt":1000000000,"reports":[{"provider":"openai-codex","metadata":{"planType":"pro"},"limits":[{"label":"7 days","amount":{"used":34,"unit":"percent"},"window":{"resetsAt":1432000000}}]},{"provider":"anthropic","metadata":{},"limits":[{"label":"Claude 5 Hour","amount":{"used":12,"unit":"percent"},"window":{"resetsAt":1003900000}},{"label":"Claude 7 Day (Fable)","amount":{"used":2,"unit":"percent"},"window":{"resetsAt":1007200000}}]},{"provider":"anthropic","limits":[{"label":"5 Hour","amount":{"used":3,"unit":"percent"},"window":{"resetsAt":null}}]},{"provider":"github-copilot","limits":[{"label":"Premium Requests","amount":{"used":null,"unit":"requests"},"window":{"resetsAt":null}}]},{"provider":"google-antigravity","limits":[]}],"accountsWithoutUsage":[],"disabledCredentials":[]}
+{"generatedAt":1000000000,"reports":[{"provider":"openai-codex","metadata":{"planType":"pro","email":"codex@example.com"},"limits":[{"label":"7 days","amount":{"used":34,"unit":"percent"},"window":{"resetsAt":1432000000}}]},{"provider":"anthropic","metadata":{"email":"reky@example.com","orgName":"Example Studio"},"limits":[{"label":"Claude 5 Hour","amount":{"used":12,"unit":"percent"},"window":{"resetsAt":1003900000}},{"label":"Claude 7 Day (Fable)","amount":{"used":2,"unit":"percent"},"window":{"resetsAt":1007200000}}]},{"provider":"anthropic","limits":[{"label":"5 Hour","amount":{"used":3,"unit":"percent"},"window":{"resetsAt":null}}]},{"provider":"github-copilot","limits":[{"label":"Premium Requests","amount":{"used":null,"unit":"requests"},"window":{"resetsAt":null}}]},{"provider":"google-antigravity","limits":[]}],"accountsWithoutUsage":[],"disabledCredentials":[]}
 EOF
   mkfifo "$KUOTA_TEST/output" "$KUOTA_TEST/ticks" "$KUOTA_TEST/sleeps"
   exec {output_fd}<> "$KUOTA_TEST/output"
@@ -67,7 +67,7 @@ next_fetch() {
 
 @test "normalizes omp accounts in report order and caches the complete render" {
   start_kuota
-  expected='{"ok":true,"updated":"13:46","note":"","accounts":[{"provider":"Codex","plan":"pro","limits":[{"label":"7 hari","used":34,"reset":"5 hr"}]},{"provider":"Claude","plan":"","limits":[{"label":"5 jam","used":12,"reset":"1j 5m"},{"label":"7 hari (Fable)","used":2,"reset":"2j"}]},{"provider":"Claude","plan":"","limits":[{"label":"5 jam","used":3,"reset":"—"}]},{"provider":"Copilot","plan":"","limits":[{"label":"Permintaan premium","used":-1,"reset":"—"}]}]}'
+  expected='{"ok":true,"updated":"13:46","note":"","accounts":[{"provider":"Codex","plan":"pro","identity":"","limits":[{"label":"7 hari","used":34,"reset":"5 hr"}]},{"provider":"Claude","plan":"","identity":"reky@example.com (Example Studio)","limits":[{"label":"5 jam","used":12,"reset":"1j 5m"},{"label":"7 hari (Fable)","used":2,"reset":"2j"}]},{"provider":"Claude","plan":"","identity":"","limits":[{"label":"5 jam","used":3,"reset":"—"}]},{"provider":"Copilot","plan":"","identity":"","limits":[{"label":"Permintaan premium","used":-1,"reset":"—"}]}]}'
   [ "$(jq -S 'del(.fetched)' <<< "$event")" = "$(jq -S . <<< "$expected")" ]
   [ "$(jq -r '.fetched' <<< "$event")" = "$ISLAND_NOW" ]
   [ "$(cat "$STATE")" = "$event" ]
@@ -88,7 +88,13 @@ next_fetch() {
 @test "non-percent and non-numeric amounts are unlimited with null resets" {
   printf '%s\n' '{"reports":[{"provider":"other","limits":[{"label":"2 Hours","amount":{"used":10,"unit":"requests"}},{"label":"1 Day","amount":{"used":"unknown","unit":"percent"}},{"label":"5 Hour","amount":{"used":null,"unit":"percent"}}]}]}' > "$OMP_FIXTURE"
   start_kuota
-  [ "$(jq -c '.accounts[0]' <<< "$event")" = '{"provider":"other","plan":"","limits":[{"label":"2 jam","used":-1,"reset":"—"},{"label":"1 hari","used":-1,"reset":"—"},{"label":"5 jam","used":-1,"reset":"—"}]}' ]
+  [ "$(jq -c '.accounts[0]' <<< "$event")" = '{"provider":"other","plan":"","identity":"","limits":[{"label":"2 jam","used":-1,"reset":"—"},{"label":"1 hari","used":-1,"reset":"—"},{"label":"5 jam","used":-1,"reset":"—"}]}' ]
+}
+
+@test "only Claude accounts name their email and organization" {
+  printf '%s\n' '{"reports":[{"provider":"anthropic","metadata":{"email":"solo@example.com"},"limits":[]},{"provider":"anthropic","metadata":{"email":"","orgName":"Org Only"},"limits":[]},{"provider":"anthropic","metadata":{"email":null,"orgName":""},"limits":[]},{"provider":"openai-codex","metadata":{"email":"codex@example.com","orgName":"Codex Org"},"limits":[]}]}' > "$OMP_FIXTURE"
+  start_kuota
+  [ "$(jq -c '[.accounts[].identity]' <<< "$event")" = '["solo@example.com","Org Only","",""]' ]
 }
 
 @test "reset countdown handles minutes and past-due windows" {

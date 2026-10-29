@@ -10,7 +10,7 @@ fetch_kuota() {
   require jq || return 127
   local raw now updated cli_path=$PATH
   [[ ! -d $HOME/.bun/bin ]] || cli_path="$HOME/.bun/bin:$PATH"
-  raw=$(PATH="$cli_path" "$OMP" usage --json --redact --no-extensions) || return
+  raw=$(PATH="$cli_path" "$OMP" usage --json --no-extensions) || return
   now=${ISLAND_NOW:-$(date +%s)}
   updated=$(date -d "@$now" +%H:%M)
   jq -cse --arg skip "${ISLAND_KUOTA_SKIP-google-antigravity}" \
@@ -31,6 +31,12 @@ fetch_kuota() {
           (if ($seconds % 3600 / 60 | floor) == 0 then ""
            else " \(($seconds % 3600 / 60 | floor))m" end)
         else "\(($seconds / 86400 | floor)) hr" end
+    end;
+    def text: if type == "string" then . else "" end;
+    def identity:
+      if .provider != "anthropic" then ""
+      else (.metadata.email | text) as $email | (.metadata.orgName | text) as $org |
+        if $email != "" and $org != "" then "\($email) (\($org))" else $email + $org end
       end;
     if length != 1 then error("expected one usage report") else .[0] end |
     if (.reports | type) != "array" then error("missing reports") else . end |
@@ -38,7 +44,8 @@ fetch_kuota() {
     {ok:true, updated:$updated, fetched:$now, note:"", accounts:[
       .reports[] | .provider as $provider |
       select(any($skipped[]; . == $provider) | not) |
-      {provider:(.provider | provider_name), plan:(.metadata.planType // .metadata.plan // ""), limits:[
+      {provider:(.provider | provider_name), plan:(.metadata.planType // .metadata.plan // ""),
+       identity:identity, limits:[
         .limits[] | {label:(.label | translate_label),
           used:(if .amount.unit == "percent" and (.amount.used | type) == "number"
                 then .amount.used else -1 end),
