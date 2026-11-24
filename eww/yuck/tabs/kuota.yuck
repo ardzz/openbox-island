@@ -26,7 +26,7 @@
                     (progress :class "kuota-bar ${row.used >= 90 ? 'kuota-crit' : row.used >= 70 ? 'kuota-warn' : 'kuota-ok'}"
                               :value {row.used >= 0 ? row.used : 0} :valign "center"))
                   (label :class "kuota-muted" :xalign 1
-                         :text {row.used >= 0 ? "${jq(row, '.used | round')}% · reset ${row.reset}" : "Tanpa batas"}))))))))
+                         :text {row.used >= 0 ? "${jq(row, '.used | round')}% · ${(row.count ?: '') != '' ? '${row.count} · ' : ''}reset ${row.reset}" : "Tanpa batas"}))))))))
     ; Both revealers expand only while shown: a hidden expanding revealer still takes half the spare height.
     (revealer :transition "none" :vexpand {!kuota.ok || jq(kuota, '.accounts | length') == 0}
               :reveal {!kuota.ok || jq(kuota, '.accounts | length') == 0}
