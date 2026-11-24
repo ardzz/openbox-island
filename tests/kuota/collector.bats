@@ -104,9 +104,21 @@ next_fetch() {
 }
 
 @test "usage older than 15 minutes names the time omp fetched it" {
-  printf '%s\n' '{"reports":[{"provider":"anthropic","fetchedAt":999000000,"limits":[]},{"provider":"anthropic","fetchedAt":999500000,"limits":[]}]}' > "$OMP_FIXTURE"
+  printf '%s\n' '{"reports":[{"provider":"anthropic","fetchedAt":999000000,"limits":[]},{"provider":"anthropic","fetchedAt":999100000,"limits":[]},{"provider":"anthropic","fetchedAt":"x","limits":[]},{"provider":"anthropic","fetchedAt":null,"limits":[]}]}' > "$OMP_FIXTURE"
   start_kuota
-  [ "$(jq -c '[.accounts[].status]' <<< "$event")" = '["data omp 13:30",""]' ]
+  [ "$(jq -c '[.accounts[].status]' <<< "$event")" = '["data omp 13:30","","",""]' ]
+}
+
+@test "stale time follows a half-hour zone east of UTC" {
+  printf '%s\n' '{"reports":[{"provider":"anthropic","fetchedAt":999000000,"limits":[]}]}' > "$OMP_FIXTURE"
+  TZ=Asia/Kolkata start_kuota
+  [ "$(jq -r '.accounts[0].status' <<< "$event")" = 'data omp 19:00' ]
+}
+
+@test "stale time follows a half-hour zone west of UTC" {
+  printf '%s\n' '{"reports":[{"provider":"anthropic","fetchedAt":999000000,"limits":[]}]}' > "$OMP_FIXTURE"
+  TZ=America/St_Johns start_kuota
+  [ "$(jq -r '.accounts[0].status' <<< "$event")" = 'data omp 10:00' ]
 }
 
 @test "reset countdown handles minutes and past-due windows" {
