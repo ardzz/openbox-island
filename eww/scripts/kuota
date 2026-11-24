@@ -8,13 +8,15 @@ OMP="${OB_OMP:-$(command -v omp || printf '%s' "$HOME/.bun/bin/omp")}"
 fetch_kuota() {
   [[ -x $OMP ]] || { MISSING_DEP=omp; return 127; }
   require jq || return 127
-  local raw now updated cli_path=$PATH
+  local raw now updated zone tz cli_path=$PATH
   [[ ! -d $HOME/.bun/bin ]] || cli_path="$HOME/.bun/bin:$PATH"
   raw=$(PATH="$cli_path" "$OMP" usage --json --no-extensions) || return
   now=${ISLAND_NOW:-$(date +%s)}
   updated=$(date -d "@$now" +%H:%M)
+  zone=$(date -d "@$now" +%z)
+  tz=$(( (10#${zone:1:2} * 3600 + 10#${zone:3:2} * 60) * ${zone:0:1}1 ))
   jq -cse --arg skip "${ISLAND_KUOTA_SKIP-google-antigravity}" \
-    --arg updated "$updated" --argjson now "$now" '
+    --arg updated "$updated" --argjson now "$now" --argjson tz "$tz" '
     def provider_name:
       {"openai-codex":"Codex", "anthropic":"Claude", "github-copilot":"Copilot",
        "google-antigravity":"Antigravity"}[.] // .;
@@ -33,24 +35,32 @@ fetch_kuota() {
         else "\(($seconds / 86400 | floor)) hr" end
     end;
     def text: if type == "string" then . else "" end;
-    def identity:
+    def identity($email; $org):
       if .provider != "anthropic" then ""
-      else (.metadata.email | text) as $email | (.metadata.orgName | text) as $org |
-        if $email != "" and $org != "" then "\($email) (\($org))" else $email + $org end
+      else ($email | text) as $e | ($org | text) as $o |
+        if $e != "" and $o != "" then "\($e) (\($o))" else $e + $o end
       end;
+    # omp serves a cached report when a refresh fails; name its age past 15 minutes.
+    def stale_text:
+      if (.fetchedAt | type) == "number" and $now - .fetchedAt / 1000 > 900
+      then "data omp " + (.fetchedAt / 1000 + $tz | floor | gmtime | strftime("%H:%M"))
+      else "" end;
     if length != 1 then error("expected one usage report") else .[0] end |
     if (.reports | type) != "array" then error("missing reports") else . end |
     ($skip | split(",")) as $skipped |
+    def kept: .provider as $provider | select(any($skipped[]; . == $provider) | not);
     {ok:true, updated:$updated, fetched:$now, note:"", accounts:[
-      .reports[] | .provider as $provider |
-      select(any($skipped[]; . == $provider) | not) |
-      {provider:(.provider | provider_name), plan:(.metadata.planType // .metadata.plan // ""),
-       identity:identity, limits:[
-        .limits[] | {label:(.label | translate_label),
-          used:(if .amount.unit == "percent" and (.amount.used | type) == "number"
-                then .amount.used else -1 end),
-          reset:(.window.resetsAt | reset_text)}
-      ]}
+      (.reports[] | kept |
+       {provider:(.provider | provider_name), plan:(.metadata.planType // .metadata.plan // ""),
+        identity:identity(.metadata.email; .metadata.orgName), status:stale_text, limits:[
+         .limits[] | {label:(.label | translate_label),
+           used:(if .amount.unit == "percent" and (.amount.used | type) == "number"
+                 then .amount.used else -1 end),
+           reset:(.window.resetsAt | reset_text)}
+       ]}),
+      (if (.accountsWithoutUsage | type) == "array" then .accountsWithoutUsage[] else empty end |
+       kept | {provider:(.provider | provider_name), plan:"", identity:identity(.email; .orgName),
+               status:"tidak ada data", limits:[]})
     ]}
   ' <<< "$raw"
 }
