@@ -257,9 +257,9 @@ Tab **Kuota** menampilkan pemakaian paket AI dari perintah lokal `omp usage --js
 - Akun Claude menampilkan identitasnya dengan warna redup setelah nama provider: `email (nama organisasi)`, atau salah satunya saja bila omp hanya melaporkan satu. Identitas lebih dari 58 karakter dipotong dengan `…`; teks lengkapnya ada di tooltip. Provider lain tidak menampilkan identitas.
 - Akun yang dikenal omp tetapi pemakaiannya gagal diambil (`accountsWithoutUsage`) tetap tampil, dengan baris redup `tidak ada data` sebagai ganti baris batas.
 - Bila omp menyajikan data lama dari cache-nya (pengambilan terakhir omp ke provider lebih dari 15 menit sebelumnya), baris redup `data omp HH:MM` tampil di bawah nama akun, berisi jam pengambilan itu.
-- Tiap baris berisi label jendela (`5 jam`, `7 hari`, `Permintaan premium`; awalan `Claude ` dibuang, label lebih dari 18 karakter dipotong), bar pemakaian, lalu `N% · reset X` dengan persentase dibulatkan. Hitung mundur reset: `45m`, `1j 5m`, `5 hr` (hari), `segera` bila waktu reset sudah lewat, atau `—` bila omp tidak memberi waktu reset.
+- Tiap baris berisi label jendela (`5 jam`, `7 hari`, `Permintaan premium`; awalan `Claude ` dibuang, label lebih dari 18 karakter dipotong), bar pemakaian, lalu `N% · reset X` dengan persentase dibulatkan. Batas yang dihitung dalam jumlah (misalnya permintaan premium Copilot) menyisipkan jumlah terpakai dan totalnya: `24% · 120K/500K · reset 6 hr`. Hitung mundur reset: `45m`, `1j 5m`, `5 hr` (hari), `segera` bila waktu reset sudah lewat, atau `—` bila omp tidak memberi waktu reset.
 - Bar berwarna aksen, kuning mulai 70%, dan merah mulai 90%.
-- Batas yang tidak dilaporkan omp dalam persen (kuota tak terbatas, atau satuan lain seperti jumlah permintaan) tampil sebagai `Tanpa batas`, tanpa bar.
+- Batas yang tidak punya total dari omp (kuota tak terbatas, atau persen yang tidak berupa angka) tampil sebagai `Tanpa batas`, tanpa bar.
 - Daftar akun bisa di-scroll dengan roda mouse atau touchpad; judul `Kuota AI` dan `diperbarui` tetap di atas. Scrollbar tipis GTK hanya muncul saat menggulir.
 - Provider yang ID omp-nya tercantum di `ISLAND_KUOTA_SKIP` (dipisah koma, bawaan `google-antigravity`) disembunyikan; nilai kosong menampilkan semua provider. Lihat [variabel lingkungan](konfigurasi.md#variabel-lingkungan).
 

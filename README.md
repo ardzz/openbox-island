@@ -59,7 +59,7 @@ openbox-island sits at the top edge of monitor 0 like a notch: a 508×44 px comp
 - The expanded card has **Music**, **Kalender**, **Weather**, **Notifications**, **To-do**, **Shortcuts** and **Kuota** tabs. The tab header shows one icon per tab; the selected tab adds its name and an accent count badge (events left today, notifications, open to-dos). Each tab appears only while it has content; To-do is always available and supports optional deadlines — set in an in-card date picker (month calendar, time steppers and presets) — with reminders the day before and on the day.
 - Kalender lists iCal events — or Google Calendar API accounts (`google:<calendarId>`, see below) — from today through the next 30 days, with account colours, all-day summaries, Join buttons and meeting reminders.
 - Meeting prep templates turn recurring meetings into To-do items before each occurrence: a `Prep N/M` chip on the Kalender tab, `· Prep N/M` on the left pill, and a reminder body that names unfinished prep.
-- Kuota shows AI plan usage read from the local `omp usage` command (Codex, Claude, Copilot and the other providers omp reports): each account's limit windows with the percentage used and a reset countdown, refreshed every 5 minutes while the card is open. Claude accounts are labelled `email (organization)`, and the account list scrolls. Accounts omp cannot fetch usage for stay listed as `tidak ada data`, and usage omp last fetched more than 15 minutes ago is marked `data omp HH:MM`. Providers listed in `ISLAND_KUOTA_SKIP` are hidden (default `google-antigravity`). The island only reads `omp usage`; without `omp` the tab stays hidden.
+- Kuota shows AI plan usage read from the local `omp usage` command (Codex, Claude, Copilot and the other providers omp reports): each account's limit windows with the percentage used and a reset countdown, refreshed every 5 minutes while the card is open. Counted quotas such as Copilot premium requests also show used and total requests (e.g. `120K/500K`). Claude accounts are labelled `email (organization)`, and the account list scrolls. Accounts omp cannot fetch usage for stay listed as `tidak ada data`, and usage omp last fetched more than 15 minutes ago is marked `data omp HH:MM`. Providers listed in `ISLAND_KUOTA_SKIP` are hidden (default `google-antigravity`). The island only reads `omp usage`; without `omp` the tab stays hidden.
 
 **Indicators**
 - Dots on the pill for screen recording (red, with elapsed time), microphone in use (yellow) and camera in use (green), plus a crossed-out bell while dunst Do Not Disturb is on.
@@ -261,7 +261,7 @@ Details, area contracts and recipes for adding a tab, alert or listener: [docs/a
 ## Development
 
 ```bash
-bats -r tests/                                          # 681 bats tests
+bats -r tests/                                          # 682 bats tests
 python3 -m unittest discover -s tests -p 'test_*.py'    # 152 Python tests
 tools/check                                             # file-size gate + shellcheck + py_compile
 ```
