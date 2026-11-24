@@ -45,6 +45,22 @@ fetch_kuota() {
       if (.fetchedAt | type) == "number" and $now - .fetchedAt / 1000 > 900
       then "data omp " + (.fetchedAt / 1000 + $tz | floor | gmtime | strftime("%H:%M"))
       else "" end;
+    # Like omp: 999, 1.5K, 12.5K, 120K, 2M.
+    def short:
+      def one: if . >= 99.95 then round else . * 10 | round / 10 end | tostring | sub("\\.0$"; "");
+      if . >= 999500 then (. / 1000000 | one) + "M"
+      elif . >= 999.5 then (. / 1000 | one) + "K"
+      else round | tostring end;
+    # Percent windows carry .used; counted ones (Copilot requests) carry a limit or a fraction.
+    def counted: .limit | type == "number" and . > 0;
+    def used_pct:
+      if .unit == "percent" then (if (.used | type) == "number" then .used else -1 end)
+      elif (.usedFraction | type) == "number" then .usedFraction * 100
+      elif counted and (.used | type) == "number" then .used * 100 / .limit
+      else -1 end;
+    def count_text:
+      if .unit != "percent" and counted and (.used | type) == "number"
+      then "\(.used | short)/\(.limit | short)" else "" end;
     if length != 1 then error("expected one usage report") else .[0] end |
     if (.reports | type) != "array" then error("missing reports") else . end |
     ($skip | split(",")) as $skipped |
@@ -54,8 +70,7 @@ fetch_kuota() {
        {provider:(.provider | provider_name), plan:(.metadata.planType // .metadata.plan // ""),
         identity:identity(.metadata.email; .metadata.orgName), status:stale_text, limits:[
          .limits[] | {label:(.label | translate_label),
-           used:(if .amount.unit == "percent" and (.amount.used | type) == "number"
-                 then .amount.used else -1 end),
+           used:(.amount | used_pct), count:(.amount | count_text),
            reset:(.window.resetsAt | reset_text)}
        ]}),
       (if (.accountsWithoutUsage | type) == "array" then .accountsWithoutUsage[] else empty end |

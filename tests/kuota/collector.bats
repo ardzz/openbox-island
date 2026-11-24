@@ -67,7 +67,7 @@ next_fetch() {
 
 @test "normalizes omp accounts in report order and caches the complete render" {
   start_kuota
-  expected='{"ok":true,"updated":"13:46","note":"","accounts":[{"provider":"Codex","plan":"pro","identity":"","status":"","limits":[{"label":"7 hari","used":34,"reset":"5 hr"}]},{"provider":"Claude","plan":"","identity":"reky@example.com (Example Studio)","status":"","limits":[{"label":"5 jam","used":12,"reset":"1j 5m"},{"label":"7 hari (Fable)","used":2,"reset":"2j"}]},{"provider":"Claude","plan":"","identity":"","status":"","limits":[{"label":"5 jam","used":3,"reset":"—"}]},{"provider":"Copilot","plan":"","identity":"","status":"","limits":[{"label":"Permintaan premium","used":-1,"reset":"—"}]}]}'
+  expected='{"ok":true,"updated":"13:46","note":"","accounts":[{"provider":"Codex","plan":"pro","identity":"","status":"","limits":[{"label":"7 hari","used":34,"count":"","reset":"5 hr"}]},{"provider":"Claude","plan":"","identity":"reky@example.com (Example Studio)","status":"","limits":[{"label":"5 jam","used":12,"count":"","reset":"1j 5m"},{"label":"7 hari (Fable)","used":2,"count":"","reset":"2j"}]},{"provider":"Claude","plan":"","identity":"","status":"","limits":[{"label":"5 jam","used":3,"count":"","reset":"—"}]},{"provider":"Copilot","plan":"","identity":"","status":"","limits":[{"label":"Permintaan premium","used":-1,"count":"","reset":"—"}]}]}'
   [ "$(jq -S 'del(.fetched)' <<< "$event")" = "$(jq -S . <<< "$expected")" ]
   [ "$(jq -r '.fetched' <<< "$event")" = "$ISLAND_NOW" ]
   [ "$(cat "$STATE")" = "$event" ]
@@ -88,7 +88,13 @@ next_fetch() {
 @test "non-percent and non-numeric amounts are unlimited with null resets" {
   printf '%s\n' '{"reports":[{"provider":"other","limits":[{"label":"2 Hours","amount":{"used":10,"unit":"requests"}},{"label":"1 Day","amount":{"used":"unknown","unit":"percent"}},{"label":"5 Hour","amount":{"used":null,"unit":"percent"}}]}]}' > "$OMP_FIXTURE"
   start_kuota
-  [ "$(jq -c '.accounts[0]' <<< "$event")" = '{"provider":"other","plan":"","identity":"","status":"","limits":[{"label":"2 jam","used":-1,"reset":"—"},{"label":"1 hari","used":-1,"reset":"—"},{"label":"5 jam","used":-1,"reset":"—"}]}' ]
+  [ "$(jq -c '.accounts[0]' <<< "$event")" = '{"provider":"other","plan":"","identity":"","status":"","limits":[{"label":"2 jam","used":-1,"count":"","reset":"—"},{"label":"1 hari","used":-1,"count":"","reset":"—"},{"label":"5 jam","used":-1,"count":"","reset":"—"}]}' ]
+}
+
+@test "request quotas with a limit show their share and short counts" {
+  printf '%s\n' '{"reports":[{"provider":"github-copilot","limits":[{"label":"Premium Requests","amount":{"used":119865,"limit":500000,"usedFraction":0.25,"unit":"requests"}},{"label":"A","amount":{"used":1500,"limit":2000000,"unit":"requests"}},{"label":"B","amount":{"used":999,"limit":12500,"unit":"requests"}},{"label":"C","amount":{"used":5,"limit":0,"unit":"requests"}}]}]}' > "$OMP_FIXTURE"
+  start_kuota
+  [ "$(jq -c '[.accounts[0].limits[] | [(.used * 1000 | round), .count]]' <<< "$event")" = '[[25000,"120K/500K"],[75,"1.5K/2M"],[7992,"999/12.5K"],[-1000,""]]' ]
 }
 
 @test "only Claude accounts name their email and organization" {
