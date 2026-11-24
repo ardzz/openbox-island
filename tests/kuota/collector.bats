@@ -92,9 +92,21 @@ next_fetch() {
 }
 
 @test "request quotas with a limit show their share and short counts" {
-  printf '%s\n' '{"reports":[{"provider":"github-copilot","limits":[{"label":"Premium Requests","amount":{"used":119865,"limit":500000,"usedFraction":0.25,"unit":"requests"}},{"label":"A","amount":{"used":1500,"limit":2000000,"unit":"requests"}},{"label":"B","amount":{"used":999,"limit":12500,"unit":"requests"}},{"label":"C","amount":{"used":5,"limit":0,"unit":"requests"}}]}]}' > "$OMP_FIXTURE"
+  printf '%s\n' '{"reports":[{"provider":"github-copilot","limits":[{"label":"Premium Requests","amount":{"used":119865,"limit":500000,"usedFraction":0.23973,"unit":"requests"}},{"label":"A","amount":{"used":1500,"limit":2000000,"unit":"requests"}},{"label":"B","amount":{"used":999,"limit":12500,"unit":"requests"}},{"label":"C","amount":{"used":5,"limit":0,"unit":"requests"}}]}]}' > "$OMP_FIXTURE"
   start_kuota
-  [ "$(jq -c '[.accounts[0].limits[] | [(.used * 1000 | round), .count]]' <<< "$event")" = '[[25000,"120K/500K"],[75,"1.5K/2M"],[7992,"999/12.5K"],[-1000,""]]' ]
+  [ "$(jq -c '[.accounts[0].limits[] | [(.used * 1000 | round), .count]]' <<< "$event")" = '[[23973,"120K/500K"],[75,"1.5K/2M"],[7992,"999/12.5K"],[-1000,""]]' ]
+}
+
+@test "request counts switch units at the rounding boundaries" {
+  printf '%s\n' '{"reports":[{"provider":"other","limits":[{"label":"a","amount":{"used":999,"limit":99949,"unit":"requests"}},{"label":"b","amount":{"used":1000,"limit":99950,"unit":"requests"}},{"label":"c","amount":{"used":999499,"limit":999500,"unit":"requests"}}]}]}' > "$OMP_FIXTURE"
+  start_kuota
+  [ "$(jq -c '[.accounts[0].limits[].count]' <<< "$event")" = '["999/99.9K","1K/100K","999K/1M"]' ]
+}
+
+@test "money and fractional amounts show a share without a count" {
+  printf '%s\n' '{"reports":[{"provider":"anthropic","limits":[{"label":"Extra","amount":{"used":4,"limit":5,"unit":"usd"}},{"label":"Credits","amount":{"used":0.4,"limit":1,"unit":"credits"}}]}]}' > "$OMP_FIXTURE"
+  start_kuota
+  [ "$(jq -c '[.accounts[0].limits[] | [(.used | round), .count]]' <<< "$event")" = '[[80,""],[40,""]]' ]
 }
 
 @test "only Claude accounts name their email and organization" {

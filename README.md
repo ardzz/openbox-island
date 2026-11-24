@@ -261,7 +261,7 @@ Details, area contracts and recipes for adding a tab, alert or listener: [docs/a
 ## Development
 
 ```bash
-bats -r tests/                                          # 682 bats tests
+bats -r tests/                                          # 684 bats tests
 python3 -m unittest discover -s tests -p 'test_*.py'    # 152 Python tests
 tools/check                                             # file-size gate + shellcheck + py_compile
 ```

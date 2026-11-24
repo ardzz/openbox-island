@@ -45,7 +45,7 @@ fetch_kuota() {
       if (.fetchedAt | type) == "number" and $now - .fetchedAt / 1000 > 900
       then "data omp " + (.fetchedAt / 1000 + $tz | floor | gmtime | strftime("%H:%M"))
       else "" end;
-    # Like omp: 999, 1.5K, 12.5K, 120K, 2M.
+    # 999, 1.5K, 12.5K, 120K, 2M: one decimal below 100 of the unit.
     def short:
       def one: if . >= 99.95 then round else . * 10 | round / 10 end | tostring | sub("\\.0$"; "");
       if . >= 999500 then (. / 1000000 | one) + "M"
@@ -58,8 +58,10 @@ fetch_kuota() {
       elif (.usedFraction | type) == "number" then .usedFraction * 100
       elif counted and (.used | type) == "number" then .used * 100 / .limit
       else -1 end;
+    # Whole counts only: money (usd) and fractional credits would round into nonsense.
     def count_text:
-      if .unit != "percent" and counted and (.used | type) == "number"
+      if .unit != "percent" and .unit != "usd" and counted and (.used | type) == "number"
+         and .used == (.used | floor) and .limit == (.limit | floor)
       then "\(.used | short)/\(.limit | short)" else "" end;
     if length != 1 then error("expected one usage report") else .[0] end |
     if (.reports | type) != "array" then error("missing reports") else . end |
