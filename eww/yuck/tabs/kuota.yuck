@@ -17,6 +17,8 @@
                 (revealer :transition "none" :reveal {(a.identity ?: "") != ""}
                   (label :class "kuota-muted" :text {a.identity ?: ""} :tooltip {a.identity ?: ""} :xalign 0
                          :limit-width 58 :show-truncated true)))
+              (revealer :transition "none" :reveal {(a.status ?: "") != ""}
+                (label :class "kuota-muted" :text {a.status ?: ""} :xalign 0))
               (for row in {a.limits}
                 (box :class "kuota-limit" :orientation "h" :space-evenly false :spacing 6
                   (label :text {row.label} :xalign 0 :limit-width 18 :show-truncated true :width 106)
